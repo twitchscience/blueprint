@@ -1,0 +1,22 @@
+{
+	"ImportPath": "github.com/twitchscience/blueprint",
+	"GoVersion": "go1.3",
+	"Deps": [
+		{
+			"ImportPath": "github.com/twitchscience/scoop_protocol/msg_signer",
+			"Rev": "1be70a6e3efd298e18b1d3df1806f313580c5eb6"
+		},
+		{
+			"ImportPath": "github.com/twitchscience/scoop_protocol/schema",
+			"Rev": "1be70a6e3efd298e18b1d3df1806f313580c5eb6"
+		},
+		{
+			"ImportPath": "github.com/twitchscience/scoop_protocol/scoop_protocol",
+			"Rev": "1be70a6e3efd298e18b1d3df1806f313580c5eb6"
+		},
+		{
+			"ImportPath": "github.com/zenazn/goji",
+			"Rev": "f45ad521d425e52884933a03962b11d80b66867c"
+		}
+	]
+}

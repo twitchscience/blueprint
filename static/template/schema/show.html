@@ -1,0 +1,66 @@
+<h1><a href="#/schemas">&#x21e6</a> Published Schema for {{schema.EventName}}</h1>
+
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th>Inbound</th>
+      <th>Outbound</th>
+      <th>Column Type</th>
+      <th class="text-center">Column Options</th>
+      <th>&nbsp</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr ng-repeat="c in schema.Columns">
+      <td>{{c.InboundName}}</td>
+      <td>{{c.OutboundName}}</td>
+      <td>{{c.Transformer}}</td>
+      <td class="text-center">{{c.ColumnCreationOptions}}</td>
+      <td>&nbsp</td>
+    </tr>
+    <tr ng-repeat="c in additions.Columns">
+      <td>{{c.InboundName}}</td>
+      <td>{{c.OutboundName}}</td>
+      <td>{{c.Transformer}}</td>
+      <td class="text-center">{{c.ColumnCreationOptions}}</td>
+      <td>&nbsp</td>
+    </tr>
+  </tbody>
+  <tfoot>
+
+    <tr>
+      <td>
+        <input type="text"
+               ng-model="newCol.InboundName"/>
+      </td>
+      <td>
+        <input type="text"
+               ng-model="newCol.OutboundName"/>
+      </td>
+      <td>
+        <select ng-options="type for type in types"
+                ng-model="newCol.Transformer"/>
+      </td>
+      <td class="text-center">
+        <input ng-if="newCol.Transformer == 'varchar'"
+               value="{{newCol.size}}"
+               ng-model="newCol.size"
+               required/>
+      </td>
+      <td class="text-center">
+        <button ng-click="addColumnToSchema(newCol)"
+                type="button"
+                class="btn btn-primary">Add!</button>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="4"></td>
+      <td class="text-center">
+        <form ng-submit="updateSchema()">
+          <button type="submit"
+                  class="btn btn-success">Update Schema</button>
+          </form>
+      </td>
+    </tr>
+  </tfoot>
+</table>

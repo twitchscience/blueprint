@@ -1,0 +1,42 @@
+<h1>Published Schemas</h1>
+<a href="#/schema"><button type="button" class="btn
+                                                btn-success">Create</button></a>
+<a href="#/cache/expire"><button type="button" class="btn btn-danger">Flush
+    Schema Cache</button></a>
+
+
+
+<div class="row">
+  <div class="col-md-4 col-md-offset-8">
+    <input id="schema-search"
+           type="text"
+           ng-model="search"
+           class="form-control"
+           placeholder="search properties"/>
+  </div>
+</div>
+
+<div ng-repeat="schema in schemas |
+                filter:search |
+                orderBy:'EventName'">
+
+  <h3><a href="#/schema/{{schema.EventName}}">{{schema.EventName}}</a></h3>
+
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>Inbound</th>
+        <th>Outbound</th>
+        <th>Column Type</th>
+        <th class="text-center">Column Options</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr ng-repeat="p in schema.Columns">
+        <td>{{p.InboundName}}</td>
+        <td>{{p.OutboundName}}</td>
+        <td>{{p.Transformer}}</td>
+        <td class="text-center">{{p.ColumnCreationOptions}}</td>
+      </tr>
+  </table>
+</div>

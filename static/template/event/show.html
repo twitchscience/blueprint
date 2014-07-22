@@ -1,0 +1,33 @@
+<h1><a href="#/events/all">&#x21e6;</a> Event: {{event.name}}</h1>
+
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Type</th>
+      <th class="text-center">Frequency</th>
+      <th class="text-center">Publish<th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr ng-repeat="p in event.properties">
+      <td>{{p.name}}</td>
+      <td>{{p.type}}<span ng-show="p.size">({{p.size}})</span></td>
+      <td class="text-center">{{p.freq}}%</td>
+      <td class="text-center">
+        <input type="checkbox"
+               ng-model="p.publish"/>
+      </td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="3"></td>
+      <td class="text-center">
+        <button ng-click="showCreateSchema()"
+                type="button"
+                class="btn btn-primary">Make it so!</button>
+      </td>
+    </tr>
+  </tfoot>
+</table>

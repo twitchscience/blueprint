@@ -1,0 +1,83 @@
+<div>
+  <form ng-submit="createSchema()">
+    <h1><a href="#/schemas">&#x21e6;</a> Create Schema for
+    <input ng-model="event.EventName" value="event.EventName"/></h1>
+
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Inbound</th>
+          <th>Outbound</th>
+          <th>Column Type</th>
+          <th class="text-center">Column Size</th>
+          <th class="text-center">Distribution Key</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="p in event.Columns">
+          <td><input type="text"
+                     value="{{p.InboundName}}"
+                     ng-model="p.InboundName"
+                     required/></td>
+          <td><input type="text"
+                     value="{{p.OutboundName}}"
+                     ng-model="p.OutboundName"
+                     required/></td>
+          <td>
+            <select ng-options="type for type in types"
+                    ng-model="p.Transformer"/>
+          </td>
+          <td class="text-center">
+            <input ng-if="p.Transformer == 'varchar'"
+                   value="{{p.size}}"
+                   ng-model="p.size"
+                   required/>
+          </td>
+          <td class="text-center">
+            <input type="radio"
+                   ng-model="event.distkey"
+                   value="{{p.OutboundName}}"
+                   name="distkey"/>
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>
+            <input type="text"
+                   ng-model="newCol.InboundName"/>
+          </td>
+          <td>
+            <input type="text"
+                   ng-model="newCol.OutboundName"/>
+          </td>
+          <td>
+            <select ng-options="type for type in types"
+                   ng-model="newCol.Transformer"/>
+          </td>
+          <td class="text-center">
+            <input ng-if="newCol.Transformer == 'varchar'"
+                   value="{{newCol.size}}"
+                   ng-model="newCol.size"
+                   required/>
+          </td>
+          <td class="text-center">
+            <button ng-click="addColumnToSchema(newCol)"
+                    type="button"
+                    class="btn btn-primary">Add!</button>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="4"></td>
+          <td class="text-center">
+            <input type="hidden"
+                   value="{{event.EventName}}"
+                   ng-model="event.EventName"/>
+            <button type="submit"
+                    class="btn btn-success">Schemin'</button>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </form>
+</div>
