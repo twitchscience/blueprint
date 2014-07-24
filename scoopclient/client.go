@@ -146,7 +146,7 @@ func (c *client) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 	urlPart := fmt.Sprintf("/schema/%s", req.EventName)
 	res, err := c.postJson(makeApiUrl(c.urlBase, urlPart), b)
 	if err != nil {
-		return nil
+		return err
 	}
 	if res.StatusCode != 200 {
 		defer res.Body.Close()
