@@ -17,7 +17,7 @@ import (
 
 const (
 	SCHEMA_HOST_CONNECT_TIMEOUT = 5 * time.Second
-	SCHEMA_HOST_READ_TIMEOUT    = 5 * time.Second
+	SCHEMA_HOST_READ_TIMEOUT    = 40 * time.Second
 )
 
 type ScoopClient interface {
