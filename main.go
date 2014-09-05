@@ -8,7 +8,7 @@ import (
 
 	"github.com/twitchscience/blueprint/api"
 	"github.com/twitchscience/blueprint/core"
-	"github.com/twitchscience/blueprint/scoopclient/cachingclient"
+	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
 )
 
 var (
