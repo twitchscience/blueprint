@@ -1,7 +1,30 @@
 {
 	"ImportPath": "github.com/twitchscience/blueprint",
 	"GoVersion": "go1.3",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
+		{
+			"ImportPath": "github.com/crowdmob/goamz/aws",
+			"Rev": "c5ba9ad45b6ac022326f0ff9762d6bac33ca8f88"
+		},
+		{
+			"ImportPath": "github.com/crowdmob/goamz/s3",
+			"Rev": "c5ba9ad45b6ac022326f0ff9762d6bac33ca8f88"
+		},
+		{
+			"ImportPath": "github.com/crowdmob/goamz/sqs",
+			"Rev": "c5ba9ad45b6ac022326f0ff9762d6bac33ca8f88"
+		},
+		{
+			"ImportPath": "github.com/twitchscience/aws_utils/environment",
+			"Rev": "1e4391b1a75844fda9620d7ad5613ad787e407f2"
+		},
+		{
+			"ImportPath": "github.com/twitchscience/aws_utils/listener",
+			"Rev": "1e4391b1a75844fda9620d7ad5613ad787e407f2"
+		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/msg_signer",
 			"Rev": "1be70a6e3efd298e18b1d3df1806f313580c5eb6"
@@ -16,7 +39,7 @@
 		},
 		{
 			"ImportPath": "github.com/zenazn/goji",
-			"Rev": "f45ad521d425e52884933a03962b11d80b66867c"
+			"Rev": "32da78b2dfeb2f5353e3b14a54a1b30d356e979c"
 		}
 	]
 }

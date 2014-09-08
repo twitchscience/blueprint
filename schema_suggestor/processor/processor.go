@@ -49,6 +49,7 @@ func (e *NonTrackedEventProcessor) Flush(eventName string) {
 	var aggregatedBuckets []*PropertySummary
 	for k, v := range buckets {
 		t, pct := assessType(v, len(e.Events))
+		// dont suggest columns if they occur less than CRITICAL_PERCENT amount of times.
 		if pct < CRITICAL_PERCENT {
 			continue
 		}
