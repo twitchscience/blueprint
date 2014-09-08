@@ -31,7 +31,8 @@ func NewRouter(
 				Events: make([]*PropertySummary, 0),
 			}
 		},
-		FlushTimer: time.Tick(flushInterval),
+		FlushTimer:  time.Tick(flushInterval),
+		ScoopClient: scoopClient,
 	}
 	r.UpdateCurrentTables()
 	return r

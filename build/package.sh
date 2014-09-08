@@ -13,10 +13,14 @@ export PKGDIR="/tmp/pkg"
 export DEPLOYDIR="${PKGDIR}/deploy"
 
 mkdir -p ${DEPLOYDIR}/{bin,data}
-cp -R ${SRCDIR}/${PROJECT_NAME} ${DEPLOYDIR}/bin
+
 cp ${SRCDIR}/build/scripts/* ${DEPLOYDIR}/bin
 cp -R ${SRCDIR}/build/config ${DEPLOYDIR}
 cp -R ${SRCDIR}/static/* ${DEPLOYDIR}/data
+
+
+cd ${SRCDIR}
+GOBIN=${DEPLOYDIR}/bin ${GOPATH}/bin/godep go install ./...
 
 echo "Setting up transforms"
 sudo apt-get -y install libgeoip-dev libgeoip1 || true # silence whining about stdin
