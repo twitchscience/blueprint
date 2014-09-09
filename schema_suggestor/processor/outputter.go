@@ -64,9 +64,11 @@ func selectTransformerForProperty(property PropertySummary) (string, string) {
 	case "bool":
 		return "bool", ""
 	case "int":
-		return "int", ""
+		return "bigint", ""
 	case "string":
 		return "varchar", "(" + strconv.Itoa(property.Len) + ")"
+	case "float64":
+		return "float", ""
 	default:
 		return "", ""
 	}

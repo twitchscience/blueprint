@@ -1,6 +1,10 @@
 package processor
 
-import "reflect"
+import (
+	"encoding/json"
+	"reflect"
+	"strconv"
+)
 
 type EventAggregator struct {
 	CriticalPercent float64
@@ -64,6 +68,13 @@ func (t *TypeAggregator) Aggregate(val interface{}) {
 	if _type == nil {
 		return
 	}
+
+	if _type.Name() == "Number" {
+		// coerce into float or int
+		_type = coerceJsonNumberToFloatOrInt(val.(json.Number))
+
+	}
+
 	if _, ok := t.Counts[_type.Name()]; !ok {
 		switch _type.Name() {
 		case "string":
@@ -71,6 +82,7 @@ func (t *TypeAggregator) Aggregate(val interface{}) {
 				Type:         _type,
 				LenEstimator: NewLengthEstimator(),
 			}
+
 		default:
 			t.Counts[_type.Name()] = &TypeCounter{
 				Type: _type,
@@ -79,6 +91,14 @@ func (t *TypeAggregator) Aggregate(val interface{}) {
 	}
 	t.Counts[_type.Name()].Aggregate(val)
 	t.Total++
+}
+
+func coerceJsonNumberToFloatOrInt(n json.Number) reflect.Type {
+	i, err := n.Int64()
+	if err == nil && strconv.Itoa(int(i)) == n.String() {
+		return reflect.TypeOf(int(i))
+	}
+	return reflect.TypeOf(123.2)
 }
 
 func (t *TypeAggregator) Summarize() PropertySummary {

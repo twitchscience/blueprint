@@ -34,12 +34,14 @@ func TestNonTrackedEventProcessor(t *testing.T) {
 
 	testEvent1 := map[string]interface{}{
 		"col1": "12323",
-		"col2": 123,
+		"col2": json.Number("123"),
 		"col3": "1234525",
+		"col4": json.Number("123.12"),
 	}
 	testEvent2 := map[string]interface{}{
 		"col1": "123",
-		"col2": 142,
+		"col2": json.Number("142"),
+		"col4": json.Number("123.12"),
 	}
 	for i := 0; i < 10; i++ {
 		e.Accept(testEvent2)
@@ -56,6 +58,10 @@ func TestNonTrackedEventProcessor(t *testing.T) {
 		PropertySummary{
 			Name: "col2",
 			T:    reflect.TypeOf(12),
+		},
+		PropertySummary{
+			Name: "col4",
+			T:    reflect.TypeOf(12.1),
 		},
 	}
 	sort.Sort(ByName(o.P))
@@ -95,7 +101,7 @@ func TestScoopTransformer(t *testing.T) {
 			scoop_protocol.ColumnDefinition{
 				InboundName:  "col2",
 				OutboundName: "col2",
-				Transformer:  "int",
+				Transformer:  "bigint",
 			},
 		},
 	})

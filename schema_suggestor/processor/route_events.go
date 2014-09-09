@@ -69,6 +69,7 @@ func (e *EventRouter) ReadFile(filename string) error {
 	}()
 
 	d := json.NewDecoder(e.GzipReader)
+	d.UseNumber()
 	for {
 		var event MPEvent
 		if err := d.Decode(&event); err == io.EOF {
