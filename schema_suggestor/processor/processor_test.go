@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"sort"
 	"testing"
-
-	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 type TestOutputter struct {
@@ -30,7 +28,14 @@ func TestNonTrackedEventProcessor(t *testing.T) {
 	e := NonTrackedEventProcessor{
 		Out:        o,
 		Aggregator: NewEventAggregator(15.0),
+		In:         make(chan map[string]interface{}, 100),
+		F:          make(chan string),
 	}
+	done := make(chan bool)
+	go func() {
+		e.Listen()
+		done <- true
+	}()
 
 	testEvent1 := map[string]interface{}{
 		"col1": "12323",
@@ -49,19 +54,23 @@ func TestNonTrackedEventProcessor(t *testing.T) {
 	e.Accept(testEvent1)
 
 	e.Flush("test")
+	<-done
 	expected := []PropertySummary{
 		PropertySummary{
-			Name: "col1",
-			T:    reflect.TypeOf("string"),
-			Len:  4,
+			Name:          "col1",
+			T:             reflect.TypeOf("string"),
+			OccuranceRank: 100,
+			Len:           4,
 		},
 		PropertySummary{
-			Name: "col2",
-			T:    reflect.TypeOf(12),
+			Name:          "col2",
+			T:             reflect.TypeOf(12),
+			OccuranceRank: 100,
 		},
 		PropertySummary{
-			Name: "col4",
-			T:    reflect.TypeOf(12.1),
+			Name:          "col4",
+			T:             reflect.TypeOf(12.1),
+			OccuranceRank: 100,
 		},
 	}
 	sort.Sort(ByName(o.P))
@@ -74,36 +83,41 @@ func TestNonTrackedEventProcessor(t *testing.T) {
 func TestScoopTransformer(t *testing.T) {
 	input := []PropertySummary{
 		PropertySummary{
-			Name: "col1",
-			T:    reflect.TypeOf("string"),
-			Len:  4,
+			Name:          "col1",
+			T:             reflect.TypeOf("string"),
+			Len:           4,
+			OccuranceRank: 100,
 		},
 		PropertySummary{
-			Name: "col2",
-			T:    reflect.TypeOf(12),
+			Name:          "col2",
+			T:             reflect.TypeOf(12),
+			OccuranceRank: 100,
 		},
 	}
 
-	out, err := ScoopTransformer("test", input)
+	out, err := ScoopTransformer("test", input, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected, err := json.Marshal(&scoop_protocol.Config{
+	expected, err := json.Marshal(&AugmentedEventConfig{
 		EventName: "test",
-		Columns: []scoop_protocol.ColumnDefinition{
-			scoop_protocol.ColumnDefinition{
+		Columns: []AugmentedColumnDefinition{
+			AugmentedColumnDefinition{
 				InboundName:           "col1",
 				OutboundName:          "col1",
 				Transformer:           "varchar",
 				ColumnCreationOptions: "(4)",
+				OccuranceProbability:  100,
 			},
-			scoop_protocol.ColumnDefinition{
-				InboundName:  "col2",
-				OutboundName: "col2",
-				Transformer:  "bigint",
+			AugmentedColumnDefinition{
+				InboundName:          "col2",
+				OutboundName:         "col2",
+				Transformer:          "bigint",
+				OccuranceProbability: 100,
 			},
 		},
+		Occurred: 2,
 	})
 	if err != nil {
 		t.Fatal(err)

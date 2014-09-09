@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"strconv"
-
-	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 type outputter struct {
@@ -56,7 +54,7 @@ func (f *FileDumper) Dumper(event string, output []byte) error {
 }
 
 func ScoopTransformer(eventName string, properties []PropertySummary, nRows int) ([]byte, error) {
-	cols := make([]scoop_protocol.ColumnDefinition, len(properties))
+	cols := make([]AugmentedColumnDefinition, len(properties))
 	for idx, p := range properties {
 		transformer, options := selectTransformerForProperty(p)
 		cols[idx] = AugmentedColumnDefinition{

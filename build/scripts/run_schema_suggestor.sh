@@ -8,6 +8,8 @@ cd -- "$(dirname -- "$0")"
 
 eval "$(curl 169.254.169.254/latest/user-data/)"
 
+export GOMAXPROCS="2"
+
 exec ./schema_suggestor \
   -hostname=${SCOOP_HOSTNAME} \
   -proto=${SCOOP_PROTO} \

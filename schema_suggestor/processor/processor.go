@@ -22,6 +22,8 @@ type Outputter interface {
 type NonTrackedEventProcessor struct {
 	Out        Outputter
 	Aggregator *EventAggregator
+	In         chan map[string]interface{}
+	F          chan string
 }
 
 type PropertySummary struct {
@@ -31,21 +33,50 @@ type PropertySummary struct {
 	Len           int
 }
 
-func (e *NonTrackedEventProcessor) Accept(propertyBag map[string]interface{}) {
-	// should check that flush ahasnt been called
-	if e.Aggregator == nil {
-		e.Aggregator = NewEventAggregator(CRITICAL_PERCENTAGE)
+func NewNonTrackedEventProcessor(outputDir string) EventProcessor {
+	p := &NonTrackedEventProcessor{
+		Out: NewOutputter(outputDir),
+		In:  make(chan map[string]interface{}, 100),
+		F:   make(chan string),
 	}
-	e.Aggregator.Aggregate(propertyBag)
+	go p.Listen()
+	return p
+}
+
+func (e *NonTrackedEventProcessor) Listen() {
+	for {
+		select {
+		case p := <-e.In:
+			if e.Aggregator == nil {
+				e.Aggregator = NewEventAggregator(CRITICAL_PERCENTAGE)
+			}
+			e.Aggregator.Aggregate(p)
+		case eventName := <-e.F:
+			// drain
+			close(e.In)
+			for p := range e.In {
+				if e.Aggregator == nil {
+					e.Aggregator = NewEventAggregator(CRITICAL_PERCENTAGE)
+				}
+				e.Aggregator.Aggregate(p)
+			}
+			nRows, cols := e.Aggregator.Summarize()
+			if nRows > CRITICAL_THRESHOLD {
+				err := e.Out.Output(eventName, cols, nRows)
+				if err != nil {
+					log.Printf("Outputter error: %v\n", err)
+				}
+			}
+			e.Aggregator = NewEventAggregator(CRITICAL_PERCENTAGE)
+			return
+		}
+	}
+}
+
+func (e *NonTrackedEventProcessor) Accept(propertyBag map[string]interface{}) {
+	e.In <- propertyBag
 }
 
 func (e *NonTrackedEventProcessor) Flush(eventName string) {
-	nRows, cols := e.Aggregator.Summarize()
-	if nRows > CRITICAL_THRESHOLD {
-		err := e.Out.Output(eventName, cols, nRows)
-		if err != nil {
-			log.Printf("Outputter error: %v\n", err)
-		}
-	}
-	e.Aggregator = NewEventAggregator(CRITICAL_PERCENTAGE)
+	e.F <- eventName
 }

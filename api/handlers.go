@@ -6,10 +6,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/twitchscience/blueprint/core"
-	"github.com/twitchscience/blueprint/scoopclient/cachingclient"
+	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
+
 	"github.com/zenazn/goji/web"
 )
 
@@ -108,4 +111,36 @@ func (s *server) expire(w http.ResponseWriter, r *http.Request) {
 	if v := s.datasource.(*cachingscoopclient.CachingClient); v != nil {
 		v.Expire()
 	}
+}
+
+func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
+	availableSuggestions := make([]string, 0)
+	filepath.Walk(s.docRoot+"/events", func(path string, info os.FileInfo, err error) error {
+		if path == s.docRoot+"/events" {
+			return nil
+		}
+		if info.IsDir() {
+			return filepath.SkipDir
+		}
+		eventNameIdx := strings.Index(info.Name(), ".")
+		if eventNameIdx > 0 && info.Name()[eventNameIdx:len(info.Name())] == ".json" {
+			availableSuggestions = append(availableSuggestions, info.Name())
+		}
+		return nil
+	})
+	b, err := json.Marshal(availableSuggestions)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write(b)
+}
+
+func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
+	fh, err := os.Open(s.docRoot + "/events/" + c.URLParams["id"])
+	if err != nil {
+		fourOhFour(w, r)
+		return
+	}
+	io.Copy(w, fh)
 }

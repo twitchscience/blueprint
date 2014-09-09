@@ -33,9 +33,12 @@ func (s *server) Setup() error {
 	api.Post("/schema/:id", s.updateSchema)
 	api.Get("/types", s.types)
 	api.Post("/expire", s.expire)
+	api.Get("/suggestions", s.listSuggestions)
+	api.Get("/suggestion/:id", s.suggestion)
 
 	// Order is important here
 	goji.Handle("/schema*", api)
+	goji.Handle("/suggestion*", api)
 	goji.Handle("/types", api)
 	goji.Handle("/expire", api)
 	goji.Handle("/*", files)

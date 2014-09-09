@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/twitchscience/blueprint/scoopclient"
@@ -14,10 +16,11 @@ import (
 type EventRouter struct {
 	CurrentTables    []string
 	Processors       map[string]EventProcessor
-	ProcessorFactory func() EventProcessor
+	ProcessorFactory func(string) EventProcessor
 	FlushTimer       <-chan time.Time
 	ScoopClient      scoopclient.ScoopClient
 	GzipReader       *gzip.Reader
+	OutputDir        string
 }
 
 func NewRouter(
@@ -26,14 +29,11 @@ func NewRouter(
 	scoopClient scoopclient.ScoopClient,
 ) *EventRouter {
 	r := &EventRouter{
-		Processors: make(map[string]EventProcessor),
-		ProcessorFactory: func() EventProcessor {
-			return &NonTrackedEventProcessor{
-				Out: NewOutputter(outputDir),
-			}
-		},
-		FlushTimer:  time.Tick(flushInterval),
-		ScoopClient: scoopClient,
+		Processors:       make(map[string]EventProcessor),
+		ProcessorFactory: NewNonTrackedEventProcessor,
+		FlushTimer:       time.Tick(flushInterval),
+		ScoopClient:      scoopClient,
+		OutputDir:        outputDir,
 	}
 	r.UpdateCurrentTables()
 	return r
@@ -108,16 +108,33 @@ func (e *EventRouter) Route(eventName string, properties map[string]interface{})
 	}
 
 	if _, ok := e.Processors[eventName]; !ok {
-		e.Processors[eventName] = e.ProcessorFactory()
+		e.Processors[eventName] = e.ProcessorFactory(e.OutputDir)
 	}
-	go e.Processors[eventName].Accept(properties)
+	e.Processors[eventName].Accept(properties)
 }
 
 func (e *EventRouter) FlushRouters() {
 	for event, processor := range e.Processors {
 		processor.Flush(event)
+		delete(e.Processors, event)
 	}
-	// removed tracked events here (at least limit the time of the race duration) TODO
+	// removed tracked events here (at least limit the time of the race duration)
+	e.UpdateCurrentTables()
+	filepath.Walk(e.OutputDir, func(path string, info os.FileInfo, err error) error {
+		if path == e.OutputDir {
+			return nil
+		}
+		if info.IsDir() {
+			return filepath.SkipDir
+		}
+		eventNameIdx := strings.Index(info.Name(), ".")
+		if eventNameIdx > 0 && info.Name()[eventNameIdx:len(info.Name())] == ".json" {
+			if e.EventCreated(info.Name()[0:eventNameIdx]) {
+				os.Remove(path)
+			}
+		}
+		return nil
+	})
 }
 
 func (e *EventRouter) EventCreated(eventName string) bool {
