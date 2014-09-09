@@ -85,7 +85,6 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	if err != nil {
 		return fmt.Errorf("Unable to stat %s\n", tmpFile.Name())
 	}
-	log.Println("using " + os.TempDir() + "/" + tmpStat.Name())
 
 	return handler.Router.ReadFile(os.TempDir() + "/" + tmpStat.Name())
 }

@@ -62,7 +62,7 @@ func ScoopTransformer(eventName string, properties []PropertySummary, nRows int)
 			OutboundName:          p.Name,
 			Transformer:           transformer,
 			ColumnCreationOptions: options,
-			OccuranceProbability:  p.OccuranceRank,
+			OccuranceProbability:  p.OccuranceProbability,
 		}
 	}
 

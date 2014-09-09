@@ -57,20 +57,20 @@ func TestNonTrackedEventProcessor(t *testing.T) {
 	<-done
 	expected := []PropertySummary{
 		PropertySummary{
-			Name:          "col1",
-			T:             reflect.TypeOf("string"),
-			OccuranceRank: 100,
-			Len:           4,
+			Name:                 "col1",
+			T:                    reflect.TypeOf("string"),
+			OccuranceProbability: 1.0,
+			Len:                  4,
 		},
 		PropertySummary{
-			Name:          "col2",
-			T:             reflect.TypeOf(12),
-			OccuranceRank: 100,
+			Name:                 "col2",
+			T:                    reflect.TypeOf(12),
+			OccuranceProbability: 1.0,
 		},
 		PropertySummary{
-			Name:          "col4",
-			T:             reflect.TypeOf(12.1),
-			OccuranceRank: 100,
+			Name:                 "col4",
+			T:                    reflect.TypeOf(12.1),
+			OccuranceProbability: 1.0,
 		},
 	}
 	sort.Sort(ByName(o.P))
@@ -83,15 +83,15 @@ func TestNonTrackedEventProcessor(t *testing.T) {
 func TestScoopTransformer(t *testing.T) {
 	input := []PropertySummary{
 		PropertySummary{
-			Name:          "col1",
-			T:             reflect.TypeOf("string"),
-			Len:           4,
-			OccuranceRank: 100,
+			Name:                 "col1",
+			T:                    reflect.TypeOf("string"),
+			Len:                  4,
+			OccuranceProbability: 1.0,
 		},
 		PropertySummary{
-			Name:          "col2",
-			T:             reflect.TypeOf(12),
-			OccuranceRank: 100,
+			Name:                 "col2",
+			T:                    reflect.TypeOf(12),
+			OccuranceProbability: 1.0,
 		},
 	}
 
@@ -108,13 +108,13 @@ func TestScoopTransformer(t *testing.T) {
 				OutboundName:          "col1",
 				Transformer:           "varchar",
 				ColumnCreationOptions: "(4)",
-				OccuranceProbability:  100,
+				OccuranceProbability:  1.0,
 			},
 			AugmentedColumnDefinition{
 				InboundName:          "col2",
 				OutboundName:         "col2",
 				Transformer:          "bigint",
-				OccuranceProbability: 100,
+				OccuranceProbability: 1.0,
 			},
 		},
 		Occurred: 2,

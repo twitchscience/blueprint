@@ -27,10 +27,10 @@ type NonTrackedEventProcessor struct {
 }
 
 type PropertySummary struct {
-	Name          string
-	OccuranceRank float64
-	T             reflect.Type
-	Len           int
+	Name                 string
+	OccuranceProbability float64
+	T                    reflect.Type
+	Len                  int
 }
 
 func NewNonTrackedEventProcessor(outputDir string) EventProcessor {
