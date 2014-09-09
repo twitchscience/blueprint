@@ -38,12 +38,12 @@ func NewTypeAggregator() *TypeAggregator {
 
 func (e *EventAggregator) Aggregate(properties map[string]interface{}) {
 	for columnName, val := range properties {
-		e.TotalRows++
 		if _, ok := e.Columns[columnName]; !ok {
 			e.Columns[columnName] = NewTypeAggregator()
 		}
 		e.Columns[columnName].Aggregate(val)
 	}
+	e.TotalRows++
 }
 
 func (e *EventAggregator) Summarize() (int, []PropertySummary) {
