@@ -110,7 +110,8 @@ func (t *TypeAggregator) Summarize() PropertySummary {
 			max = counter
 		}
 	}
-	return max.Summarize()
+	ps := max.Summarize()
+	ps.OccuranceRank = float64(max.Count) / float64(t.Total) * 100.0
 }
 
 func (c *TypeCounter) Aggregate(val interface{}) {

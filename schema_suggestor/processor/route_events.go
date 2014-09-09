@@ -117,7 +117,7 @@ func (e *EventRouter) FlushRouters() {
 	for event, processor := range e.Processors {
 		processor.Flush(event)
 	}
-	// removed tracked events here (at least limit the time of the race duration)
+	// removed tracked events here (at least limit the time of the race duration) TODO
 }
 
 func (e *EventRouter) EventCreated(eventName string) bool {

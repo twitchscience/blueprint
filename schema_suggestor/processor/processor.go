@@ -16,7 +16,7 @@ type EventProcessor interface {
 }
 
 type Outputter interface {
-	Output(string, []PropertySummary) error
+	Output(string, []PropertySummary, int) error
 }
 
 type NonTrackedEventProcessor struct {
@@ -25,9 +25,10 @@ type NonTrackedEventProcessor struct {
 }
 
 type PropertySummary struct {
-	Name string
-	T    reflect.Type
-	Len  int
+	Name          string
+	OccuranceRank float64
+	T             reflect.Type
+	Len           int
 }
 
 func (e *NonTrackedEventProcessor) Accept(propertyBag map[string]interface{}) {
@@ -41,7 +42,7 @@ func (e *NonTrackedEventProcessor) Accept(propertyBag map[string]interface{}) {
 func (e *NonTrackedEventProcessor) Flush(eventName string) {
 	nRows, cols := e.Aggregator.Summarize()
 	if nRows > CRITICAL_THRESHOLD {
-		err := e.Out.Output(eventName, cols)
+		err := e.Out.Output(eventName, cols, nRows)
 		if err != nil {
 			log.Printf("Outputter error: %v\n", err)
 		}

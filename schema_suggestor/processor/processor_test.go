@@ -14,7 +14,7 @@ type TestOutputter struct {
 	P []PropertySummary
 }
 
-func (t *TestOutputter) Output(e string, p []PropertySummary) error {
+func (t *TestOutputter) Output(e string, p []PropertySummary, n int) error {
 	t.P = p
 	return nil
 }

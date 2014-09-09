@@ -9,12 +9,26 @@ import (
 )
 
 type outputter struct {
-	transformer func(string, []PropertySummary) ([]byte, error)
+	transformer func(string, []PropertySummary, int) ([]byte, error)
 	dumper      func(string, []byte) error
 }
 
 type FileDumper struct {
 	TargetDir string
+}
+
+type AugmentedColumnDefinition struct {
+	InboundName           string
+	OutboundName          string
+	Transformer           string
+	ColumnCreationOptions string
+	OccuranceProbability  float64
+}
+
+type AugmentedEventConfig struct {
+	EventName string
+	Columns   []AugmentedColumnDefinition
+	Occurred  int
 }
 
 func NewOutputter(targetDir string) Outputter {
@@ -27,8 +41,8 @@ func NewOutputter(targetDir string) Outputter {
 	}
 }
 
-func (o *outputter) Output(eventName string, properties []PropertySummary) error {
-	output, err := o.transformer(eventName, properties)
+func (o *outputter) Output(eventName string, properties []PropertySummary, nRows int) error {
+	output, err := o.transformer(eventName, properties, nRows)
 	if err != nil {
 		return err
 	}
@@ -41,21 +55,23 @@ func (f *FileDumper) Dumper(event string, output []byte) error {
 	return ioutil.WriteFile(f.TargetDir+"/"+event+".json", output, 0644)
 }
 
-func ScoopTransformer(eventName string, properties []PropertySummary) ([]byte, error) {
+func ScoopTransformer(eventName string, properties []PropertySummary, nRows int) ([]byte, error) {
 	cols := make([]scoop_protocol.ColumnDefinition, len(properties))
 	for idx, p := range properties {
 		transformer, options := selectTransformerForProperty(p)
-		cols[idx] = scoop_protocol.ColumnDefinition{
+		cols[idx] = AugmentedColumnDefinition{
 			InboundName:           p.Name,
 			OutboundName:          p.Name,
 			Transformer:           transformer,
 			ColumnCreationOptions: options,
+			OccuranceProbability:  p.OccuranceRank,
 		}
 	}
 
-	return json.Marshal(&scoop_protocol.Config{
+	return json.Marshal(&AugmentedEventConfig{
 		EventName: eventName,
 		Columns:   cols,
+		Occurred:  nRows,
 	})
 }
 
