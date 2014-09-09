@@ -45,7 +45,7 @@ func (e *EventAggregator) Aggregate(properties map[string]interface{}) {
 func (e *EventAggregator) Summarize() (int, []PropertySummary) {
 	var aggregatedTypes []PropertySummary
 	for columnName, aggregator := range e.Columns {
-		if e.ColumnShouldBePruned(aggregator) {
+		if e.ColumnShouldBePruned(aggregator) || aggregator.Total < 1 {
 			continue
 		}
 		ps := aggregator.Summarize()
