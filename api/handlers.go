@@ -144,3 +144,11 @@ func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	io.Copy(w, fh)
 }
+
+func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Request) {
+	err := os.Remove(s.docRoot + "/events/" + c.URLParams["id"])
+	if err != nil {
+		fourOhFour(w, r)
+		return
+	}
+}

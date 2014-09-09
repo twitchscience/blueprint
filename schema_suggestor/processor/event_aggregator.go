@@ -54,7 +54,7 @@ func (e *EventAggregator) Summarize() (int, []PropertySummary) {
 		}
 		ps := aggregator.Summarize()
 		ps.Name = columnName
-		ps.OccuranceRank = float64(colAggregate.Total) / float64(e.TotalRows) * 100.0
+		ps.OccuranceRank = float64(aggregator.Total) / float64(e.TotalRows) * 100.0
 		aggregatedTypes = append(aggregatedTypes, ps)
 	}
 	return e.TotalRows, aggregatedTypes
