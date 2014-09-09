@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"log"
@@ -16,6 +17,7 @@ type EventRouter struct {
 	ProcessorFactory func() EventProcessor
 	FlushTimer       <-chan time.Time
 	ScoopClient      scoopclient.ScoopClient
+	GzipReader       *gzip.Reader
 }
 
 func NewRouter(
@@ -27,8 +29,7 @@ func NewRouter(
 		Processors: make(map[string]EventProcessor),
 		ProcessorFactory: func() EventProcessor {
 			return &NonTrackedEventProcessor{
-				Out:    NewOutputter(outputDir),
-				Events: make([]*PropertySummary, 0),
+				Out: NewOutputter(outputDir),
 			}
 		},
 		FlushTimer:  time.Tick(flushInterval),
@@ -50,8 +51,24 @@ func (e *EventRouter) ReadFile(filename string) error {
 	if err != nil {
 		return err
 	}
+	if e.GzipReader == nil {
+		e.GzipReader, err = gzip.NewReader(file)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = e.GzipReader.Reset(file)
+		if err != nil {
+			return err
+		}
+	}
 
-	d := json.NewDecoder(file)
+	defer func() {
+		e.GzipReader.Close()
+		file.Close()
+	}()
+
+	d := json.NewDecoder(e.GzipReader)
 	for {
 		var event MPEvent
 		if err := d.Decode(&event); err == io.EOF {

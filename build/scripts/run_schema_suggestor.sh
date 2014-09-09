@@ -2,6 +2,7 @@
 set -e -u -o pipefail
 
 CONFIG_DIR="/opt/science/blueprint/config"
+SCIENCE_DIR="/opt/science"
 
 cd -- "$(dirname -- "$0")"
 
@@ -11,4 +12,5 @@ exec ./schema_suggestor \
   -hostname=${SCOOP_HOSTNAME} \
   -proto=${SCOOP_PROTO} \
   -port=${SCOOP_PORT} \
-  -transformConfig="${CONFIG_DIR}/transforms_available.json"
+  -transformConfig="${CONFIG_DIR}/transforms_available.json" \
+  -staticfiles="${SCIENCE_DIR}/nginx/html/events"

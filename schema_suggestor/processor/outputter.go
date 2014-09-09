@@ -9,7 +9,7 @@ import (
 )
 
 type outputter struct {
-	transformer func(string, []*PropertySummary) ([]byte, error)
+	transformer func(string, []PropertySummary) ([]byte, error)
 	dumper      func(string, []byte) error
 }
 
@@ -27,7 +27,7 @@ func NewOutputter(targetDir string) Outputter {
 	}
 }
 
-func (o *outputter) Output(eventName string, properties []*PropertySummary) error {
+func (o *outputter) Output(eventName string, properties []PropertySummary) error {
 	output, err := o.transformer(eventName, properties)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (f *FileDumper) Dumper(event string, output []byte) error {
 	return ioutil.WriteFile(f.TargetDir+"/"+event+".json", output, 0644)
 }
 
-func ScoopTransformer(eventName string, properties []*PropertySummary) ([]byte, error) {
+func ScoopTransformer(eventName string, properties []PropertySummary) ([]byte, error) {
 	cols := make([]scoop_protocol.ColumnDefinition, len(properties))
 	for idx, p := range properties {
 		transformer, options := selectTransformerForProperty(p)
@@ -59,7 +59,7 @@ func ScoopTransformer(eventName string, properties []*PropertySummary) ([]byte, 
 	})
 }
 
-func selectTransformerForProperty(property *PropertySummary) (string, string) {
+func selectTransformerForProperty(property PropertySummary) (string, string) {
 	switch property.T.Name() {
 	case "bool":
 		return "bool", ""

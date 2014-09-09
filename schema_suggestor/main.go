@@ -85,8 +85,9 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	if err != nil {
 		return fmt.Errorf("Unable to stat %s\n", tmpFile.Name())
 	}
+	log.Println("using " + os.TempDir() + "/" + tmpStat.Name())
 
-	return handler.Router.ReadFile(tmpStat.Name())
+	return handler.Router.ReadFile(os.TempDir() + "/" + tmpStat.Name())
 }
 
 func main() {
@@ -113,7 +114,7 @@ func main() {
 		&BPHandler{
 			Router: processor.NewRouter(
 				*staticFileDir,
-				10*time.Minute,
+				5*time.Minute,
 				scoopClient,
 			),
 			S3: s3Connection,
