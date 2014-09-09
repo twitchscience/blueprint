@@ -28,7 +28,8 @@ func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 func TestNonTrackedEventProcessor(t *testing.T) {
 	o := &TestOutputter{}
 	e := NonTrackedEventProcessor{
-		Out: o,
+		Out:        o,
+		Aggregator: NewEventAggregator(15.0),
 	}
 
 	testEvent1 := map[string]interface{}{
