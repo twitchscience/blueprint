@@ -54,6 +54,7 @@ func (e *EventAggregator) Summarize() (int, []PropertySummary) {
 		}
 		ps := aggregator.Summarize()
 		ps.Name = columnName
+		ps.OccuranceRank = float64(colAggregate.Total) / float64(e.TotalRows) * 100.0
 		aggregatedTypes = append(aggregatedTypes, ps)
 	}
 	return e.TotalRows, aggregatedTypes
@@ -72,7 +73,6 @@ func (t *TypeAggregator) Aggregate(val interface{}) {
 	if _type.Name() == "Number" {
 		// coerce into float or int
 		_type = coerceJsonNumberToFloatOrInt(val.(json.Number))
-
 	}
 
 	if _, ok := t.Counts[_type.Name()]; !ok {
@@ -110,9 +110,7 @@ func (t *TypeAggregator) Summarize() PropertySummary {
 			max = counter
 		}
 	}
-	ps := max.Summarize()
-	ps.OccuranceRank = float64(max.Count) / float64(t.Total) * 100.0
-	return ps
+	return max.Summarize()
 }
 
 func (c *TypeCounter) Aggregate(val interface{}) {
