@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	CRITICAL_PERCENTAGE = 15.0
-	CRITICAL_THRESHOLD  = 10
+	CRITICAL_PERCENTAGE = 0.0
+	CRITICAL_THRESHOLD  = 2
 )
 
 type EventProcessor interface {
