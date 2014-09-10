@@ -6,12 +6,6 @@ type LengthEstimator struct {
 	Lengths []int
 }
 
-func NewLengthEstimator() LengthEstimator {
-	return LengthEstimator{
-		Lengths: make([]int, 0),
-	}
-}
-
 func (l *LengthEstimator) Increment(size int) {
 	l.Lengths = append(l.Lengths, size)
 }
@@ -22,6 +16,10 @@ func (l *LengthEstimator) Estimate() int {
 
 // using http://en.wikipedia.org/wiki/Percentile#Alternative_methods
 func Percentile(nums []int, percentile int) float64 {
+	if len(nums) == 0 {
+		return 0.0
+	}
+
 	sort.Ints(nums)
 
 	rank := float64(percentile)/100.0*(float64(len(nums))-1.0) + 1.0

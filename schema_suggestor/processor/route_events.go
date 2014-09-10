@@ -4,9 +4,9 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -120,21 +120,19 @@ func (e *EventRouter) FlushRouters() {
 	}
 	// removed tracked events here (at least limit the time of the race duration)
 	e.UpdateCurrentTables()
-	filepath.Walk(e.OutputDir, func(path string, info os.FileInfo, err error) error {
-		if path == e.OutputDir {
-			return nil
-		}
+	infos, err := ioutil.ReadDir(e.OutputDir)
+	if err != nil {
+		return
+	}
+	for _, info := range infos {
 		if info.IsDir() {
-			return filepath.SkipDir
+			continue
 		}
 		eventNameIdx := strings.Index(info.Name(), ".")
-		if eventNameIdx > 0 && info.Name()[eventNameIdx:len(info.Name())] == ".json" {
-			if e.EventCreated(info.Name()[0:eventNameIdx]) {
-				os.Remove(path)
-			}
+		if strings.HasSuffix(info.Name(), ".json") && e.EventCreated(info.Name()[0:eventNameIdx]) {
+			os.Remove(e.OutputDir + "/" + info.Name())
 		}
-		return nil
-	})
+	}
 }
 
 func (e *EventRouter) EventCreated(eventName string) bool {

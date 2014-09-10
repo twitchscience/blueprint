@@ -112,7 +112,12 @@ func (s *server) expire(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
-	availableSuggestions := getAvailableSuggestions(s.docRoot)
+	availableSuggestions, err := getAvailableSuggestions(s.docRoot)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
 	b, err := json.Marshal(availableSuggestions)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

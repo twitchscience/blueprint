@@ -25,17 +25,11 @@ import (
 )
 
 var (
-	scoopProto      = flag.String("proto", "http", "the protocol to use when connecting to scoop")
-	scoopHostname   = flag.String("hostname", "localhost", "the host to connect to scoop on")
-	scoopPort       = flag.Uint64("port", 8080, "the port to connect to scoop on")
+	scoopUrl        = flag.String("url", "http://localhost:8080", "the url to talk to scoop")
 	staticFileDir   = flag.String("staticfiles", "./static/events", "the location to serve static files from")
 	transformConfig = flag.String("transformConfig", "transforms_available.json", "config for available transforms in spade")
 	env             = environment.GetCloudEnv()
 )
-
-func scoopUrl() string {
-	return fmt.Sprintf("%s://%s:%d", *scoopProto, *scoopHostname, *scoopPort)
-}
 
 type BPHandler struct {
 	Router *processor.EventRouter
@@ -81,17 +75,12 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	}
 	writer.Flush()
 
-	tmpStat, err := tmpFile.Stat()
-	if err != nil {
-		return fmt.Errorf("Unable to stat %s\n", tmpFile.Name())
-	}
-
-	return handler.Router.ReadFile(os.TempDir() + "/" + tmpStat.Name())
+	return handler.Router.ReadFile(tmpFile.Name())
 }
 
 func main() {
 	flag.Parse()
-	scoopClient := cachingscoopclient.New(scoopUrl(), *transformConfig)
+	scoopClient := cachingscoopclient.New(*scoopUrl, *transformConfig)
 
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.

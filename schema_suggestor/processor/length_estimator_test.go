@@ -3,7 +3,7 @@ package processor
 import "testing"
 
 func TestLengthEstimator(t *testing.T) {
-	e := NewLengthEstimator()
+	e := LengthEstimator{}
 	for _, num := range []int{15, 40, 50, 20, 35} {
 		e.Increment(num)
 	}

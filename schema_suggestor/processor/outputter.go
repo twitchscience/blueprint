@@ -49,7 +49,6 @@ func (o *outputter) Output(eventName string, properties []PropertySummary, nRows
 }
 
 func (f *FileDumper) Dumper(event string, output []byte) error {
-	// if file exists overwrite. Else do nothing
 	return ioutil.WriteFile(f.TargetDir+"/"+event+".json", output, 0644)
 }
 

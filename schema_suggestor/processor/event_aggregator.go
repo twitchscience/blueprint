@@ -65,31 +65,31 @@ func (e *EventAggregator) ColumnShouldBePruned(colAggregate *TypeAggregator) boo
 }
 
 func (t *TypeAggregator) Aggregate(val interface{}) {
-	_type := reflect.TypeOf(val)
-	if _type == nil {
+	type_ := reflect.TypeOf(val)
+	if type_ == nil {
 		return
 	}
 
-	if _type.Name() == "Number" {
+	if type_.Name() == "Number" {
 		// coerce into float or int
-		_type = coerceJsonNumberToFloatOrInt(val.(json.Number))
+		type_ = coerceJsonNumberToFloatOrInt(val.(json.Number))
 	}
 
-	if _, ok := t.Counts[_type.Name()]; !ok {
-		switch _type.Name() {
+	if _, ok := t.Counts[type_.Name()]; !ok {
+		switch type_.Name() {
 		case "string":
-			t.Counts[_type.Name()] = &TypeCounter{
-				Type:         _type,
-				LenEstimator: NewLengthEstimator(),
+			t.Counts[type_.Name()] = &TypeCounter{
+				Type:         type_,
+				LenEstimator: LengthEstimator{},
 			}
 
 		default:
-			t.Counts[_type.Name()] = &TypeCounter{
-				Type: _type,
+			t.Counts[type_.Name()] = &TypeCounter{
+				Type: type_,
 			}
 		}
 	}
-	t.Counts[_type.Name()].Aggregate(val)
+	t.Counts[type_.Name()].Aggregate(val)
 	t.Total++
 }
 
