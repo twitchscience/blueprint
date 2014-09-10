@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/twitchscience/blueprint/core"
 	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
@@ -114,20 +112,7 @@ func (s *server) expire(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
-	availableSuggestions := make([]string, 0)
-	filepath.Walk(s.docRoot+"/events", func(path string, info os.FileInfo, err error) error {
-		if path == s.docRoot+"/events" {
-			return nil
-		}
-		if info.IsDir() {
-			return filepath.SkipDir
-		}
-		eventNameIdx := strings.Index(info.Name(), ".")
-		if eventNameIdx > 0 && info.Name()[eventNameIdx:len(info.Name())] == ".json" {
-			availableSuggestions = append(availableSuggestions, info.Name())
-		}
-		return nil
-	})
+	availableSuggestions := getAvailableSuggestions(s.docRoot)
 	b, err := json.Marshal(availableSuggestions)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -137,6 +122,10 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
+	if !validSuggestion(c.URLParams["id"], s.docRoot) {
+		fourOhFour(w, r)
+		return
+	}
 	fh, err := os.Open(s.docRoot + "/events/" + c.URLParams["id"])
 	if err != nil {
 		fourOhFour(w, r)
@@ -146,6 +135,11 @@ func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Request) {
+	if !validSuggestion(c.URLParams["id"], s.docRoot) {
+		fourOhFour(w, r)
+		return
+	}
+
 	err := os.Remove(s.docRoot + "/events/" + c.URLParams["id"])
 	if err != nil {
 		fourOhFour(w, r)

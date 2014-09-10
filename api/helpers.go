@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
@@ -36,4 +39,31 @@ func jsonResponse(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
+}
+
+func getAvailableSuggestions(docRoot string) []string {
+	availableSuggestions := make([]string, 0)
+	filepath.Walk(docRoot+"/events", func(path string, info os.FileInfo, err error) error {
+		if path == docRoot+"/events" {
+			return nil
+		}
+		if info.IsDir() {
+			return filepath.SkipDir
+		}
+		eventNameIdx := strings.Index(info.Name(), ".")
+		if eventNameIdx > 0 && info.Name()[eventNameIdx:len(info.Name())] == ".json" {
+			availableSuggestions = append(availableSuggestions, info.Name())
+		}
+		return nil
+	})
+}
+
+func validSuggestion(suggestion, docRoot string) bool {
+	availableSuggestions := getAvailableSuggestions(docRoot)
+	for _, s := range availableSuggestions {
+		if suggestion == s {
+			return true
+		}
+	}
+	return false
 }
