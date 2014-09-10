@@ -128,8 +128,7 @@ func (e *EventRouter) FlushRouters() {
 		if info.IsDir() {
 			continue
 		}
-		eventNameIdx := strings.Index(info.Name(), ".")
-		if strings.HasSuffix(info.Name(), ".json") && e.EventCreated(info.Name()[0:eventNameIdx]) {
+		if strings.HasSuffix(info.Name(), ".json") && e.EventCreated(strings.TrimSuffix(info.Name(), ".json")) {
 			os.Remove(e.OutputDir + "/" + info.Name())
 		}
 	}
