@@ -56,6 +56,7 @@ func getAvailableSuggestions(docRoot string) []string {
 		}
 		return nil
 	})
+	return availableSuggestions
 }
 
 func validSuggestion(suggestion, docRoot string) bool {
