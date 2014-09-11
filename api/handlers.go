@@ -8,8 +8,9 @@ import (
 	"os"
 
 	"github.com/twitchscience/blueprint/core"
-	"github.com/twitchscience/blueprint/scoopclient/cachingclient"
+	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
+
 	"github.com/zenazn/goji/web"
 )
 
@@ -107,5 +108,46 @@ func (s *server) types(w http.ResponseWriter, r *http.Request) {
 func (s *server) expire(w http.ResponseWriter, r *http.Request) {
 	if v := s.datasource.(*cachingscoopclient.CachingClient); v != nil {
 		v.Expire()
+	}
+}
+
+func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
+	availableSuggestions, err := getAvailableSuggestions(s.docRoot)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	b, err := json.Marshal(availableSuggestions)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write(b)
+}
+
+func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
+	if !validSuggestion(c.URLParams["id"], s.docRoot) {
+		fourOhFour(w, r)
+		return
+	}
+	fh, err := os.Open(s.docRoot + "/events/" + c.URLParams["id"])
+	if err != nil {
+		fourOhFour(w, r)
+		return
+	}
+	io.Copy(w, fh)
+}
+
+func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Request) {
+	if !validSuggestion(c.URLParams["id"], s.docRoot) {
+		fourOhFour(w, r)
+		return
+	}
+
+	err := os.Remove(s.docRoot + "/events/" + c.URLParams["id"])
+	if err != nil {
+		fourOhFour(w, r)
+		return
 	}
 }

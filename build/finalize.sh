@@ -23,4 +23,5 @@ mkdir -p ${NGINXDIR}/{logs,html}
 mv ${TARGETDIR}/data/* ${NGINXDIR}/html/
 
 # Setup upstart
-mv ${CONFDIR}/upstart.conf ${UPSTARTDIR}/blueprint.conf
+mv ${CONFDIR}/schema_suggestor.conf ${UPSTARTDIR}/schema_suggestor.conf
+mv ${CONFDIR}/blueprint.conf ${UPSTARTDIR}/blueprint.conf

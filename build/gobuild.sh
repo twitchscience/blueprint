@@ -28,5 +28,4 @@ cd ${GOSRCDIR}
 
 go get -t github.com/tools/godep
 godep go clean
-godep go build -v
-
+godep go build -v ./...

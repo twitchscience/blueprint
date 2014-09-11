@@ -3,8 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
@@ -36,4 +38,34 @@ func jsonResponse(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
+}
+
+func getAvailableSuggestions(docRoot string) ([]string, error) {
+	var availableSuggestions []string
+	entries, err := ioutil.ReadDir(docRoot + "/events")
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), ".json") {
+			availableSuggestions = append(availableSuggestions, entry.Name())
+		}
+	}
+	return availableSuggestions, nil
+}
+
+func validSuggestion(suggestion, docRoot string) bool {
+	availableSuggestions, err := getAvailableSuggestions(docRoot)
+	if err != nil {
+		return false
+	}
+	for _, s := range availableSuggestions {
+		if suggestion == s {
+			return true
+		}
+	}
+	return false
 }
