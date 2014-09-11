@@ -11,8 +11,6 @@ eval "$(curl 169.254.169.254/latest/user-data/)"
 export GOMAXPROCS="2"
 
 exec ./schema_suggestor \
-  -hostname=${SCOOP_HOSTNAME} \
-  -proto=${SCOOP_PROTO} \
-  -port=${SCOOP_PORT} \
+  -url="${SCOOP_PROTO}://${SCOOP_HOSTNAME}:${SCOOP_PORT}" \
   -transformConfig="${CONFIG_DIR}/transforms_available.json" \
   -staticfiles="${SCIENCE_DIR}/nginx/html/events"
