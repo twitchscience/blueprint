@@ -1,3 +1,4 @@
 blueprint
 Vagrantfile
 .vagrant
+.DS_Store
