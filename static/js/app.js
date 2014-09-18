@@ -22,6 +22,31 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       '/types', null, null
     );
   })
+  .factory('Suggestions', function($resource) {
+    return $resource(
+      '/suggestions', null,
+      {all: {method: 'GET', isArray: true},
+       get: {url: '/suggestion/:scope.json', method:'GET',
+             interceptor: {responseError: function(response) {return false;}}}
+       }
+    );
+  })
+  .factory('ColumnMaker', function() {
+    return {
+      make: function() {
+      return {
+        InboundName: '',
+        OutboundName: '',
+        Transformer: 'varchar',
+        size: 255,
+        ColumnCreationOptions: ''
+        };
+      },
+      validate: function(column) {
+        return !(!column.InboundName || !column.OutboundName || !column.Transformer);
+      }
+    }
+  })
   .config(function($routeProvider) {
     $routeProvider
       .when('/events/all', {
@@ -51,6 +76,12 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       .otherwise({
         redirectTo: '/schemas'
       });
+  })
+  .controller('HeaderCtrl', function($scope, store) {
+    $scope.getError = store.getError;
+    $scope.clearError = store.clearError;
+    $scope.getMessage = store.getMessage;
+    $scope.clearMessage = store.clearMessage;
   })
   .controller('EventListCtrl', function($scope, Event) {
     Event.all(function(data) {
@@ -90,7 +121,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
           $location.path('/schema/create');
         };
       } else {
-        store.setError('no event or schema by this name', '/');
+        store.setError('No event or schema by this name', '/');
       }
     });
   })
@@ -99,15 +130,13 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       $location.path('/');
     });
   })
-  .controller('SchemaShowCtrl', function ($scope, $routeParams, $q, store, Schema, Types) {
+  .controller('SchemaShowCtrl', function ($scope, $location, $routeParams, $q, store, Schema, Types, ColumnMaker) {
     var types, schema;
     var typeRequest = Types.get(function(data) {
       if (data) {
         types = data.result;
       } else {
-        // We may want a different error behavior than what the store
-        // error offers. For example, here we probably want a error div
-        // to populate, but for the creation app to still function.
+        store.setError('Failed to fetch type information', undefined)
         types = [];
       }
     }).$promise;
@@ -116,6 +145,14 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       if (data) {
         schema = data[0];
       }
+    }, function(err) {
+      var msg;
+      if (err.data) {
+        msg = 'API Error: ' + err.data;
+      } else {
+        msg = 'Schema not found or threw an error';
+      }
+      store.setError(msg, '/schemas');
     }).$promise;
 
     $q.all([typeRequest, schemaRequest]).then(function() {
@@ -125,19 +162,13 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       $scope.schema = schema;
       $scope.additions = {Columns: [], EventName: schema.EventName}; // Used to hold new columns
       $scope.types = types;
-
-      // TODO: dry this up, it is repeated four times in this file
-      $scope.newCol = {
-        InboundName: '',
-        OutboundName: '',
-        Transformer: '',
-        size: 255,
-        ColumnCreationOptions: ''
-      };
+      $scope.newCol = ColumnMaker.make();
       $scope.addColumnToSchema = function(column) {
-        if (!column.InboundName || !column.OutboundName || !column.Transformer) {
-          return false;
+        if (!ColumnMaker.validate(column)) {
+          store.setError("New column is invalid", undefined);
+          return false
         }
+        store.clearError();
         if (column.Transformer === 'varchar') {
           if (parseInt(column.size)) {
             column.ColumnCreationOptions = '(' + parseInt(column.size) + ')';
@@ -148,119 +179,160 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
 
         // Update the view, but we only submit $scope.additions
         $scope.additions.Columns.push(column);
-        $scope.newCol = {
-          InboundName: '',
-          OutboundName: '',
-          Transformer: '',
-          size: 255,
-          ColumnCreationOptions: ''
-        };
+        $scope.newCol = ColumnMaker.make();
+        document.getElementById('newInboundName').focus()
+      };
+      $scope.dropColumnFromAdditions = function(colInd) {
+        $scope.additions.Columns.splice(colInd, 1);
       };
       $scope.updateSchema = function() {
         var additions = $scope.additions;
         if (additions.Columns.length < 1) {
+          store.setError("No new columns, so no action taken.", undefined);
           return false;
         }
         Schema.update({event: additions.EventName}, additions, function() {
+          store.setMessage("Succesfully updated schema: " +  additions.EventName);
           $location.path('/schema/' + additions.EventName);
+        }, function(err) {
+          store.setError(err, undefined);
         });
       };
     });
   })
-  .controller('SchemaListCtrl', function($scope, $location, Schema) {
+  .controller('SchemaListCtrl', function($scope, $location, Schema, Suggestions, store) {
     Schema.all(function(data) {
       $scope.schemas = data;
+      var existingSchemas = {};
+      angular.forEach($scope.schemas, function(s) {
+        existingSchemas[s.EventName] = true;
+      });
+
+      Suggestions.all(function(data) {
+        $scope.suggestions = [];
+        angular.forEach(data, function(s) {
+          if (!existingSchemas[s.EventName]) {
+            $scope.suggestions.push(s);
+          }
+        });
+      });
     });
   })
-  .controller('SchemaCreateCtrl', function($scope, $location, $q, store, Schema, Types) {
-    var types;
+  .controller('SchemaCreateCtrl', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, ColumnMaker) {
+    var types, suggestions, suggestionData;
     var typeData = Types.get(function(data) {
       if (data) {
         types = data.result;
       } else {
-        // We may want a different error behavior than what the store
-        // error offers. For example, here we probably want a error div
-        // to populate, but for the creation app to still function.
+        store.setError('Failed to fetch type information', undefined)
         types = [];
       }
     }).$promise;
 
-    $q.all([typeData]).then(function() {
-      var event = {};
+    if ($routeParams['scope']) {
+      suggestionData = Suggestions.get($routeParams, function(data) {
+        if (data) {
+          suggestions = data;
+        }
+      }).$promise;
+    } else {
+      var deferScratch = $q.defer();
+      deferScratch.resolve();
+      suggestionData = deferScratch.promise;
+    }
+
+    $q.all([typeData, suggestionData]).then(function() {
+      var event = {distkey:''};
+      var defaultColumns = [{
+          InboundName: 'time',
+          OutboundName: 'time',
+          Transformer: 'f@timestamp@unix',
+          ColumnCreationOptions: ' sortkey'
+        },{
+          InboundName: 'ip',
+          OutboundName: 'ip',
+          Transformer: 'varchar',
+          size: 15,
+          ColumnCreationOptions: ''
+        },{
+          InboundName: 'ip',
+          OutboundName: 'city',
+          Transformer: 'ipCity',
+          ColumnCreationOptions: ''
+        },{
+          InboundName: 'ip',
+          OutboundName: 'country',
+          Transformer: 'ipCountry',
+          ColumnCreationOptions: ''
+        },{
+          InboundName: 'ip',
+          OutboundName: 'region',
+          Transformer: 'ipRegion',
+          ColumnCreationOptions: ''
+        },{
+          InboundName: 'ip',
+          OutboundName: 'asn',
+          Transformer: 'ipAsn',
+          ColumnCreationOptions: ''
+        },{
+          InboundName: 'ip',
+          OutboundName: 'asn_id',
+          Transformer: 'ipAsnInteger',
+          ColumnCreationOptions: ''
+        }];
       // this is icky, it is tightly coupled to what spade is
       // looking for. It would be good to have an intermediate
       // representation which BluePrint converts to what spade cares
       // about but for the timebeing this is the quickest solution
-      var columns = [{
-        InboundName: 'time',
-        OutboundName: 'time',
-        Transformer: 'f@timestamp@unix',
-        ColumnCreationOptions: ' sortkey'
-      },{
-        InboundName: 'ip',
-        OutboundName: 'ip',
-        Transformer: 'varchar',
-        size: 15,
-        ColumnCreationOptions: ''
-      },{
-        InboundName: 'ip',
-        OutboundName: 'city',
-        Transformer: 'ipCity',
-        ColumnCreationOptions: ''
-      },{
-        InboundName: 'ip',
-        OutboundName: 'country',
-        Transformer: 'ipCountry',
-        ColumnCreationOptions: ''
-      },{
-        InboundName: 'ip',
-        OutboundName: 'region',
-        Transformer: 'ipRegion',
-        ColumnCreationOptions: ''
-      },{
-        InboundName: 'ip',
-        OutboundName: 'asn',
-        Transformer: 'ipAsn',
-        ColumnCreationOptions: ''
-      }];
-      // TODO: Prepopulate with properties from event sampling
-      /*angular.forEach(event.properties, function(v, k) {
-        if (v.publish) {
-          properties.push({
-            InboundName: v.name,
-            OutboundName: v.name,
-            Transformer: v.type,
-            size: v.size,
-            ColumnCreationOptions: ''
-          });
-        }
-      });*/
+      if (!suggestions) {
+        event.Columns = defaultColumns;
+      } else {
+        event = suggestions;
+        event.Columns.sort(function(a, b) {return b.OccuranceProbability - a.OccuranceProbability});
 
-      event.Columns = columns;
-      event.distkey = '';
+        for (i=0; i<event.Columns.length; i++) {
+          if (event.Columns[i].InboundName == 'time') {
+            event.Columns.splice(i, 1);
+            break;
+          }
+        }
+
+        var re = /\((\d+)\)/
+        angular.forEach(event.Columns, function(col) {
+          if (col.Transformer == 'varchar') {
+            var match = re.exec(col.ColumnCreationOptions);
+            if (match) {
+              col.size = parseInt(match[1]);
+            }
+          }
+          if (col.InboundName == 'device_id') {
+            event.distkey = 'device_id';
+          }
+        });
+
+        event.Columns = defaultColumns.concat(event.Columns);
+      }
+
       $scope.event = event;
       $scope.types = types;
-      // This should have a prototype.
-      $scope.newCol = {
-        InboundName: '',
-        OutboundName: '',
-        Transformer: '',
-        size: 0,
-        ColumnCreationOptions: ''
-      };
+      $scope.newCol = ColumnMaker.make();
       $scope.addColumnToSchema = function(column) {
+        if (!ColumnMaker.validate(column)) {
+          store.setError("New column is invalid", undefined);
+          return false;
+        }
+        store.clearError();
         $scope.event.Columns.push(column);
-        $scope.newCol = {
-          InboundName: '',
-          OutboundName: '',
-          Transformer: '',
-          size: 0,
-          ColumnCreationOptions: ''
-        };
+        $scope.newCol = ColumnMaker.make();
+        document.getElementById('newInboundName').focus();
       };
+      $scope.dropColumnFromSchema = function(columnInd) {
+        $scope.event.Columns.splice(columnInd, 1);
+      }
       $scope.createSchema = function() {
         var setDistKey = $scope.event.distkey;
         angular.forEach($scope.event.Columns, function(item) {
+          item.ColumnCreationOptions = ''
           if (item.size) {
             item.ColumnCreationOptions += '(' + item.size + ')';
           }
@@ -274,10 +346,16 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         });
         delete $scope.event.distkey;
         Schema.put($scope.event, function() {
+          store.setMessage("Succesfully created schema: " + $scope.event.EventName)
           $location.path('/schema/' + $scope.event.EventName);
         }, function(err) {
-          // TODO: handle errors correctly
-          store.setError(err.data.error, '/schemas');
+          var msg;
+          if (err.data) {
+            msg = err.data;
+          } else {
+            msg = 'Error creating schema:' + err;
+          }
+          store.setError(msg, '/schemas');
           return;
         });
       };
@@ -286,6 +364,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
   .service('store', function($location) {
     var data = {
       event: undefined,
+      message: undefined,
       error: undefined
     };
 
@@ -300,14 +379,29 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
 
       setError: function(err, path) {
         data.error = err;
-        $location.path(path);
+        if (path) {
+          $location.path(path);
+        }
       },
 
-      // TODO: use
       getError: function() {
-        var t = data.error;
+        return data.error;
+      },
+
+      clearError: function() {
         data.error = undefined;
-        return t;
+      },
+
+      setMessage: function(msg) {
+        data.message = msg;
+      },
+
+      getMessage: function() {
+        return data.message;
+      },
+
+      clearMessage: function() {
+        data.message = undefined;
       }
     };
   });

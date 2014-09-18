@@ -1,5 +1,5 @@
 <div>
-  <form ng-submit="createSchema()">
+  <form ng-submit="createSchema()" name="createSchemaForm">
     <h1><a href="#/schemas">&#x21e6;</a> Create Schema for
     <input ng-model="event.EventName" value="event.EventName"/></h1>
 
@@ -11,6 +11,7 @@
           <th>Column Type</th>
           <th class="text-center">Column Size</th>
           <th class="text-center">Distribution Key</th>
+          <th class="text-center">Occurrence Rate</th>
         </tr>
       </thead>
       <tbody>
@@ -39,27 +40,41 @@
                    value="{{p.OutboundName}}"
                    name="distkey"/>
           </td>
+          <td class="text-center">
+            {{p.OccuranceProbability | number : 4}}
+          </td>
+          <td ng-if="p.InboundName !== 'time'">
+            <button ng-click="dropColumnFromSchema($index)"
+                    type="button"
+                    class="btn btn-warning">
+              Drop
+            </button>
+          </td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
           <td>
             <input type="text"
-                   ng-model="newCol.InboundName"/>
+                   id="newInboundName"
+                   ng-model="newCol.InboundName"
+                   placeholder="Inbound Name"
+                   autofocus/>
           </td>
           <td>
             <input type="text"
-                   ng-model="newCol.OutboundName"/>
+                   ng-model="newCol.OutboundName"
+                   placeholder="Outbound Name"/>
           </td>
           <td>
             <select ng-options="type for type in types"
-                   ng-model="newCol.Transformer"/>
+                    ng-model="newCol.Transformer"/>
           </td>
           <td class="text-center">
             <input ng-if="newCol.Transformer == 'varchar'"
                    value="{{newCol.size}}"
                    ng-model="newCol.size"
-                   required/>
+                   />
           </td>
           <td class="text-center">
             <button ng-click="addColumnToSchema(newCol)"
@@ -78,6 +93,7 @@
           </td>
         </tr>
       </tfoot>
+      {{suggestions}}
     </table>
   </form>
 </div>

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/twitchscience/blueprint/core"
 	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
@@ -21,6 +22,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
 	var cfg scoop_protocol.Config
 	err = json.Unmarshal(b, &cfg)
 	if err != nil {
@@ -118,6 +120,11 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(availableSuggestions) == 0 {
+		w.Write([]byte("[]"))
+		return
+	}
+
 	b, err := json.Marshal(availableSuggestions)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -127,7 +134,7 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
-	if !validSuggestion(c.URLParams["id"], s.docRoot) {
+	if !validSuggestion(strings.TrimSuffix(c.URLParams["id"], ".json"), s.docRoot) {
 		fourOhFour(w, r)
 		return
 	}
@@ -140,7 +147,7 @@ func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Request) {
-	if !validSuggestion(c.URLParams["id"], s.docRoot) {
+	if !validSuggestion(strings.TrimSuffix(c.URLParams["id"], ".json"), s.docRoot) {
 		fourOhFour(w, r)
 		return
 	}

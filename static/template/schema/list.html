@@ -40,3 +40,10 @@
       </tr>
   </table>
 </div>
+
+<h1>Unpublished Schemas with Data Incoming</h1>
+<div ng-repeat="event in suggestions |
+                filter:search">
+
+  <h3><a href="#/schema?scope={{event.EventName}}">{{event.EventName}}</a></h3>
+</div>

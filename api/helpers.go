@@ -11,6 +11,10 @@ import (
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
+type SchemaSuggestion struct {
+	EventName string
+}
+
 func path(root, file string) string {
 	if file == "/" {
 		file = "/index.html"
@@ -40,8 +44,8 @@ func jsonResponse(h http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-func getAvailableSuggestions(docRoot string) ([]string, error) {
-	var availableSuggestions []string
+func getAvailableSuggestions(docRoot string) ([]SchemaSuggestion, error) {
+	var availableSuggestions []SchemaSuggestion
 	entries, err := ioutil.ReadDir(docRoot + "/events")
 	if err != nil {
 		return nil, err
@@ -51,7 +55,7 @@ func getAvailableSuggestions(docRoot string) ([]string, error) {
 			continue
 		}
 		if strings.HasSuffix(entry.Name(), ".json") {
-			availableSuggestions = append(availableSuggestions, entry.Name())
+			availableSuggestions = append(availableSuggestions, SchemaSuggestion{EventName: strings.TrimSuffix(entry.Name(), ".json")})
 		}
 	}
 	return availableSuggestions, nil
@@ -63,7 +67,7 @@ func validSuggestion(suggestion, docRoot string) bool {
 		return false
 	}
 	for _, s := range availableSuggestions {
-		if suggestion == s {
+		if suggestion == s.EventName {
 			return true
 		}
 	}

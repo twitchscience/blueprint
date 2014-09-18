@@ -1,5 +1,7 @@
 <h1><a href="#/schemas">&#x21e6</a> Published Schema for {{schema.EventName}}</h1>
 
+<form name="updateSchemaForm" ng-submit="updateSchema()">
+
 <table class="table table-hover">
   <thead>
     <tr>
@@ -23,19 +25,27 @@
       <td>{{c.OutboundName}}</td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
-      <td>&nbsp</td>
+      <td class="text-center">
+        <button ng-click="dropColumnFromAdditions($index)"
+                type="button"
+                class="btn btn-warning">Remove</button>
+      </td>
     </tr>
   </tbody>
   <tfoot>
-
     <tr>
       <td>
         <input type="text"
-               ng-model="newCol.InboundName"/>
+               id="newInboundName"
+               ng-model="newCol.InboundName"
+               placeholder="Inbound Name"
+               autofocus/>
       </td>
       <td>
         <input type="text"
-               ng-model="newCol.OutboundName"/>
+               ng-model="newCol.OutboundName"
+               placeholder="Outbound Name"
+               name="outboundName"/>
       </td>
       <td>
         <select ng-options="type for type in types"
@@ -45,7 +55,7 @@
         <input ng-if="newCol.Transformer == 'varchar'"
                value="{{newCol.size}}"
                ng-model="newCol.size"
-               required/>
+               name="columnSize"/>
       </td>
       <td class="text-center">
         <button ng-click="addColumnToSchema(newCol)"
@@ -56,11 +66,11 @@
     <tr>
       <td colspan="4"></td>
       <td class="text-center">
-        <form ng-submit="updateSchema()">
           <button type="submit"
                   class="btn btn-success">Update Schema</button>
-          </form>
+
       </td>
     </tr>
   </tfoot>
 </table>
+</form>
