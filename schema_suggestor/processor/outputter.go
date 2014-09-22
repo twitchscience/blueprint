@@ -20,7 +20,7 @@ type AugmentedColumnDefinition struct {
 	OutboundName          string
 	Transformer           string
 	ColumnCreationOptions string
-	OccuranceProbability  float64
+	OccurrenceProbability float64
 }
 
 type AugmentedEventConfig struct {
@@ -61,7 +61,7 @@ func ScoopTransformer(eventName string, properties []PropertySummary, nRows int)
 			OutboundName:          p.Name,
 			Transformer:           transformer,
 			ColumnCreationOptions: options,
-			OccuranceProbability:  p.OccuranceProbability,
+			OccurrenceProbability: p.OccurrenceProbability,
 		}
 	}
 
