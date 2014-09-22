@@ -288,7 +288,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         event.Columns = defaultColumns;
       } else {
         event = suggestions;
-        event.Columns.sort(function(a, b) {return b.OccuranceProbability - a.OccuranceProbability});
+        event.Columns.sort(function(a, b) {return b.OccurrenceProbability - a.OccurrenceProbability});
 
         for (i=0; i<event.Columns.length; i++) {
           if (event.Columns[i].InboundName == 'time') {
