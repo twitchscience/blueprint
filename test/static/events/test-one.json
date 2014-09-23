@@ -1,0 +1,41 @@
+{
+    "Columns": [
+        {
+            "ColumnCreationOptions": "",
+            "InboundName": "whizz",
+            "OccurrenceProbability": 0.9862633812756567,
+            "OutboundName": "whizz",
+            "Transformer": "bigint"
+        },
+        {
+            "ColumnCreationOptions": "(64)",
+            "InboundName": "frodle",
+            "OccurrenceProbability": 1,
+            "OutboundName": "frodle",
+            "Transformer": "varchar"
+        },
+        {
+            "ColumnCreationOptions": "(4)",
+            "InboundName": "smash",
+            "OccurrenceProbability": 1,
+            "OutboundName": "quality",
+            "Transformer": "smash"
+        },
+        {
+            "ColumnCreationOptions": "",
+            "InboundName": "is_awesome",
+            "OccurrenceProbability": 1,
+            "OutboundName": "is_awesome",
+            "Transformer": "bool"
+        },
+        {
+            "ColumnCreationOptions": "(32)",
+            "InboundName": "device_id",
+            "OccurrenceProbability": 1,
+            "OutboundName": "device_id",
+            "Transformer": "varchar"
+        }
+    ],
+    "EventName": "test-one",
+    "Occurred": 100607
+}

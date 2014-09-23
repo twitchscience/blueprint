@@ -1,0 +1,34 @@
+{
+    "Columns": [
+        {
+            "ColumnCreationOptions": "",
+            "InboundName": "time",
+            "OccurrenceProbability": 0.09192004504504504,
+            "OutboundName": "time",
+            "Transformer": "bigint"
+        },
+        {
+            "ColumnCreationOptions": "(12)",
+            "InboundName": "fizz",
+            "OccurrenceProbability": 1,
+            "OutboundName": "fizz",
+            "Transformer": "varchar"
+        },
+        {
+            "ColumnCreationOptions": "(32)",
+            "InboundName": "device_id",
+            "OccurrenceProbability": 0.9848676801801802,
+            "OutboundName": "device_id",
+            "Transformer": "varchar"
+        },
+        {
+            "ColumnCreationOptions": "",
+            "InboundName": "buzz",
+            "OccurrenceProbability": 1,
+            "OutboundName": "buzz",
+            "Transformer": "bigint"
+        }
+    ],
+    "EventName": "test-two",
+    "Occurred": 14208
+}
