@@ -43,7 +43,8 @@
 
 <h1>Unpublished Schemas with Data Incoming</h1>
 <div ng-repeat="event in suggestions |
-                filter:search">
+                filter:search |
+                orderBy:'Occurred'">
 
-  <h3><a href="#/schema?scope={{event.EventName}}">{{event.EventName}}</a></h3>
+  <h3><a href="#/schema?scope={{event.EventName}}">{{event.EventName}}</a> - Occurred {{event.Occurred}} times in sample</h3>
 </div>

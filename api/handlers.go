@@ -84,7 +84,7 @@ func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) fileHandler(w http.ResponseWriter, r *http.Request) {
-	fh, err := os.Open(path(s.docRoot, r.URL.Path))
+	fh, err := os.Open(staticPath(s.docRoot, r.URL.Path))
 	if err != nil {
 		fourOhFour(w, r)
 		return

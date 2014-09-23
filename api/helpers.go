@@ -2,10 +2,11 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
@@ -13,13 +14,14 @@ import (
 
 type SchemaSuggestion struct {
 	EventName string
+	Occurred  int
 }
 
-func path(root, file string) string {
+func staticPath(root, file string) string {
 	if file == "/" {
 		file = "/index.html"
 	}
-	return fmt.Sprintf("%s/%s", root, file)
+	return path.Join(root, file)
 }
 
 func fourOhFour(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +48,7 @@ func jsonResponse(h http.Handler) http.Handler {
 
 func getAvailableSuggestions(docRoot string) ([]SchemaSuggestion, error) {
 	var availableSuggestions []SchemaSuggestion
-	entries, err := ioutil.ReadDir(docRoot + "/events")
+	entries, err := ioutil.ReadDir(path.Join(docRoot, "events"))
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +57,20 @@ func getAvailableSuggestions(docRoot string) ([]SchemaSuggestion, error) {
 			continue
 		}
 		if strings.HasSuffix(entry.Name(), ".json") {
-			availableSuggestions = append(availableSuggestions, SchemaSuggestion{EventName: strings.TrimSuffix(entry.Name(), ".json")})
+			var newSuggestion SchemaSuggestion
+			f, err := os.Open(path.Join(docRoot, "events", entry.Name()))
+			if err != nil {
+				return nil, err
+			}
+			defer f.Close()
+
+			dec := json.NewDecoder(f)
+
+			err = dec.Decode(&newSuggestion)
+			if err != nil {
+				return nil, err
+			}
+			availableSuggestions = append(availableSuggestions, newSuggestion)
 		}
 	}
 	return availableSuggestions, nil
