@@ -271,11 +271,6 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
           ColumnCreationOptions: ''
         },{
           InboundName: 'ip',
-          OutboundName: 'asn',
-          Transformer: 'ipAsn',
-          ColumnCreationOptions: ''
-        },{
-          InboundName: 'ip',
           OutboundName: 'asn_id',
           Transformer: 'ipAsnInteger',
           ColumnCreationOptions: ''
