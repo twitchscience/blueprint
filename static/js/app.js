@@ -43,7 +43,12 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         };
       },
       validate: function(column) {
-        return !(!column.InboundName || !column.OutboundName || !column.Transformer);
+        if (!column.InboundName || !column.OutboundName || !column.Transformer) {
+          return false;
+        } else if (column.Transformer == 'varchar' && !(column.size > 0 && column.size <= 65535)) {
+          return false;
+        }
+        return true;
       }
     }
   })
@@ -173,6 +178,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
           if (parseInt(column.size)) {
             column.ColumnCreationOptions = '(' + parseInt(column.size) + ')';
           } else {
+            store.setError("New column is invalid (needs nonempty value)", undefined);
             return false;
           }
         }
@@ -325,10 +331,15 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         $scope.event.Columns.splice(columnInd, 1);
       }
       $scope.createSchema = function() {
+        store.clearError();
         var setDistKey = $scope.event.distkey;
         angular.forEach($scope.event.Columns, function(item) {
-          item.ColumnCreationOptions = ''
-          if (item.size) {
+          if (!ColumnMaker.validate(item)) {
+            store.setError("At least one column is invalid", undefined);
+            return false;
+          }
+          item.ColumnCreationOptions = '';
+          if (item.Transformer === 'varchar') {
             item.ColumnCreationOptions += '(' + item.size + ')';
           }
           if (setDistKey == item.OutboundName) {
@@ -337,8 +348,10 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
           if (item.Transformer === 'int') {
             item.Transformer = 'bigint';
           }
-          delete item.size;
         });
+        if (store.getError()) {
+          return;
+        }
         delete $scope.event.distkey;
         Schema.put($scope.event, function() {
           store.setMessage("Succesfully created schema: " + $scope.event.EventName)
