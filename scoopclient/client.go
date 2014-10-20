@@ -173,7 +173,7 @@ func (c *client) PropertyTypes() ([]string, error) {
 func (c *client) makeRequest(url string) ([]byte, error) {
 	res, err := c.hc.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching url: %s, StatusCode: %d, Error: %s", url, res.StatusCode, err.Error())
+		return nil, fmt.Errorf("Error fetching url:%s, StatusCode: %d, Error:%s", url, res.StatusCode, err.Error())
 	}
 
 	if res.StatusCode != 200 {
@@ -185,6 +185,9 @@ func (c *client) makeRequest(url string) ([]byte, error) {
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading response body: %s", err.Error())
+	}
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("Error From scoop:%s, StatusCode: %d, Error:%s", url, res.StatusCode, b)
 	}
 	return b, nil
 }
