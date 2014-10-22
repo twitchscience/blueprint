@@ -97,4 +97,8 @@
       {{suggestions}}
     </table>
   </form>
+  <h2 ng-if="notes">Notes from the suggestion overrider</h2>
+  <ul>
+    <li ng-repeat="n in notes">{{n}}</li>
+  </ul>
 </div>

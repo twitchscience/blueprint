@@ -1,0 +1,98 @@
+    {
+        "Columns": [
+            {
+                "ColumnCreationOptions": "",
+                "InboundName": "time",
+                "OccurrenceProbability": 0.09192004504504504,
+                "OutboundName": "time",
+                "Transformer": "bigint"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "channel",
+                "OccurrenceProbability": 1,
+                "OutboundName": "channel",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "(32)",
+                "InboundName": "device_id",
+                "OccurrenceProbability": 0.9848676801801802,
+                "OutboundName": "device_id",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "",
+                "InboundName": "buzz",
+                "OccurrenceProbability": 1,
+                "OutboundName": "buzz",
+                "Transformer": "bigint"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "url",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "url",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "referrer_url",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "referrer_url",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "domain",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "domain",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "referrer_domain",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "referrer_domain",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "referrer_host",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "referrer_host",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "received_language",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "received_language",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "preferred_language",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "preferred_language",
+                "Transformer": "varchar"
+            },
+            {
+                "ColumnCreationOptions": "",
+                "InboundName": "broken",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "broken",
+                "Transformer": ""
+            },
+            {
+                "ColumnCreationOptions": "(12)",
+                "InboundName": "token",
+                "OccurrenceProbability": 0.5,
+                "OutboundName": "token",
+                "Transformer": "varchar"
+            }
+        ],
+        "EventName": "test-three",
+        "Occurred": 1
+    }
+
