@@ -247,6 +247,44 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       suggestionData = deferScratch.promise;
     }
 
+    var rewriteColumns = function(cols) {
+      var rewrites = [
+        {"Name": "channel", "Change": [["size", 25]]  },
+        {"Name": "device_id", "Change": [["size", 32]]  },
+        {"Name": "url", "Change": [["size", 255]]},
+        {"Name": "referrer_url", "Change": [["size", 255]]},
+        {"Name": "domain", "Change": [["size", 255]]},
+        {"Name": "host", "Change": [["size", 127]]},
+        {"Name": "referrer_domain", "Change": [["size", 255]]},
+        {"Name": "referrer_host", "Change": [["size", 127]]},
+        {"Name": "received_language", "Change": [["size", 8]]},
+        {"Name": "preferred_language", "Change": [["size", 8]]},
+      ];
+
+      var deletes = [
+        "token",
+      ];
+
+      angular.forEach(rewrites, function (rule) {
+        angular.forEach(cols, function(col) {
+          if (col.InboundName == rule.Name) {
+            angular.forEach(rule.Change, function(change) {
+              col[change[0]] = change[1];
+            })
+          }
+        });
+      });
+
+      angular.forEach(deletes, function (d) {
+        for (i=0; i<cols.length; i++) {
+          if (cols[i].InboundName == d) {
+            cols.splice(i, 1);
+            break;
+          }
+        }
+      });
+    };
+
     $q.all([typeData, suggestionData]).then(function() {
       var event = {distkey:''};
       var defaultColumns = [{
@@ -312,6 +350,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         });
 
         event.Columns = defaultColumns.concat(event.Columns);
+        rewriteColumns(event.Columns);
       }
 
       $scope.event = event;
@@ -335,7 +374,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         var setDistKey = $scope.event.distkey;
         angular.forEach($scope.event.Columns, function(item) {
           if (!ColumnMaker.validate(item)) {
-            store.setError("At least one column is invalid", undefined);
+            store.setError("At least one column is invalid; look at '" + item.InboundName + "'", undefined);
             return false;
           }
           item.ColumnCreationOptions = '';
