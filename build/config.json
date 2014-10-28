@@ -1,7 +1,7 @@
 {
   "name": "blueprint",
   "creds": "~/.aws",
-  "baseami": "ami-55612f65",
+  "baseami": "ami-9b1158ab",
   "stages": {
     "build": "./build/gobuild.sh",
     "test": "./build/gotest.sh",
