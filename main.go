@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 
@@ -12,20 +11,14 @@ import (
 )
 
 var (
-	scoopProto      = flag.String("proto", "http", "the protocol to use when connecting to scoop")
-	scoopHostname   = flag.String("hostname", "localhost", "the host to connect to scoop on")
-	scoopPort       = flag.Uint64("port", 8080, "the port to connect to scoop on")
+	scoopUrl        = flag.String("scoopURL", "", "the base url for scoop")
 	staticFileDir   = flag.String("staticfiles", "./static", "the location to serve static files from")
 	transformConfig = flag.String("transformConfig", "transforms_available.json", "config for available transforms in spade")
 )
 
-func scoopUrl() string {
-	return fmt.Sprintf("%s://%s:%d", *scoopProto, *scoopHostname, *scoopPort)
-}
-
 func main() {
 	flag.Parse()
-	scoopClient := cachingscoopclient.New(scoopUrl(), *transformConfig)
+	scoopClient := cachingscoopclient.New(*scoopUrl, *transformConfig)
 	apiProcess := api.New(*staticFileDir, scoopClient)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
