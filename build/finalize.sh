@@ -16,6 +16,7 @@ mv ${PKGDIR}/deploy ${TARGETDIR}
 chmod +x ${TARGETDIR}/bin/*
 
 echo "setting up nginx"
+apt-get update
 apt-get install -y nginx
 rm ${NGINXETC}/sites-*/default
 ln -s ${CONFDIR}/nginx.conf ${NGINXETC}/sites-enabled/blueprint
