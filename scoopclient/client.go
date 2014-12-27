@@ -16,10 +16,13 @@ import (
 )
 
 const (
-	SCHEMA_HOST_CONNECT_TIMEOUT = 5 * time.Second
-	SCHEMA_HOST_READ_TIMEOUT    = 15 * time.Minute
+	// SchemaHostConnectTimeout is how long to wait in order to establish a connection with the scoop server.
+	SchemaHostConnectTimeout = 5 * time.Second
+	// SchemaHostReadTimeout is how long to read from server connections before timing out.
+	SchemaHostReadTimeout = 15 * time.Minute
 )
 
+// ScoopClient speaks to scoop and gets schema information.
 type ScoopClient interface {
 	FetchAllSchemas() ([]scoop_protocol.Config, error)
 	FetchSchema(name string) (*scoop_protocol.Config, error)
@@ -45,10 +48,11 @@ func makeScoopHTTPClient(connTimeout, readTimeout time.Duration) func(n, a strin
 	}
 }
 
+// New creates a new ScoopClient communicating with a given URL and configured with transforms (i.e. SQL types) available.
 func New(urlBase string, transformConfig string) ScoopClient {
 	hc := &http.Client{
 		Transport: &http.Transport{
-			Dial:                makeScoopHTTPClient(SCHEMA_HOST_CONNECT_TIMEOUT, SCHEMA_HOST_READ_TIMEOUT),
+			Dial:                makeScoopHTTPClient(SchemaHostConnectTimeout, SchemaHostReadTimeout),
 			MaxIdleConnsPerHost: 1,
 		},
 	}
@@ -59,14 +63,15 @@ func New(urlBase string, transformConfig string) ScoopClient {
 	}
 }
 
-func makeApiUrl(host, uri string) string {
+func makeAPIURL(host, uri string) string {
 	host = strings.TrimSpace(host)
 	uri = strings.TrimSpace(uri)
 	return fmt.Sprintf("%s/%s", strings.TrimSuffix(host, "/"), strings.TrimPrefix(uri, "/"))
 }
 
+// FetchAllSchemas returns all existing schemas.
 func (c *client) FetchAllSchemas() ([]scoop_protocol.Config, error) {
-	b, err := c.makeRequest(makeApiUrl(c.urlBase, "/schema/"))
+	b, err := c.makeRequest(makeAPIURL(c.urlBase, "/schema/"))
 	if err != nil {
 		return nil, fmt.Errorf("Error fetching schemas: %s", err.Error())
 	}
@@ -78,6 +83,7 @@ func (c *client) FetchAllSchemas() ([]scoop_protocol.Config, error) {
 	return cfgs, nil
 }
 
+// FetchSchema returns a specific schema.
 func (c *client) FetchSchema(name string) (*scoop_protocol.Config, error) {
 	cfgs, err := c.FetchAllSchemas()
 	if err != nil {
@@ -86,6 +92,7 @@ func (c *client) FetchSchema(name string) (*scoop_protocol.Config, error) {
 	return ExtractCfgFromList(cfgs, name)
 }
 
+// ExtractCfgFromList finds a specific config from a list of configs.
 func ExtractCfgFromList(cfgs []scoop_protocol.Config, name string) (*scoop_protocol.Config, error) {
 	for _, cfg := range cfgs {
 		if cfg.EventName == name {
@@ -95,7 +102,7 @@ func ExtractCfgFromList(cfgs []scoop_protocol.Config, name string) (*scoop_proto
 	return nil, fmt.Errorf("Unable to find schema: %s", name)
 }
 
-func makeJsonRequest(method, url string, payload []byte) (*http.Request, error) {
+func makeJSONRequest(method, url string, payload []byte) (*http.Request, error) {
 	b := bytes.NewBuffer(payload)
 	req, err := http.NewRequest(method, url, b)
 	if err != nil {
@@ -105,28 +112,29 @@ func makeJsonRequest(method, url string, payload []byte) (*http.Request, error) 
 	return req, nil
 }
 
-func (c *client) putJson(url string, body []byte) (*http.Response, error) {
-	req, err := makeJsonRequest("PUT", url, body)
+func (c *client) putJSON(url string, body []byte) (*http.Response, error) {
+	req, err := makeJSONRequest("PUT", url, body)
 	if err != nil {
 		return nil, err
 	}
 	return c.hc.Do(req)
 }
 
-func (c *client) postJson(url string, body []byte) (*http.Response, error) {
-	req, err := makeJsonRequest("POST", url, body)
+func (c *client) postJSON(url string, body []byte) (*http.Response, error) {
+	req, err := makeJSONRequest("POST", url, body)
 	if err != nil {
 		return nil, err
 	}
 	return c.hc.Do(req)
 }
 
+// CreateSchema creates a new schema.
 func (c *client) CreateSchema(cfg *scoop_protocol.Config) error {
 	b, err := json.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-	res, err := c.putJson(makeApiUrl(c.urlBase, "/schema/"), b)
+	res, err := c.putJSON(makeAPIURL(c.urlBase, "/schema/"), b)
 	if err != nil {
 		return err
 	}
@@ -138,13 +146,14 @@ func (c *client) CreateSchema(cfg *scoop_protocol.Config) error {
 	return nil
 }
 
+// UpdateSchema updates an existing schema.
 func (c *client) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 	b, err := json.Marshal(req.ConvertToScoopRequest())
 	if err != nil {
 		return err
 	}
 	urlPart := fmt.Sprintf("/schema/%s", req.EventName)
-	res, err := c.postJson(makeApiUrl(c.urlBase, urlPart), b)
+	res, err := c.postJSON(makeAPIURL(c.urlBase, urlPart), b)
 	if err != nil {
 		return err
 	}
@@ -156,6 +165,7 @@ func (c *client) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 	return nil
 }
 
+// PropertyTypes returns the available column types.
 func (c *client) PropertyTypes() ([]string, error) {
 	f, err := ioutil.ReadFile(c.transformConfig)
 	if err != nil {
