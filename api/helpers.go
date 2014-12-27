@@ -12,6 +12,7 @@ import (
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
+// SchemaSuggestion indicates a schema for an event that has occurred a certain number of times.
 type SchemaSuggestion struct {
 	EventName string
 	Occurred  int
