@@ -11,14 +11,14 @@ import (
 )
 
 var (
-	scoopUrl        = flag.String("scoopURL", "", "the base url for scoop")
+	scoopURL        = flag.String("scoopURL", "", "the base url for scoop")
 	staticFileDir   = flag.String("staticfiles", "./static", "the location to serve static files from")
 	transformConfig = flag.String("transformConfig", "transforms_available.json", "config for available transforms in spade")
 )
 
 func main() {
 	flag.Parse()
-	scoopClient := cachingscoopclient.New(*scoopUrl, *transformConfig)
+	scoopClient := cachingscoopclient.New(*scoopURL, *transformConfig)
 	apiProcess := api.New(*staticFileDir, scoopClient)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{

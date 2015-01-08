@@ -13,16 +13,32 @@ import (
 	"github.com/twitchscience/blueprint/scoopclient"
 )
 
+// EventRouter receives Mixpanel events, and for events that do not have a table yet, outputs files
+// describing the table for that event.
 type EventRouter struct {
-	CurrentTables    []string
-	Processors       map[string]EventProcessor
+	// CurrentTables maintains the current event names with schemas in scoop. It is updated periodically.
+	CurrentTables []string
+
+	// Processors aggregate data about different event types.
+	Processors map[string]EventProcessor
+
+	// ProcessorFactory creates a new Processor for a previously unseen event type.
 	ProcessorFactory func(string) EventProcessor
-	FlushTimer       <-chan time.Time
-	ScoopClient      scoopclient.ScoopClient
-	GzipReader       *gzip.Reader
-	OutputDir        string
+
+	// FlushTimer will peridically flush data about events to the output directory.
+	FlushTimer <-chan time.Time
+
+	// ScoopClient talks to scoop to get the current tables.
+	ScoopClient scoopclient.ScoopClient
+
+	// GzipReader is for reading files, and is re-used.
+	GzipReader *gzip.Reader
+
+	// OutputDir to place files.
+	OutputDir string
 }
 
+// NewRouter allocates a new EventRouter that outputs transformations to a given output directory.
 func NewRouter(
 	outputDir string,
 	flushInterval time.Duration,
@@ -39,11 +55,14 @@ func NewRouter(
 	return r
 }
 
+// MPEvent is a Mixpanel event.
 type MPEvent struct {
 	Event      string
 	Properties map[string]interface{}
 }
 
+// ReadFile reads a file of Mixpanel events and routes them to event aggregators.
+// If the flush interval has expired, it will flush all even aggregators after reading the file.
 func (e *EventRouter) ReadFile(filename string) error {
 	e.UpdateCurrentTables()
 
@@ -89,8 +108,8 @@ func (e *EventRouter) ReadFile(filename string) error {
 	return nil
 }
 
+// UpdateCurrentTables talks to scoop and updates the list of tables that have been created.
 func (e *EventRouter) UpdateCurrentTables() {
-	// talk to scoop...
 	configs, err := e.ScoopClient.FetchAllSchemas()
 	if err != nil {
 		return
@@ -102,6 +121,7 @@ func (e *EventRouter) UpdateCurrentTables() {
 	e.CurrentTables = newTables
 }
 
+// Route sends an event to its event aggregator, but only if the event does not have a table yet.
 func (e *EventRouter) Route(eventName string, properties map[string]interface{}) {
 	if e.EventCreated(eventName) {
 		return
@@ -113,6 +133,8 @@ func (e *EventRouter) Route(eventName string, properties map[string]interface{})
 	e.Processors[eventName].Accept(properties)
 }
 
+// FlushRouters flushes event schema descriptions to the output directory, and also deletes ones for
+// which a table has been created (can happen under race condition).
 func (e *EventRouter) FlushRouters() {
 	for event, processor := range e.Processors {
 		processor.Flush(event)
@@ -134,6 +156,7 @@ func (e *EventRouter) FlushRouters() {
 	}
 }
 
+// EventCreated returns true if the event has a table in scoop.
 func (e *EventRouter) EventCreated(eventName string) bool {
 	for _, tables := range e.CurrentTables {
 		if tables == eventName {

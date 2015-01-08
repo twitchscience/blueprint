@@ -1,3 +1,4 @@
+// Package api exposes the scoop HTTP API. Scoop manages the state of tables in Redshift.
 package api
 
 import (
@@ -13,6 +14,7 @@ type server struct {
 	datasource scoopclient.ScoopClient
 }
 
+// New returns an API process.
 func New(docRoot string, client scoopclient.ScoopClient) core.Subprocess {
 	return &server{
 		docRoot:    docRoot,
@@ -20,6 +22,7 @@ func New(docRoot string, client scoopclient.ScoopClient) core.Subprocess {
 	}
 }
 
+// Setup route handlers.
 func (s *server) Setup() error {
 	files := web.New()
 	files.Get("/*", s.fileHandler)
@@ -50,11 +53,12 @@ func (s *server) Setup() error {
 	return nil
 }
 
+// Start the API server.
 func (s *server) Start() {
-
 	goji.Serve()
 }
 
+// Stop the API server.
 func (s *server) Stop() {
 	graceful.Shutdown()
 }

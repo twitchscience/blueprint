@@ -25,22 +25,29 @@ import (
 )
 
 var (
-	scoopUrl        = flag.String("url", "http://localhost:8080", "the url to talk to scoop")
+	scoopURL        = flag.String("url", "http://localhost:8080", "the url to talk to scoop")
 	staticFileDir   = flag.String("staticfiles", "./static/events", "the location to serve static files from")
 	transformConfig = flag.String("transformConfig", "transforms_available.json", "config for available transforms in spade")
 	env             = environment.GetCloudEnv()
 )
 
+// BPHandler listens to SQS for new messages describing freshly uploaded event data in S3.
 type BPHandler struct {
+	// Router process events, outputting metadata as files.
 	Router *processor.EventRouter
-	S3     *s3.S3
+
+	// S3 communicates with S3.
+	S3 *s3.S3
 }
 
+// NontrackedLogMessage is an SQS mesage containing data about the table the event should go into as
+// well as the location (key) in S3 with event data.
 type NontrackedLogMessage struct {
 	Tablename string
 	Keyname   string
 }
 
+// Handle an SQS message by downloading and processing the event data the message describes.
 func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	var rotatedMessage NontrackedLogMessage
 
@@ -80,7 +87,7 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 
 func main() {
 	flag.Parse()
-	scoopClient := cachingscoopclient.New(*scoopUrl, *transformConfig)
+	scoopClient := cachingscoopclient.New(*scoopURL, *transformConfig)
 
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.
