@@ -32,8 +32,6 @@ by way of blueprint.
 ```
 apt-get -u install build-essential libgeoip-dev libgeoip1`
 go get github.com/tools/godep
-godep restore
-godep go test -v ./...
 ./build.sh blueprint $GIT_BRANCH $BASEAMI $SECURITY_GROUP false
 ```
 
