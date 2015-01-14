@@ -19,6 +19,7 @@ export GOOS=linux
 export GOBIN="/tmp/${PROJECT}_build_$$"
 
 godep restore
+godep go vet ./... # go get golang.org/x/tools/cmd/vet
 godep go test -v ./...
 godep go build -v ./...
 godep go install -v ./...
@@ -27,7 +28,7 @@ packer                                         \
     -machine-readable build                    \
     -var "project=${PROJECT}"                  \
     -var "branch=${BRANCH}"                    \
-    -var "binary_dir=${GO_BIN}"                \
+    -var "binary_dir=${GOBIN}"                 \
     -var "source_ami=${SOURCE_AMI}"            \
     -var "security_group_id=${SECURITY_GROUP}" \
     -var "use_private_ip=${USE_PRIVATE_IP}"    \
