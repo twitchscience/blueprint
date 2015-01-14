@@ -30,7 +30,7 @@ by way of blueprint.
 ## Building
 
 ```
-apt-get -u install build-essential libgeoip-dev libgeoip1`
+apt-get -u install build-essential libgeoip-dev libgeoip1
 go get github.com/tools/godep
 ./build.sh blueprint $GIT_BRANCH $BASEAMI $SECURITY_GROUP false
 ```
