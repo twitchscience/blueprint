@@ -59,9 +59,9 @@
       "type": "shell",
       "inline": [
         "sudo chmod +x /tmp/{{user `project`}}/bin/*",
-        "sudo mkdir /opt/science && sudo mv /tmp/{{user `project`}}/* /opt/science/",
-        "sudo mv /opt/science/config/schema_suggestor.conf /etc/init/",
-        "sudo mv /opt/science/config/blueprint.conf /etc/init/",
+        "sudo mkdir /opt/science && sudo mv /tmp/{{user `project`}} /opt/science/",
+        "sudo mv /opt/science/{{user `project`}}/config/schema_suggestor.conf /etc/init/",
+        "sudo mv /opt/science/{{user `project`}}/config/blueprint.conf /etc/init/",
 
         "sudo apt-get update",
         "sudo apt-get install -y nginx",
@@ -69,7 +69,7 @@
         "sudo ln -s /opt/science/{{user `project`}}/config/nginx.conf /etc/nginx/sites-enabled/{{user `project`}}",
         "sudo mkdir -p /opt/science/nginx/logs",
         "sudo mkdir -p /opt/science/nginx/html",
-        "sudo mv /opt/science/data/* /opt/science/nginx/html/"
+        "sudo mv /opt/science/{{user `project`}}/data/* /opt/science/nginx/html/"
       ]
     }
   ]
