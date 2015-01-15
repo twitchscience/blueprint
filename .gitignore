@@ -3,3 +3,4 @@ Vagrantfile
 .vagrant
 .DS_Store
 gitignore-*
+build/config/transforms_available.json
