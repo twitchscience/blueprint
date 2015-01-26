@@ -8,9 +8,9 @@ The schema server for the
 This permits you to create "schemas". A schema is essentially a
 confluence of two related concepts:
 
- # A set of instructions for how to convert inbound data to the
+ * A set of instructions for how to convert inbound data to the
    desired outbound data
- # The table structure that the data will be inserted into
+ * The table structure that the data will be inserted into
 
 "Outbound data" and "table structure" are essentially the same in our
 world view.
