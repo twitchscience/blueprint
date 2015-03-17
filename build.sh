@@ -6,10 +6,12 @@ set -euo pipefail
 PROJECT=$1
 BRANCH=$2
 SOURCE_AMI=$3
-SECURITY_GROUP=$4
+VPC=$4
+SUBNET=$5
+SECURITY_GROUP=$6
 
 # I hate boolean args, but I'm not sure how to handle this.
-USE_PRIVATE_IP=${5:-"false"}
+USE_PRIVATE_IP=${7:-"false"}
 
 go get github.com/twitchscience/spade/transformer_dumper
 transformer_dumper -outFile build/config/transforms_available.json
@@ -30,6 +32,8 @@ packer                                         \
     -var "branch=${BRANCH}"                    \
     -var "binary_dir=${GOBIN}"                 \
     -var "source_ami=${SOURCE_AMI}"            \
+    -var "vpc_id=${VPC}"                       \
+    -var "subnet_id=${SUBNET}"                 \
     -var "security_group_id=${SECURITY_GROUP}" \
     -var "use_private_ip=${USE_PRIVATE_IP}"    \
     build/packer.json
