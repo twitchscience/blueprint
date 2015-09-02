@@ -11,7 +11,12 @@ export CONFIG_PREFIX="s3://$S3_CONFIG_BUCKET/$VPC_SUBNET_TAG/$CLOUD_APP/$CLOUD_E
 aws s3 cp --region us-west-2 "$CONFIG_PREFIX/conf.sh" conf.sh
 source conf.sh
 
-exec ./blueprint \
-  -scoopURL="${SCOOP_URL}" \
+exec ./blueprint "$@"                                        \
+  -scoopURL="${SCOOP_URL}"                                   \
+  -adminEmails="${ENG_ADMINS};${ANL_ADMINS}"                 \
+  -cookieSecret=${COOKIE_SECRET}                             \
+  -googleClientID=${GOOGLE_CLIENT_ID}                        \
+  -googleClientSecret=${GOOGLE_CLIENT_SECRET}                \
+  -loginURLRedirect=${LOGIN_URL_REDIRECT}					 \
   -transformConfig="${CONFIG_DIR}/transforms_available.json" \
   -staticfiles="${SCIENCE_DIR}/nginx/html"

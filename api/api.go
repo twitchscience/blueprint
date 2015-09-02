@@ -2,6 +2,10 @@
 package api
 
 import (
+	"flag"
+	"strings"
+
+	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/blueprint/scoopclient"
 	"github.com/zenazn/goji"
@@ -12,6 +16,26 @@ import (
 type server struct {
 	docRoot    string
 	datasource scoopclient.ScoopClient
+}
+
+var (
+	loginURL           = "/login"
+	logoutURL          = "/logout"
+	readonly           bool
+	adminEmails        string
+	cookieSecret       string
+	googleClientID     string
+	googleClientSecret string
+	publicLoginURL     string
+)
+
+func init() {
+	flag.BoolVar(&readonly, "readonly", true, "run in readonly mode and disable auth")
+	flag.StringVar(&adminEmails, "adminEmails", "", "semicolon separated list of admin email addresses")
+	flag.StringVar(&cookieSecret, "cookieSecret", "", "32 character secret for signing cookies")
+	flag.StringVar(&googleClientID, "googleClientID", "", "Google API client id")
+	flag.StringVar(&googleClientSecret, "googleClientSecret", "", "Google API client secret")
+	flag.StringVar(&publicLoginURL, "loginURLRedirect", "", "Redirect URL as set in the Google Auth")
 }
 
 // New returns an API process.
@@ -30,15 +54,30 @@ func (s *server) Setup() error {
 
 	api := web.New()
 	api.Use(jsonResponse)
-	api.Put("/schema", s.createSchema)
 	api.Get("/schemas", s.allSchemas)
 	api.Get("/schema/:id", s.schema)
-	api.Post("/schema/:id", s.updateSchema)
 	api.Get("/types", s.types)
-	api.Post("/expire", s.expire)
 	api.Get("/suggestions", s.listSuggestions)
 	api.Get("/suggestion/:id", s.suggestion)
-	api.Post("/removesuggestion/:id", s.removeSuggestion)
+
+	if !readonly {
+		api.Put("/schema", s.createSchema)
+		api.Post("/expire", s.expire)
+		api.Post("/schema/:id", s.updateSchema)
+		api.Post("/removesuggestion/:id", s.removeSuggestion)
+
+		a := auth.New(strings.Split(adminEmails, ";"),
+			googleClientID,
+			googleClientSecret,
+			cookieSecret,
+			loginURL,
+			publicLoginURL,
+			logoutURL)
+
+		api.Use(a.AdminMiddleware)
+		goji.Handle(loginURL, a.LoginHandler)
+		goji.Handle(logoutURL, a.LogoutHandler)
+	}
 
 	// Order is important here
 	goji.Handle("/schema*", api)
