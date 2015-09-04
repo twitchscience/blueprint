@@ -34,38 +34,3 @@ methods of using this library are equally well supported.
 Goji requires Go 1.2 or newer.
 */
 package goji
-
-import (
-	"flag"
-	"log"
-	"net/http"
-
-	"github.com/zenazn/goji/bind"
-	"github.com/zenazn/goji/graceful"
-)
-
-// Serve starts Goji using reasonable defaults.
-func Serve() {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-
-	log.SetFlags(log.Flags() | log.Lmicroseconds)
-
-	// Install our handler at the root of the standard net/http default mux.
-	// This allows packages like expvar to continue working as expected.
-	http.Handle("/", DefaultMux)
-
-	listener := bind.Default()
-	log.Println("Starting Goji on", listener.Addr())
-
-	bind.Ready()
-
-	err := graceful.Serve(listener, http.DefaultServeMux)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	graceful.Wait()
-}
