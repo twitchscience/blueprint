@@ -52,6 +52,9 @@ func (s *server) Setup() error {
 	files.Get("/*", s.fileHandler)
 	files.NotFound(fourOhFour)
 
+	healthcheck := web.New()
+	healthcheck.Get("/health", s.healthCheck)
+
 	api := web.New()
 	api.Use(jsonResponse)
 	api.Get("/schemas", s.allSchemas)
@@ -80,6 +83,7 @@ func (s *server) Setup() error {
 	}
 
 	// Order is important here
+	goji.Handle("/health", healthcheck)
 	goji.Handle("/schema*", api)
 	goji.Handle("/suggestion*", api)
 	goji.Handle("/types", api)

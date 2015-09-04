@@ -19,7 +19,7 @@
     "region": "us-west-2",
     "ssh_username": "ubuntu",
     "source_ami": "{{user `source_ami`}}",
-    "instance_type": "m1.medium",
+    "instance_type": "c4.large",
     "ssh_private_ip": "{{user `use_private_ip`}}",
     "vpc_id": "{{user `vpc_id`}}",
     "subnet_id": "{{user `subnet_id`}}",
