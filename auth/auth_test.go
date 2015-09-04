@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"code.justin.tv/stats/scoop/auth"
 	"github.com/gorilla/context"
+	"github.com/twitchscience/blueprint/auth"
 	"github.com/zenazn/goji"
 	"github.com/zenazn/goji/web"
 )
