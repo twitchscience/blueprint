@@ -77,6 +77,7 @@ func (s *server) Setup() error {
 			publicLoginURL,
 			logoutURL)
 
+		files.Use(a.AdminMiddleware)
 		api.Use(a.AdminMiddleware)
 		goji.Handle(loginURL, a.LoginHandler)
 		goji.Handle(logoutURL, a.LogoutHandler)
