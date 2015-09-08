@@ -85,8 +85,10 @@ func (s *server) Setup() error {
 
 	// Order is important here
 	goji.Handle("/health", healthcheck)
-	goji.Handle("/schema*", api)
-	goji.Handle("/suggestion*", api)
+	goji.Handle("/schemas", api)
+	goji.Handle("/schema/*", api)
+	goji.Handle("/suggestions", api)
+	goji.Handle("/suggestion/*", api)
 	goji.Handle("/types", api)
 	goji.Handle("/expire", api)
 	goji.Handle("/*", files)
