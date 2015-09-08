@@ -49,9 +49,6 @@ func New(docRoot string, client scoopclient.ScoopClient) core.Subprocess {
 // Setup route handlers.
 func (s *server) Setup() error {
 	files := web.New()
-	if !readonly {
-		files.Use(a.AdminMiddleware)
-	}
 	files.Get("/*", s.fileHandler)
 	files.NotFound(fourOhFour)
 
@@ -67,13 +64,6 @@ func (s *server) Setup() error {
 	api.Get("/suggestion/:id", s.suggestion)
 
 	if !readonly {
-		api.Use(a.AdminMiddleware)
-
-		api.Put("/schema", s.createSchema)
-		api.Post("/expire", s.expire)
-		api.Post("/schema/:id", s.updateSchema)
-		api.Post("/removesuggestion/:id", s.removeSuggestion)
-
 		a := auth.New(strings.Split(adminEmails, ";"),
 			googleClientID,
 			googleClientSecret,
@@ -81,6 +71,14 @@ func (s *server) Setup() error {
 			loginURL,
 			publicLoginURL,
 			logoutURL)
+
+		api.Use(a.AdminMiddleware)
+		files.Use(a.AdminMiddleware)
+
+		api.Put("/schema", s.createSchema)
+		api.Post("/expire", s.expire)
+		api.Post("/schema/:id", s.updateSchema)
+		api.Post("/removesuggestion/:id", s.removeSuggestion)
 
 		goji.Handle(loginURL, a.LoginHandler)
 		goji.Handle(logoutURL, a.LogoutHandler)
