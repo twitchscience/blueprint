@@ -30,7 +30,7 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&readonly, "readonly", true, "run in readonly mode and disable auth")
+	flag.BoolVar(&readonly, "readonly", false, "run in readonly mode and disable auth")
 	flag.StringVar(&adminEmails, "adminEmails", "", "semicolon separated list of admin email addresses")
 	flag.StringVar(&cookieSecret, "cookieSecret", "", "32 character secret for signing cookies")
 	flag.StringVar(&googleClientID, "googleClientID", "", "Google API client id")
@@ -48,10 +48,6 @@ func New(docRoot string, client scoopclient.ScoopClient) core.Subprocess {
 
 // Setup route handlers.
 func (s *server) Setup() error {
-	files := web.New()
-	files.Get("/*", s.fileHandler)
-	files.NotFound(fourOhFour)
-
 	healthcheck := web.New()
 	healthcheck.Get("/health", s.healthCheck)
 
@@ -63,6 +59,14 @@ func (s *server) Setup() error {
 	api.Get("/suggestions", s.listSuggestions)
 	api.Get("/suggestion/:id", s.suggestion)
 
+	goji.Handle("/health", healthcheck)
+	goji.Handle("/schemas", api)
+	goji.Handle("/schema/*", api)
+	goji.Handle("/suggestions", api)
+	goji.Handle("/suggestion/*", api)
+	goji.Handle("/types", api)
+	goji.Handle("/expire", api)
+
 	if !readonly {
 		a := auth.New(strings.Split(adminEmails, ";"),
 			googleClientID,
@@ -73,7 +77,6 @@ func (s *server) Setup() error {
 			logoutURL)
 
 		api.Use(a.AdminMiddleware)
-		files.Use(a.AdminMiddleware)
 
 		api.Put("/schema", s.createSchema)
 		api.Post("/expire", s.expire)
@@ -82,17 +85,14 @@ func (s *server) Setup() error {
 
 		goji.Handle(loginURL, a.LoginHandler)
 		goji.Handle(logoutURL, a.LogoutHandler)
-	}
 
-	// Order is important here
-	goji.Handle("/health", healthcheck)
-	goji.Handle("/schemas", api)
-	goji.Handle("/schema/*", api)
-	goji.Handle("/suggestions", api)
-	goji.Handle("/suggestion/*", api)
-	goji.Handle("/types", api)
-	goji.Handle("/expire", api)
-	goji.Handle("/*", files)
+		files := web.New()
+		files.Get("/*", s.fileHandler)
+		files.Use(a.AdminMiddleware)
+
+		goji.Handle("/*", files)
+	}
+	goji.NotFound(fourOhFour)
 
 	// Stop() provides our shutdown semantics
 	graceful.ResetSignals()
