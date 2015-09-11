@@ -1,12 +1,7 @@
 {
 	"ImportPath": "github.com/twitchscience/blueprint",
-	"GoVersion": "go1.3",
+	"GoVersion": "go1.5",
 	"Deps": [
-		{
-			"ImportPath": "code.google.com/p/goauth2/oauth",
-			"Comment": "weekly-56",
-			"Rev": "afe77d958c701557ec5dc56f6936fcc194d15520"
-		},
 		{
 			"ImportPath": "github.com/gorilla/context",
 			"Rev": "215affda49addc4c8ef7e2534915df2c8c35c6cd"
@@ -35,6 +30,14 @@
 			"ImportPath": "github.com/zenazn/goji",
 			"Comment": "v0.9.0-10-g739f05c",
 			"Rev": "739f05c9497895aee8d398a8ff38fb0517c4d670"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "db8e4de5b2d6653f66aea53094624468caad15d2"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2",
+			"Rev": "ad0128250e8fba646a92ca9129716e523d63ef9f"
 		}
 	]
 }
