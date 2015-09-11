@@ -4,6 +4,7 @@ package api
 import (
 	"flag"
 
+	"github.com/gorilla/context"
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/blueprint/scoopclient"
@@ -76,6 +77,7 @@ func (s *server) Setup() error {
 			loginURL)
 
 		api.Use(a.UserMiddleware)
+		api.Use(context.ClearHandler)
 
 		api.Put("/schema", s.createSchema)
 		api.Post("/expire", s.expire)
@@ -89,6 +91,7 @@ func (s *server) Setup() error {
 		files := web.New()
 		files.Get("/*", s.fileHandler)
 		files.Use(a.UserMiddleware)
+		files.Use(context.ClearHandler)
 
 		goji.Handle("/*", files)
 	}
