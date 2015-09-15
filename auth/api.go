@@ -1,3 +1,7 @@
+/*
+	Authorization middleware using github OAuth, with support for using github enterprise.
+*/
+
 package auth
 
 import "net/http"
@@ -8,10 +12,10 @@ type AuthUser struct {
 }
 
 type Auth interface {
-	UserMiddleware(h http.Handler) http.Handler
-	User(r *http.Request) *AuthUser
-	RequireUser(w http.ResponseWriter, r *http.Request) *AuthUser
+	AuthorizeOrRedirect(h http.Handler) http.Handler
+	AuthorizeOrForbid(h http.Handler) http.Handler
 	LoginHandler(w http.ResponseWriter, r *http.Request)
 	LogoutHandler(w http.ResponseWriter, r *http.Request)
 	AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
+	User(r *http.Request) *AuthUser
 }

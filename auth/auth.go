@@ -1,8 +1,5 @@
 /*
-	Auth providor using github externprise and secure session cookies with gorilla
-
-Setup:
-	Register Auth.LoginHandler and Auth.LogoutHandler at the URLs you specified
+	Authorization middleware using github OAuth, with support for using github enterprise.
 */
 
 package auth
@@ -18,7 +15,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Create a new Auth object
 func New(githubServer string,
 	clientId string,
 	clientSecret string,
@@ -26,13 +22,16 @@ func New(githubServer string,
 	requiredOrg string,
 	loginURL string) Auth {
 
+	if clientId == "" || clientSecret == "" {
+		log.Fatalln("Authentication ClientId and ClientSecret missing")
+	}
+
 	if cookieSecret == "" || len(cookieSecret) != 32 {
 		log.Fatalln("Missing/broken cookie secret! It must be length 32")
 	}
 
 	cfg := &GithubAuth{
 		RequiredOrg:  requiredOrg,
-		CookieSecret: cookieSecret,
 		LoginUrl:     loginURL,
 		CookieStore:  sessions.NewCookieStore([]byte(cookieSecret)),
 		GithubServer: githubServer,
@@ -52,10 +51,8 @@ func New(githubServer string,
 	return cfg
 }
 
-// Use New() to create this so you get the tasty defaults
 type GithubAuth struct {
-	RequiredOrg  string
-	CookieSecret string
+	RequiredOrg  string // If empty, membership will not be tested
 	LoginUrl     string
 	GithubServer string
 	LoginTTL     int64 // seconds
@@ -65,14 +62,24 @@ type GithubAuth struct {
 
 // Require a user login
 // Always use context.ClearHandler as the base middleware or you'll leak memory (unless you're using gorilla as your server)
-func (a *GithubAuth) UserMiddleware(h http.Handler) http.Handler {
+func (a *GithubAuth) AuthorizeOrRedirect(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		user := a.RequireUser(w, r)
-		if user == nil {
+		user := a.User(r)
+		if user == nil || user.IsMemberOfOrg == false {
+			http.Redirect(w, r, a.LoginUrl+"?redirect_to="+r.RequestURI, http.StatusFound)
 			return
 		}
 
-		if user.IsMemberOfOrg == false && a.RequiredOrg != "" {
+		h.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
+
+func (a *GithubAuth) AuthorizeOrForbid(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		user := a.User(r)
+		if user == nil || user.IsMemberOfOrg == false {
+			http.Error(w, "Please authenticate", http.StatusForbidden)
 			return
 		}
 
@@ -111,7 +118,7 @@ func (a *GithubAuth) User(r *http.Request) *AuthUser {
 		return nil
 	}
 
-	isMember := false
+	isMember := true
 	if a.RequiredOrg != "" {
 		client := a.OauthConfig.Client(oauth2.NoContext, &token)
 
@@ -133,7 +140,7 @@ func (a *GithubAuth) User(r *http.Request) *AuthUser {
 	}
 }
 
-func (a *GithubAuth) RequireUser(w http.ResponseWriter, r *http.Request) *AuthUser {
+func (a *GithubAuth) requireUser(w http.ResponseWriter, r *http.Request) *AuthUser {
 	user := a.User(r)
 	if user == nil {
 		http.Redirect(w, r, a.LoginUrl+"?redirect_to="+r.RequestURI, http.StatusFound)

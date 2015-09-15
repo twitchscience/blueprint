@@ -17,13 +17,56 @@ const (
 	cookieName = "github-auth"
 )
 
-func verifyOrReport(test bool, w http.ResponseWriter, message string) bool {
-	if test == false {
-		log.Println(message)
-		http.Error(w, message, http.StatusInternalServerError)
-		return false
+func (a *GithubAuth) exchangeToken(code string, state string) (*oauth2.Token, error) {
+	resp, err := http.PostForm(a.OauthConfig.Endpoint.TokenURL, url.Values{
+		"client_id":     {a.OauthConfig.ClientID},
+		"client_secret": {a.OauthConfig.ClientSecret},
+		"code":          {code},
+		"state":         {state}})
+
+	if err != nil {
+		return nil, fmt.Errorf("Error getting token: %s", err)
 	}
-	return true
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error fetching OAuth token: %s", err)
+	}
+
+	statusCode := resp.StatusCode
+	if statusCode < 200 || statusCode > 299 {
+		return nil, fmt.Errorf("Got HTTP error code %d", statusCode)
+	}
+
+	vals, err := url.ParseQuery(string(body))
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse OAuth response: %s", err)
+	}
+
+	return &oauth2.Token{
+		AccessToken: vals.Get("access_token"),
+		TokenType:   vals.Get("token_type"),
+	}, nil
+}
+
+func responseBodyToMap(r *http.Response) (map[string]interface{}, error) {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error reading body from response: %s", err)
+	}
+
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshal attempt: %s", err)
+	}
+
+	return result, nil
 }
 
 func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -33,79 +76,50 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 	r.ParseForm()
 
 	expectedState := session.Values["auth-state"]
-	if !verifyOrReport(expectedState != nil, w, fmt.Sprintf("No auth state variable found in cookie")) {
+	if expectedState == nil {
+		log.Printf("AuthCallbackHandler: No auth state variable found in cookie\n")
 		return
 	}
 
 	recievedState := r.FormValue("state")
-	if !verifyOrReport(expectedState == recievedState, w,
-		fmt.Sprintf("Invalid oauth state! Expected '%v' got '%v'", expectedState, recievedState)) {
+	if expectedState != recievedState {
+		log.Printf("Invalid oauth state! Expected '%v' got '%v'", expectedState, recievedState)
 		return
 	}
 
-	resp, err := http.PostForm(a.OauthConfig.Endpoint.TokenURL, url.Values{
-		"client_id":     {a.OauthConfig.ClientID},
-		"client_secret": {a.OauthConfig.ClientSecret},
-		"code":          {r.FormValue("code")},
-		"state":         {recievedState}})
-
-	if !verifyOrReport(err == nil, w, fmt.Sprintf("Error getting token, result = %s", err)) {
+	token, err := a.exchangeToken(r.FormValue("code"), recievedState)
+	if err != nil {
+		log.Printf("Unable to exchange token: %s", err)
 		return
 	}
 
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if !verifyOrReport(err == nil, w, fmt.Sprintf("Cannot fetch OAuth token: %v\n", err)) {
+	client := a.OauthConfig.Client(oauth2.NoContext, token)
+	resp, err := client.Get(a.GithubServer + "/api/v3/user")
+	if err != nil {
+		log.Printf("Error getting user info: %s", err)
 		return
 	}
 
-	statusCode := resp.StatusCode
-	if !verifyOrReport(statusCode >= 200 && statusCode <= 299, w,
-		fmt.Sprintf("Cannot fetch OAuth token: %v\nResponse: %s", resp.Status, body)) {
+	userInfo, err := responseBodyToMap(resp)
+	if err != nil {
+		log.Println(err.Error())
 		return
 	}
 
-	vals, err := url.ParseQuery(string(body))
-	if !verifyOrReport(err == nil, w, fmt.Sprintf("Cannot parse OAuth response: %v", err)) {
+	if userInfo["login"] == nil {
+		log.Println("User login not found in user info")
 		return
-	}
-
-	token := &oauth2.Token{
-		AccessToken: vals.Get("access_token"),
-		TokenType:   vals.Get("token_type"),
 	}
 
 	bytes, err := json.Marshal(token)
-	if !verifyOrReport(err == nil, w, fmt.Sprintf("Error marshalling oauth token: %v", err)) {
+	if err != nil {
+		log.Println("Error Marshalling oauth token: err.Error()")
 		return
 	}
+
 	session.Values["auth-token"] = bytes
-
-	client := a.OauthConfig.Client(oauth2.NoContext, token)
-	resp, err = client.Get(a.GithubServer + "/api/v3/user")
-	if !verifyOrReport(err == nil, w, fmt.Sprintf("Error getting user info: %v", err)) {
-		return
-	}
-
-	defer resp.Body.Close()
-	body, err = ioutil.ReadAll(resp.Body)
-	if !verifyOrReport(err == nil, w, fmt.Sprintf("Error reading response for user info: %v", err)) {
-		return
-	}
-
-	var user map[string]interface{}
-	err = json.Unmarshal(body, &user)
-	if !verifyOrReport(err == nil, w, fmt.Sprintf("Error unmarshalling user info: %v", err)) {
-		return
-	}
-
-	if !verifyOrReport(user["login"] != nil, w, "user login not found in user info") {
-		return
-	}
-
 	session.Values["login-time"] = time.Now().Unix()
-	session.Values["login-name"] = user["login"]
+	session.Values["login-name"] = userInfo["login"]
 
 	redirectTarget := session.Values["auth-redirect-to"].(string)
 	delete(session.Values, "auth-redirect-to")
@@ -116,8 +130,6 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("LoginHandler")
-
 	// Generate random string to protect the user from CSRF attacks.
 	// See http://tools.ietf.org/html/rfc6749#section-10.12 for more info
 	bytes := make([]byte, 32)
@@ -129,8 +141,6 @@ func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	session.Values["auth-redirect-to"] = r.FormValue("redirect_to")
 	session.Values["auth-state"] = oauthStateString
 	session.Save(r, w)
-
-	log.Printf("Redirect To: %v State: %v", r.FormValue("redirect_to"), oauthStateString)
 
 	url := a.OauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)

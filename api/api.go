@@ -76,7 +76,7 @@ func (s *server) Setup() error {
 			requiredOrg,
 			loginURL)
 
-		api.Use(a.UserMiddleware)
+		api.Use(a.AuthorizeOrForbid)
 		api.Use(context.ClearHandler)
 
 		api.Put("/schema", s.createSchema)
@@ -90,7 +90,7 @@ func (s *server) Setup() error {
 
 		files := web.New()
 		files.Get("/*", s.fileHandler)
-		files.Use(a.UserMiddleware)
+		files.Use(a.AuthorizeOrRedirect)
 		files.Use(context.ClearHandler)
 
 		goji.Handle("/*", files)
