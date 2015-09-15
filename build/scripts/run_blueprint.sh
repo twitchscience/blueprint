@@ -14,8 +14,8 @@ source conf.sh
 exec ./blueprint "$@"                                        \
   -scoopURL="${SCOOP_URL}"                                   \
   -cookieSecret=${COOKIE_SECRET}                             \
-  -clientID=${CLIENT_ID}                        			 \
-  -clientSecret=${CLIENT_SECRET}                			 \
+  -clientID=${CLIENT_ID}                                     \
+  -clientSecret=${CLIENT_SECRET}                             \
   -githubServer=${GITHUB_SERVER}                             \
   -transformConfig="${CONFIG_DIR}/transforms_available.json" \
   -requiredOrg=${REQUIRED_ORG}                               \
