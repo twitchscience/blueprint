@@ -39,16 +39,21 @@ var bind string
 func init() {
 	einhornInit()
 	systemdInit()
+}
 
+// WithFlag adds a standard flag to the global flag instance that allows
+// configuration of the default socket. Users who call Default() must call this
+// function before flags are parsed, for example in an init() block.
+//
+// When selecting the default bind string, this function will examine its
+// environment for hints about what port to bind to, selecting the GOJI_BIND
+// environment variable, Einhorn, systemd, the PORT environment variable, and
+// the port 8000, in order. In most cases, this means that the default behavior
+// of the default socket will be reasonable for use in your circumstance.
+func WithFlag() {
 	defaultBind := ":8000"
-	if bind := os.Getenv("GOJI_BIND"); bind != "" {
-		defaultBind = bind
-	} else if usingEinhorn() {
-		defaultBind = "einhorn@0"
-	} else if usingSystemd() {
-		defaultBind = "fd@3"
-	} else if port := os.Getenv("PORT"); port != "" {
-		defaultBind = ":" + port
+	if s := Sniff(); s != "" {
+		defaultBind = s
 	}
 	flag.StringVar(&bind, "bind", defaultBind,
 		`Address to bind on. If this value has a colon, as in ":8000" or
@@ -63,6 +68,24 @@ func init() {
 		(systemd), and ":8000" (fallback) based on its environment.`)
 }
 
+// Sniff attempts to select a sensible default bind string by examining its
+// environment. It examines the GOJI_BIND environment variable, Einhorn,
+// systemd, and the PORT environment variable, in that order, selecting the
+// first plausible option. It returns the empty string if no sensible default
+// could be extracted from the environment.
+func Sniff() string {
+	if bind := os.Getenv("GOJI_BIND"); bind != "" {
+		return bind
+	} else if usingEinhorn() {
+		return "einhorn@0"
+	} else if usingSystemd() {
+		return "fd@3"
+	} else if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+	return ""
+}
+
 func listenTo(bind string) (net.Listener, error) {
 	if strings.Contains(bind, ":") {
 		return net.Listen("tcp", bind)
@@ -75,6 +98,7 @@ func listenTo(bind string) (net.Listener, error) {
 				bind, err)
 		}
 		f := os.NewFile(uintptr(fd), bind)
+		defer f.Close()
 		return net.FileListener(f)
 	} else if strings.HasPrefix(bind, "einhorn@") {
 		fd, err := strconv.Atoi(bind[8:])

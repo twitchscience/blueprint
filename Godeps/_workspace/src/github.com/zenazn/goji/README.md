@@ -1,5 +1,7 @@
-Goji [![GoDoc](https://godoc.org/github.com/zenazn/goji?status.png)](https://godoc.org/github.com/zenazn/goji) [![Build Status](https://travis-ci.org/zenazn/goji.svg)](https://travis-ci.org/zenazn/goji)
+Goji
 ====
+
+[![GoDoc](https://godoc.org/github.com/zenazn/goji/web?status.svg)](https://godoc.org/github.com/zenazn/goji/web) [![Build Status](https://travis-ci.org/zenazn/goji.svg)](https://travis-ci.org/zenazn/goji)
 
 Goji is a minimalistic web framework that values composability and simplicity.
 
@@ -44,13 +46,11 @@ Features
 * Automatic support for [Einhorn][einhorn], systemd, and [more][bind]
 * [Graceful shutdown][graceful], and zero-downtime graceful reload when combined
   with Einhorn.
-* Ruby on Rails / jQuery style [parameter parsing][param]
 * High in antioxidants
 
 [einhorn]: https://github.com/stripe/einhorn
 [bind]: http://godoc.org/github.com/zenazn/goji/bind
 [graceful]: http://godoc.org/github.com/zenazn/goji/graceful
-[param]: http://godoc.org/github.com/zenazn/goji/param
 [pattern]: https://godoc.org/github.com/zenazn/goji/web#Pattern
 
 
@@ -62,7 +62,7 @@ Maybe!
 There are [plenty][revel] of [other][gorilla] [good][pat] [Go][martini]
 [web][gocraft] [frameworks][tiger] out there. Goji is by no means especially
 novel, nor is it uniquely good. The primary difference between Goji and other
-frameworks--and the primary reason I think Goji is any good--is its philosophy:
+frameworks—and the primary reason I think Goji is any good—is its philosophy:
 
 Goji first of all attempts to be simple. It is of the Sinatra and Flask school
 of web framework design, and not the Rails/Django one. If you want me to tell
@@ -127,7 +127,20 @@ on a request. What matters is that you aren't compromising on the API for a
 handful of CPU cycles.
 
 [bench1]: https://gist.github.com/zenazn/c5c8528efe1a00634096
-[bench2]: https://github.com/zenazn/go-http-routing-benchmark
+[bench2]: https://github.com/julienschmidt/go-http-routing-benchmark
+
+
+Third-Party Libraries
+---------------------
+
+Goji is already compatible with a great many third-party libraries that are
+themselves compatible with `net/http`, however some library authors have gone
+out of their way to include Goji compatibility specifically, perhaps by
+integrating more tightly with Goji's `web.C` or by providing a custom pattern
+type. An informal list of such libraries is maintained [on the wiki][third];
+feel free to add to it as you see fit.
+
+[third]: https://github.com/zenazn/goji/wiki/Third-Party-Libraries
 
 
 Contributing

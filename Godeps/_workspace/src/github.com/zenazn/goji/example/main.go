@@ -13,10 +13,12 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"time"
 
+	"github.com/goji/param"
 	"github.com/zenazn/goji"
-	"github.com/zenazn/goji/param"
 	"github.com/zenazn/goji/web"
+	"github.com/zenazn/goji/web/middleware"
 )
 
 // Note: the code below cuts a lot of corners to make the example app simple.
@@ -38,25 +40,34 @@ func main() {
 	// can put them wherever you like.
 	goji.Use(PlainText)
 
-	// If the last character of a pattern is an asterisk, the path is
-	// treated as a prefix, and can be used to implement sub-routes.
-	// Sub-routes can be used to set custom middleware on sub-applications.
-	// Goji's interfaces are completely composable.
+	// If the patterns ends with "/*", the path is treated as a prefix, and
+	// can be used to implement sub-routes.
 	admin := web.New()
 	goji.Handle("/admin/*", admin)
+
+	// The standard SubRouter middleware helps make writing sub-routers
+	// easy. Ordinarily, Goji does not manipulate the request's URL.Path,
+	// meaning you'd have to repeat "/admin/" in each of the following
+	// routes. This middleware allows you to cut down on the repetition by
+	// eliminating the shared, already-matched prefix.
+	admin.Use(middleware.SubRouter)
+	// You can also easily attach extra middleware to sub-routers that are
+	// not present on the parent router. This one, for instance, presents a
+	// password prompt to users of the admin endpoints.
 	admin.Use(SuperSecure)
+
+	admin.Get("/", AdminRoot)
+	admin.Get("/finances", AdminFinances)
 
 	// Goji's routing, like Sinatra's, is exact: no effort is made to
 	// normalize trailing slashes.
 	goji.Get("/admin", http.RedirectHandler("/admin/", 301))
 
-	// Set up admin routes. Note that sub-routes do *not* mutate the path in
-	// any way, so we need to supply full ("/admin/" prefixed) paths.
-	admin.Get("/admin/", AdminRoot)
-	admin.Get("/admin/finances", AdminFinances)
-
 	// Use a custom 404 handler
 	goji.NotFound(NotFound)
+
+	// Sometimes requests take a long time.
+	goji.Get("/waitforit", WaitForIt)
 
 	// Call Serve() at the bottom of your main() function, and it'll take
 	// care of everything else for you, including binding to a socket (with
@@ -120,7 +131,7 @@ func GetUser(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetGreet finds a particular greet by ID (GET "/greet/\d+"). Does no bounds
+// GetGreet finds a particular greet by ID (GET "/greets/\d+"). Does no bounds
 // checking, so will probably panic.
 func GetGreet(c web.C, w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(c.URLParams["id"])
@@ -133,6 +144,20 @@ func GetGreet(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	io.WriteString(w, "Gritter\n======\n\n")
 	greet.Write(w)
+}
+
+// WaitForIt is a particularly slow handler (GET "/waitforit"). Try loading this
+// endpoint and initiating a graceful shutdown (Ctrl-C) or Einhorn reload. The
+// old server will stop accepting new connections and will attempt to kill
+// outstanding idle (keep-alive) connections, but will patiently stick around
+// for this endpoint to finish. How kind of it!
+func WaitForIt(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "This is going to be legend... (wait for it)\n")
+	if fl, ok := w.(http.Flusher); ok {
+		fl.Flush()
+	}
+	time.Sleep(15 * time.Second)
+	io.WriteString(w, "...dary! Legendary!\n")
 }
 
 // AdminRoot is root (GET "/admin/root"). Much secret. Very administrate. Wow.
