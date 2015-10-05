@@ -158,3 +158,7 @@ func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Reques
 		return
 	}
 }
+
+func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "Healthy")
+}

@@ -1,45 +1,43 @@
 {
 	"ImportPath": "github.com/twitchscience/blueprint",
-	"GoVersion": "go1.3",
-	"Packages": [
-		"./..."
-	],
+	"GoVersion": "go1.5",
 	"Deps": [
 		{
-			"ImportPath": "github.com/crowdmob/goamz/aws",
-			"Rev": "c5ba9ad45b6ac022326f0ff9762d6bac33ca8f88"
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "215affda49addc4c8ef7e2534915df2c8c35c6cd"
 		},
 		{
-			"ImportPath": "github.com/crowdmob/goamz/s3",
-			"Rev": "c5ba9ad45b6ac022326f0ff9762d6bac33ca8f88"
+			"ImportPath": "github.com/gorilla/securecookie",
+			"Rev": "5f171f42328bdd573211bb82bdee8f259c4c61ae"
 		},
 		{
-			"ImportPath": "github.com/crowdmob/goamz/sqs",
-			"Rev": "c5ba9ad45b6ac022326f0ff9762d6bac33ca8f88"
-		},
-		{
-			"ImportPath": "github.com/twitchscience/aws_utils/environment",
-			"Rev": "1e4391b1a75844fda9620d7ad5613ad787e407f2"
-		},
-		{
-			"ImportPath": "github.com/twitchscience/aws_utils/listener",
-			"Rev": "1e4391b1a75844fda9620d7ad5613ad787e407f2"
+			"ImportPath": "github.com/gorilla/sessions",
+			"Rev": "1f45645972a051deb63c8e8e3c594041a6145e35"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/msg_signer",
-			"Rev": "1be70a6e3efd298e18b1d3df1806f313580c5eb6"
+			"Rev": "4438d31c0ccd22ff9c23bfe2b0dd46dd360eac6f"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/schema",
-			"Rev": "1be70a6e3efd298e18b1d3df1806f313580c5eb6"
+			"Rev": "4438d31c0ccd22ff9c23bfe2b0dd46dd360eac6f"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/scoop_protocol",
-			"Rev": "1be70a6e3efd298e18b1d3df1806f313580c5eb6"
+			"Rev": "4438d31c0ccd22ff9c23bfe2b0dd46dd360eac6f"
 		},
 		{
 			"ImportPath": "github.com/zenazn/goji",
-			"Rev": "32da78b2dfeb2f5353e3b14a54a1b30d356e979c"
+			"Comment": "v0.9.0-10-g739f05c",
+			"Rev": "739f05c9497895aee8d398a8ff38fb0517c4d670"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "db8e4de5b2d6653f66aea53094624468caad15d2"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2",
+			"Rev": "ad0128250e8fba646a92ca9129716e523d63ef9f"
 		}
 	]
 }

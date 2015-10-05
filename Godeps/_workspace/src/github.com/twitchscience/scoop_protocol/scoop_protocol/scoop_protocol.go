@@ -29,6 +29,34 @@ type RowCopyRequest struct {
 	TableName string
 }
 
+type ManifestRowCopyRequest struct {
+	ManifestURL string
+	TableName   string
+}
+
+type LoadCheckRequest struct {
+	ManifestURL string
+}
+
+type LoadCheckResponse struct {
+	LoadStatus  LoadStatus
+	ManifestURL string
+}
+
+type ScoopHealthCheck struct {
+	RedshiftDBConnError *string
+	IngesterDBConnError *string
+}
+
+type LoadStatus string
+
+const (
+	LoadNotFound   LoadStatus = "load-not-found"
+	LoadFailed     LoadStatus = "load-failed"
+	LoadInProgress LoadStatus = "load-in-progress"
+	LoadComplete   LoadStatus = "load-complete"
+)
+
 type ScoopSigner interface {
 	GetConfig(io.Reader) (*Config, error)
 	GetRowCopyRequest(io.Reader) (*RowCopyRequest, error)
@@ -46,11 +74,12 @@ type AuthScoopSigner struct {
 var (
 	BadVerified        error = errors.New("Bad Signature")
 	transformerTypeMap       = map[string]string{
-		"ipCity":      "varchar(64)",
-		"ipCountry":   "varchar(2)",
-		"ipRegion":    "varchar(64)",
-		"ipAsn":       "varchar(128)",
-		"f@timestamp": "datetime",
+		"ipCity":       "varchar(64)",
+		"ipCountry":    "varchar(2)",
+		"ipRegion":     "varchar(64)",
+		"ipAsn":        "varchar(128)",
+		"ipAsnInteger": "int",
+		"f@timestamp":  "datetime",
 	}
 )
 

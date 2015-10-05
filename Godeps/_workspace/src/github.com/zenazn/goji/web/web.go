@@ -1,75 +1,12 @@
 /*
-Package web is a microframework inspired by Sinatra.
-
-The underlying philosophy behind this package is that net/http is a very good
-HTTP library which is only missing a few features. If you disagree with this
-statement (e.g., you think that the interfaces it exposes are not especially
-good, or if you're looking for a comprehensive "batteries included" feature
-list), you're likely not going to have a good time using this library. In that
-spirit, we have attempted wherever possible to be compatible with net/http. You
-should be able to insert any net/http compliant handler into this library, or
-use this library with any other net/http compliant mux.
+Package web provides a fast and flexible middleware stack and mux.
 
 This package attempts to solve three problems that net/http does not. First, it
-allows you to specify URL patterns with Sinatra-like named wildcards and
-regexps. Second, it allows you to write reconfigurable middleware stacks. And
-finally, it allows you to attach additional context to requests, in a manner
-that can be manipulated by both compliant middleware and handlers.
-
-A usage example:
-
-	m := web.New()
-
-Use your favorite HTTP verbs:
-
-	var legacyFooHttpHandler http.Handler // From elsewhere
-	m.Get("/foo", legacyFooHttpHandler)
-	m.Post("/bar", func(w http.ResponseWriter, r *http.Request) {
-		w.Write("Hello world!")
-	})
-
-Bind parameters using either Sinatra-like patterns or regular expressions:
-
-	m.Get("/hello/:name", func(c web.C, w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, %s!", c.URLParams["name"])
-	})
-	pattern := regexp.MustCompile(`^/ip/(?P<ip>(?:\d{1,3}\.){3}\d{1,3})$`)
-	m.Get(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
-		fmt.Printf(w, "Info for IP address %s:", c.URLParams["ip"])
-	})
-
-Middleware are functions that wrap http.Handlers, just like you'd use with raw
-net/http. Middleware functions can optionally take a context parameter, which
-will be threaded throughout the middleware stack and to the final handler, even
-if not all of these things do not support contexts. Middleware are encouraged to
-use the Env parameter to pass data to other middleware and to the final handler:
-
-	m.Use(func(h http.Handler) http.Handler {
-		handler := func(w http.ResponseWriter, r *http.Request) {
-			log.Println("Before request")
-			h.ServeHTTP(w, r)
-			log.Println("After request")
-		}
-		return http.HandlerFunc(handler)
-	})
-	m.Use(func(c *web.C, h http.Handler) http.Handler {
-		handler := func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie("user")
-			if err == nil {
-				c.Env["user"] = cookie.Raw
-			}
-			h.ServeHTTP(w, r)
-		}
-		return http.HandlerFunc(handler)
-	})
-
-	m.Get("/baz", func(c web.C, w http.ResponseWriter, r *http.Request) {
-		if user, ok := c.Env["user"], ok {
-			w.Write("Hello " + string(user))
-		} else {
-			w.Write("Hello Stranger!")
-		}
-	})
+allows you to specify flexible patterns, including routes with named parameters
+and regular expressions. Second, it allows you to write reconfigurable
+middleware stacks. And finally, it allows you to attach additional context to
+requests, in a manner that can be manipulated by both compliant middleware and
+handlers.
 */
 package web
 
@@ -78,46 +15,98 @@ import (
 )
 
 /*
-C is a per-request context object which is threaded through all compliant middleware
-layers and to the final request handler.
-
-As an implementation detail, references to these structs are reused between
-requests to reduce allocation churn, but the maps they contain are created fresh
-on every request. If you are closing over a context (especially relevant for
-middleware), you should not close over either the URLParams or Env objects,
-instead accessing them through the context whenever they are required.
+C is a request-local context object which is threaded through all compliant
+middleware layers and given to the final request handler.
 */
 type C struct {
-	// The parameters parsed by the mux from the URL itself. In most cases,
-	// will contain a map from programmer-specified identifiers to the
-	// strings that matched those identifiers, but if a unnamed regex
-	// capture is used, it will be assigned to the special identifiers "$1",
-	// "$2", etc.
+	// URLParams is a map of variables extracted from the URL (typically
+	// from the path portion) during routing. See the documentation for the
+	// URL Pattern you are using (or the documentation for PatternType for
+	// the case of standard pattern types) for more information about how
+	// variables are extracted and named.
 	URLParams map[string]string
-	// A free-form environment, similar to Rack or PEP 333's environments.
-	// Middleware layers are encouraged to pass data to downstream layers
-	// and other handlers using this map, and are even more strongly
-	// encouraged to document and maybe namespace they keys they use.
-	Env map[string]interface{}
+	// Env is a free-form environment for storing request-local data. Keys
+	// may be arbitrary types that support equality, however package-private
+	// types with type-safe accessors provide a convenient way for packages
+	// to mediate access to their request-local data.
+	Env map[interface{}]interface{}
 }
 
-// Handler is a superset of net/http's http.Handler, which also includes a
-// mechanism for serving requests with a context. If your handler does not
-// support the use of contexts, we encourage you to use http.Handler instead.
+// Handler is similar to net/http's http.Handler, but also accepts a Goji
+// context object.
 type Handler interface {
-	http.Handler
 	ServeHTTPC(C, http.ResponseWriter, *http.Request)
 }
 
-// HandlerFunc is like net/http's http.HandlerFunc, but supports a context
-// object. Implements both http.Handler and web.Handler free of charge.
+// HandlerFunc is similar to net/http's http.HandlerFunc, but supports a context
+// object. Implements both http.Handler and Handler.
 type HandlerFunc func(C, http.ResponseWriter, *http.Request)
 
+// ServeHTTP implements http.Handler, allowing HandlerFunc's to be used with
+// net/http and other compliant routers. When used in this way, the underlying
+// function will be passed an empty context.
 func (h HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h(C{}, w, r)
 }
 
-// ServeHTTPC wraps ServeHTTP with a context parameter.
+// ServeHTTPC implements Handler.
 func (h HandlerFunc) ServeHTTPC(c C, w http.ResponseWriter, r *http.Request) {
 	h(c, w, r)
 }
+
+/*
+PatternType is the type denoting Patterns and types that Goji internally
+converts to Pattern (via the ParsePattern function). In order to provide an
+expressive API, this type is an alias for interface{} (that is named for the
+purposes of documentation), however only the following concrete types are
+accepted:
+	- types that implement Pattern
+	- string, which is interpreted as a Sinatra-like URL pattern. In
+	  particular, the following syntax is recognized:
+		- a path segment starting with with a colon will match any
+		  string placed at that position. e.g., "/:name" will match
+		  "/carl", binding "name" to "carl".
+		- a pattern ending with "/*" will match any route with that
+		  prefix. For instance, the pattern "/u/:name/*" will match
+		  "/u/carl/" and "/u/carl/projects/123", but not "/u/carl"
+		  (because there is no trailing slash). In addition to any names
+		  bound in the pattern, the special key "*" is bound to the
+		  unmatched tail of the match, but including the leading "/". So
+		  for the two matching examples above, "*" would be bound to "/"
+		  and "/projects/123" respectively.
+	  Unlike http.ServeMux's patterns, string patterns support neither the
+	  "rooted subtree" behavior nor Host-specific routes. Users who require
+	  either of these features are encouraged to compose package http's mux
+	  with the mux provided by this package.
+	- regexp.Regexp, which is assumed to be a Perl-style regular expression
+	  that is anchored on the left (i.e., the beginning of the string). If
+	  your regular expression is not anchored on the left, a
+	  hopefully-identical left-anchored regular expression will be created
+	  and used instead.
+
+	  Capturing groups will be converted into bound URL parameters in
+	  URLParams. If the capturing group is named, that name will be used;
+	  otherwise the special identifiers "$1", "$2", etc. will be used.
+*/
+type PatternType interface{}
+
+/*
+HandlerType is the type of Handlers and types that Goji internally converts to
+Handler. In order to provide an expressive API, this type is an alias for
+interface{} (that is named for the purposes of documentation), however only the
+following concrete types are accepted:
+	- types that implement http.Handler
+	- types that implement Handler
+	- func(http.ResponseWriter, *http.Request)
+	- func(web.C, http.ResponseWriter, *http.Request)
+*/
+type HandlerType interface{}
+
+/*
+MiddlewareType is the type of Goji middleware. In order to provide an expressive
+API, this type is an alias for interface{} (that is named for the purposes of
+documentation), however only the following concrete types are accepted:
+	- func(http.Handler) http.Handler
+	- func(*web.C, http.Handler) http.Handler
+*/
+type MiddlewareType interface{}
