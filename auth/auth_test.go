@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/gorilla/context"
@@ -15,33 +14,31 @@ import (
 )
 
 var (
-	admins        string
-	clientId      string
-	clientSecret  string
-	cookieSecret  string
 	integration   bool
-	fullLoginUrl  string
+	cookieSecret  string
+	clientID      string
+	clientSecret  string
+	githubServer  string
+	requiredOrg   string
 	authenticator auth.Auth
 )
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	username, email := "(not logged in)", "(not logged in)"
+	username := "(not logged in)"
 	user := authenticator.User(r)
 
 	if user != nil {
-		username, email = user.Name, user.Email
+		username = user.Name
 	}
 
 	fmt.Fprintf(w, `<html><body>
 		<ul>
 		<li>DisplayName: %s</li>
-		<li>Email: %s</li>
 		<li><a href="/login">Login</a></li>
 		<li><a href="/logout">Logout</a></li>
 		<li><a href="/user/greet">User Greeting</a></li>
-		<li><a href="/admin/secret">Admin Page</a></li>
 		</ul>
-		</body></html>`, username, email)
+		</body></html>`, username)
 }
 
 func loggedInHandler(w http.ResponseWriter, r *http.Request) {
@@ -49,18 +46,13 @@ func loggedInHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello, %s", user.Name)
 }
 
-func adminHandler(w http.ResponseWriter, r *http.Request) {
-	user := authenticator.User(r)
-	fmt.Fprintf(w, "All the secret data, %s", user.Name)
-}
-
 func init() {
 	flag.BoolVar(&integration, "serve", false, "Run server integration test")
-	flag.StringVar(&admins, "admins", "", "Comma separated list of admin emails")
-	flag.StringVar(&clientId, "client_id", "", "Google API client ID")
-	flag.StringVar(&clientSecret, "client_secret", "", "Google API client secret")
-	flag.StringVar(&cookieSecret, "cookie_secret", "", "Cookie secret key")
-	flag.StringVar(&fullLoginUrl, "full_login_url", "", "Fully qualified login url (for google redirect)")
+	flag.StringVar(&cookieSecret, "cookieSecret", "", "32 character secret for signing cookies")
+	flag.StringVar(&clientID, "clientID", "", "Google API client id")
+	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
+	flag.StringVar(&githubServer, "githubServer", "http://github.com", "Github server to use for auth")
+	flag.StringVar(&requiredOrg, "requiredOrg", "", "Org user need to belong to to use auth")
 	flag.Parse()
 }
 
@@ -73,10 +65,8 @@ func TestIntegrationGoogle(t *testing.T) {
 		t.Skip("Skip integration test when serve flag (-serve) isn't set")
 	}
 
-	if clientId == "" || clientSecret == "" || fullLoginUrl == "" {
-		log.Println("Set client_id, client_secret, and full_login_url (redirect url) to match your credentials")
-		log.Println("from https://console.developers.google.com/project")
-		t.Skip("Skipping until you set your redirect and client creds")
+	if clientID == "" || clientSecret == "" || githubServer == "" {
+		t.Skip("Auth creds and github server not set, see README.md for details")
 	}
 
 	if cookieSecret == "" {
@@ -85,25 +75,25 @@ func TestIntegrationGoogle(t *testing.T) {
 		t.Skip("Skipping until you set cookie secret")
 	}
 
-	authenticator = auth.New(strings.Split(admins, ","), clientId, clientSecret, cookieSecret, "/login", fullLoginUrl, "/logout")
+	authenticator = auth.New(githubServer,
+		clientID,
+		clientSecret,
+		cookieSecret,
+		requiredOrg,
+		"/login")
 
 	goji.Get("/login", authenticator.LoginHandler)
 	goji.Get("/logout", authenticator.LogoutHandler)
+	goji.Get("/github_oauth_cb", authenticator.AuthCallbackHandler)
 	goji.Get("/", homeHandler)
-
-	admin := web.New()
-	goji.Handle("/admin/*", admin)
-	admin.Use(authenticator.AdminMiddleware)
-	admin.Get("/admin/secret", adminHandler)
 
 	loggedIn := web.New()
 	goji.Handle("/user/*", loggedIn)
-	loggedIn.Use(authenticator.UserMiddleware)
+	loggedIn.Use(authenticator.AuthorizeOrRedirect)
 	loggedIn.Get("/user/greet", loggedInHandler)
 
 	goji.Use(context.ClearHandler) // THIS IS IMPORTANT - Prevent memory leaks
 
-	log.Println("Go to your server -- probably at", fullLoginUrl)
 	log.Println("Use -bind if you're listening on the wrong port")
 	log.Println("Ctrl+C to finish the test")
 

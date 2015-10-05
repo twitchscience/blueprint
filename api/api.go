@@ -3,8 +3,8 @@ package api
 
 import (
 	"flag"
-	"strings"
 
+	"github.com/gorilla/context"
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/blueprint/scoopclient"
@@ -19,23 +19,24 @@ type server struct {
 }
 
 var (
-	loginURL           = "/login"
-	logoutURL          = "/logout"
-	readonly           bool
-	adminEmails        string
-	cookieSecret       string
-	googleClientID     string
-	googleClientSecret string
-	publicLoginURL     string
+	loginURL        = "/login"
+	logoutURL       = "/logout"
+	authCallbackURL = "/github_oauth_cb"
+	readonly        bool
+	cookieSecret    string
+	clientID        string
+	clientSecret    string
+	githubServer    string
+	requiredOrg     string
 )
 
 func init() {
 	flag.BoolVar(&readonly, "readonly", false, "run in readonly mode and disable auth")
-	flag.StringVar(&adminEmails, "adminEmails", "", "semicolon separated list of admin email addresses")
 	flag.StringVar(&cookieSecret, "cookieSecret", "", "32 character secret for signing cookies")
-	flag.StringVar(&googleClientID, "googleClientID", "", "Google API client id")
-	flag.StringVar(&googleClientSecret, "googleClientSecret", "", "Google API client secret")
-	flag.StringVar(&publicLoginURL, "loginURLRedirect", "", "Redirect URL as set in the Google Auth")
+	flag.StringVar(&clientID, "clientID", "", "Google API client id")
+	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
+	flag.StringVar(&githubServer, "githubServer", "http://github.com", "Github server to use for auth")
+	flag.StringVar(&requiredOrg, "requiredOrg", "", "Org user need to belong to to use auth")
 }
 
 // New returns an API process.
@@ -68,15 +69,15 @@ func (s *server) Setup() error {
 	goji.Handle("/expire", api)
 
 	if !readonly {
-		a := auth.New(strings.Split(adminEmails, ";"),
-			googleClientID,
-			googleClientSecret,
+		a := auth.New(githubServer,
+			clientID,
+			clientSecret,
 			cookieSecret,
-			loginURL,
-			publicLoginURL,
-			logoutURL)
+			requiredOrg,
+			loginURL)
 
-		api.Use(a.AdminMiddleware)
+		api.Use(a.AuthorizeOrForbid)
+		api.Use(context.ClearHandler)
 
 		api.Put("/schema", s.createSchema)
 		api.Post("/expire", s.expire)
@@ -85,10 +86,12 @@ func (s *server) Setup() error {
 
 		goji.Handle(loginURL, a.LoginHandler)
 		goji.Handle(logoutURL, a.LogoutHandler)
+		goji.Handle(authCallbackURL, a.AuthCallbackHandler)
 
 		files := web.New()
 		files.Get("/*", s.fileHandler)
-		files.Use(a.AdminMiddleware)
+		files.Use(a.AuthorizeOrRedirect)
+		files.Use(context.ClearHandler)
 
 		goji.Handle("/*", files)
 	}

@@ -13,10 +13,11 @@ source conf.sh
 
 exec ./blueprint "$@"                                        \
   -scoopURL="${SCOOP_URL}"                                   \
-  -adminEmails="${ENG_ADMINS};${ANL_ADMINS}"                 \
   -cookieSecret=${COOKIE_SECRET}                             \
-  -googleClientID=${GOOGLE_CLIENT_ID}                        \
-  -googleClientSecret=${GOOGLE_CLIENT_SECRET}                \
-  -loginURLRedirect=${LOGIN_URL_REDIRECT}					 \
+  -clientID=${CLIENT_ID}                                     \
+  -clientSecret=${CLIENT_SECRET}                             \
+  -githubServer=${GITHUB_SERVER}                             \
   -transformConfig="${CONFIG_DIR}/transforms_available.json" \
+  -requiredOrg=${REQUIRED_ORG}                               \
   -staticfiles="${SCIENCE_DIR}/nginx/html"
+
