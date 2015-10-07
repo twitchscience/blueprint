@@ -66,7 +66,6 @@ func (s *server) Setup() error {
 	goji.Handle("/suggestions", api)
 	goji.Handle("/suggestion/*", api)
 	goji.Handle("/types", api)
-	goji.Handle("/expire", api)
 
 	if !readonly {
 		a := auth.New(githubServer,
@@ -83,6 +82,10 @@ func (s *server) Setup() error {
 		api.Post("/expire", s.expire)
 		api.Post("/schema/:id", s.updateSchema)
 		api.Post("/removesuggestion/:id", s.removeSuggestion)
+
+		goji.Handle("/expire", api)
+		goji.Handle("/schema", api)
+		goji.Handle("/removesuggestion/*", api)
 
 		goji.Handle(loginURL, a.LoginHandler)
 		goji.Handle(logoutURL, a.LogoutHandler)
