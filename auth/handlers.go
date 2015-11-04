@@ -78,18 +78,21 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 	expectedState := session.Values["auth-state"]
 	if expectedState == nil {
 		log.Printf("AuthCallbackHandler: No auth state variable found in cookie\n")
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	recievedState := r.FormValue("state")
 	if expectedState != recievedState {
 		log.Printf("Invalid oauth state! Expected '%v' got '%v'", expectedState, recievedState)
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	token, err := a.exchangeToken(r.FormValue("code"), recievedState)
 	if err != nil {
 		log.Printf("Unable to exchange token: %s", err)
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
@@ -97,23 +100,27 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 	resp, err := client.Get(a.GithubServer + "/api/v3/user")
 	if err != nil {
 		log.Printf("Error getting user info: %s", err)
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	userInfo, err := responseBodyToMap(resp)
 	if err != nil {
 		log.Println(err.Error())
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	if userInfo["login"] == nil {
 		log.Println("User login not found in user info")
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	bytes, err := json.Marshal(token)
 	if err != nil {
 		log.Println("Error Marshalling oauth token:", err.Error())
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
