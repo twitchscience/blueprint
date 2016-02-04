@@ -19,5 +19,6 @@ exec ./blueprint "$@"                                        \
   -githubServer=${GITHUB_SERVER}                             \
   -transformConfig="${CONFIG_DIR}/transforms_available.json" \
   -requiredOrg=${REQUIRED_ORG}                               \
-  -staticfiles="${SCIENCE_DIR}/nginx/html"
+  -staticfiles="${SCIENCE_DIR}/nginx/html"                   \
+  -ingesterURL="${INGESTER_URL}"
 

@@ -1,7 +1,7 @@
 <h1>Published Schemas</h1>
 <a href="#/schema"><button type="button" class="btn
                                                 btn-success">Create</button></a>
-<a href="#/cache/expire"><button type="button" class="btn btn-danger">Flush
+<a href="#/cache/expire"><button type="button" class="btn btn-warning">Flush
     Schema Cache</button></a>
 
 
@@ -20,7 +20,12 @@
                 filter:search |
                 orderBy:'EventName'">
 
-  <h3><a href="#/schema/{{schema.EventName}}">{{schema.EventName}}</a></h3>
+  <h3 style="display:inline-block;">
+    <a href="#/schema/{{schema.EventName}}">{{schema.EventName}}</a>
+    <form style="display:inline-block;margin-left:25px" ng-submit="ingestTable(schema)">
+      <input id="button-{{schema.EventName}}" class="btn" type="submit" value="Force Load" ng-class="{'btn-primary': schema.IngestStatus=='default', 'btn-success': schema.IngestStatus=='flushed', 'btn-danger': schema.IngestStatus=='failed', 'btn-primary disabled': schema.IngestStatus=='flushing'}">
+    </form>
+  </h3>
 
   <table class="table table-hover">
     <thead>

@@ -1,19 +1,93 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/core"
 	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 
 	"github.com/zenazn/goji/web"
 )
+
+// respondWithJsonError responds with a JSON error with the given error code. The format of the
+// JSON error is {"Error": text}
+// It's very likely that you want to return from the handler after calling
+// this.
+func respondWithJsonError(w http.ResponseWriter, text string, responseCode int) {
+
+	var jsonError struct {
+		Error string
+	}
+	jsonError.Error = text
+	js, err := json.Marshal(jsonError)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(responseCode)
+	w.Write(js)
+}
+
+// ingest proxies the request through to the ingester /control/ingest
+func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	var tableArg struct {
+		Table string
+	}
+	err := decoder.Decode(&tableArg)
+	if err != nil {
+		respondWithJsonError(w, "Problem decoding JSON POST data.", http.StatusBadRequest)
+		return
+	}
+
+	a := auth.New(githubServer,
+		clientID,
+		clientSecret,
+		cookieSecret,
+		requiredOrg,
+		loginURL)
+	user := a.User(r)
+	log.Printf("%s requested table %s be flushed.", user.Name, tableArg.Table)
+
+	js, err := json.Marshal(tableArg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	req, err := http.NewRequest("POST", ingesterURL+"/control/ingest", bytes.NewBuffer(js))
+	if err != nil {
+		respondWithJsonError(w, "Error building request to ingester: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		respondWithJsonError(w, "Error making request to ingester: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	w.Write(buf.Bytes())
+	return
+}
 
 func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()

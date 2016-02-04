@@ -1,7 +1,22 @@
 {
 	"ImportPath": "github.com/twitchscience/blueprint",
 	"GoVersion": "go1.5",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
+		{
+			"ImportPath": "github.com/AdRoll/goamz/aws",
+			"Rev": "e57621c0fb3df6366f8a82e7d8a5a6ce24bf8c4b"
+		},
+		{
+			"ImportPath": "github.com/AdRoll/goamz/s3",
+			"Rev": "e57621c0fb3df6366f8a82e7d8a5a6ce24bf8c4b"
+		},
+		{
+			"ImportPath": "github.com/AdRoll/goamz/sqs",
+			"Rev": "e57621c0fb3df6366f8a82e7d8a5a6ce24bf8c4b"
+		},
 		{
 			"ImportPath": "github.com/gorilla/context",
 			"Rev": "215affda49addc4c8ef7e2534915df2c8c35c6cd"
@@ -13,6 +28,14 @@
 		{
 			"ImportPath": "github.com/gorilla/sessions",
 			"Rev": "1f45645972a051deb63c8e8e3c594041a6145e35"
+		},
+		{
+			"ImportPath": "github.com/twitchscience/aws_utils/environment",
+			"Rev": "716655985f248bcc7391132fa32118a4ecfcffcd"
+		},
+		{
+			"ImportPath": "github.com/twitchscience/aws_utils/listener",
+			"Rev": "716655985f248bcc7391132fa32118a4ecfcffcd"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/msg_signer",

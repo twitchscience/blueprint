@@ -206,12 +206,21 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       };
     });
   })
-  .controller('SchemaListCtrl', function($scope, $location, Schema, Suggestions, store) {
+  .controller('SchemaListCtrl', function($scope, $location, $http, Schema, Suggestions, store) {
+    $scope.ingestTable = function(schema){
+      schema.IngestStatus = 'flushing';
+    $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
+      schema.IngestStatus = 'flushed';
+    }).error(function(data,status){
+      schema.IngestStatus = 'failed';
+    });
+    }
     Schema.all(function(data) {
       $scope.schemas = data;
       var existingSchemas = {};
       angular.forEach($scope.schemas, function(s) {
         existingSchemas[s.EventName] = true;
+        s.IngestStatus = 'default';
       });
 
       Suggestions.all(function(data) {

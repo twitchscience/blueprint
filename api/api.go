@@ -28,6 +28,7 @@ var (
 	clientSecret    string
 	githubServer    string
 	requiredOrg     string
+	ingesterURL     string
 )
 
 func init() {
@@ -37,6 +38,7 @@ func init() {
 	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
 	flag.StringVar(&githubServer, "githubServer", "http://github.com", "Github server to use for auth")
 	flag.StringVar(&requiredOrg, "requiredOrg", "", "Org user need to belong to to use auth")
+	flag.StringVar(&ingesterURL, "ingesterURL", "", "URL to the ingester")
 }
 
 // New returns an API process.
@@ -78,11 +80,13 @@ func (s *server) Setup() error {
 		api.Use(a.AuthorizeOrForbid)
 		api.Use(context.ClearHandler)
 
+		api.Post("/ingest", s.ingest)
 		api.Put("/schema", s.createSchema)
 		api.Post("/expire", s.expire)
 		api.Post("/schema/:id", s.updateSchema)
 		api.Post("/removesuggestion/:id", s.removeSuggestion)
 
+		goji.Handle("/ingest", api)
 		goji.Handle("/expire", api)
 		goji.Handle("/schema", api)
 		goji.Handle("/removesuggestion/*", api)
