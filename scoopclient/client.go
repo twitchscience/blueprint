@@ -138,10 +138,15 @@ func (c *client) CreateSchema(cfg *scoop_protocol.Config) error {
 	if err != nil {
 		return err
 	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("Error reading response body: %s", err.Error())
+	}
+
 	if res.StatusCode != 200 {
-		defer res.Body.Close()
-		b, _ := ioutil.ReadAll(res.Body)
-		return fmt.Errorf("Error creating schema: %s, %s", cfg.EventName, b)
+		return fmt.Errorf("Error creating schema: %s, %s", cfg.EventName, body)
 	}
 	return nil
 }
@@ -157,10 +162,15 @@ func (c *client) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 	if err != nil {
 		return err
 	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("Error reading response body: %s", err.Error())
+	}
+
 	if res.StatusCode != 200 {
-		defer res.Body.Close()
-		b, _ := ioutil.ReadAll(res.Body)
-		return fmt.Errorf("Error updating schema: %s, %s", req.EventName, b)
+		return fmt.Errorf("Error updating schema: %s, %s", req.EventName, body)
 	}
 	return nil
 }
@@ -183,18 +193,16 @@ func (c *client) PropertyTypes() ([]string, error) {
 func (c *client) makeRequest(url string) ([]byte, error) {
 	res, err := c.hc.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching url: %s, StatusCode: %d, Error: %s", url, res.StatusCode, err.Error())
+		return nil, fmt.Errorf("Error fetching url:%s, StatusCode: %d, Error:%s", url, res.StatusCode, err.Error())
 	}
-
-	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("Non-200 status fetching url: %s, StatusCode: %d", url, res.StatusCode)
-	}
-
 	defer res.Body.Close()
 
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading response body: %s", err.Error())
+	}
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("Error From scoop:%s, StatusCode: %d, Error:%s", url, res.StatusCode, b)
 	}
 	return b, nil
 }
