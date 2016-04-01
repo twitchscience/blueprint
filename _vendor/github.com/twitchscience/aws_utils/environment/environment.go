@@ -22,11 +22,3 @@ func GetCloudEnv() string {
 	}
 	return ce
 }
-
-func IsProd() bool {
-	ce := cloudEnv()
-	if ce == "" {
-		return false
-	}
-	return true
-}

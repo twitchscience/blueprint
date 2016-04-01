@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -14,14 +12,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/twitchscience/aws_utils/environment"
 	"github.com/twitchscience/aws_utils/listener"
 	"github.com/twitchscience/blueprint/schema_suggestor/processor"
 	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
-
-	"github.com/AdRoll/goamz/aws"
-	"github.com/AdRoll/goamz/s3"
-	"github.com/AdRoll/goamz/sqs"
 )
 
 var (
@@ -36,8 +36,8 @@ type BPHandler struct {
 	// Router process events, outputting metadata as files.
 	Router *processor.EventRouter
 
-	// S3 communicates with S3.
-	S3 *s3.S3
+	// Downloader downloads files from S3
+	Downloader s3manageriface.DownloaderAPI
 }
 
 // NontrackedLogMessage is an SQS mesage containing data about the table the event should go into as
@@ -51,36 +51,29 @@ type NontrackedLogMessage struct {
 func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	var rotatedMessage NontrackedLogMessage
 
-	err := json.Unmarshal([]byte(msg.Body), &rotatedMessage)
+	err := json.Unmarshal([]byte(aws.StringValue(msg.Body)), &rotatedMessage)
 	if err != nil {
 		return fmt.Errorf("Could not decode %s\n", msg.Body)
 	}
-	parts := strings.SplitN(rotatedMessage.Keyname, "/", 2)
-	bucket := handler.S3.Bucket(parts[0])
 
-	readCloser, err := bucket.GetReader(parts[1])
+	tmpFile, err := ioutil.TempFile("", "schema_suggestor")
 	if err != nil {
-		return fmt.Errorf("Unable to get s3 reader %s on bucket %s with key %s\n",
-			err, "spade-nontracked-"+env, rotatedMessage.Keyname)
-	}
-	defer readCloser.Close()
-
-	b := make([]byte, 8)
-	rand.Read(b)
-
-	tmpFile, err := ioutil.TempFile("", fmt.Sprintf("%08x", b))
-
-	if err != nil {
-		return fmt.Errorf("cloud not open temp file for %s as %s:  %s\n",
-			rotatedMessage.Keyname, fmt.Sprintf("%08x", b), err)
+		return fmt.Errorf("Failed to create a tempfile to download %s: %v", rotatedMessage.Keyname, err)
 	}
 	defer os.Remove(tmpFile.Name())
-	writer := bufio.NewWriter(tmpFile)
-	_, err = writer.ReadFrom(readCloser)
+	log.Printf("Downloading %s into %s", rotatedMessage.Keyname, tmpFile.Name())
+
+	parts := strings.SplitN(rotatedMessage.Keyname, "/", 2)
+	n, err := handler.Downloader.Download(tmpFile, &s3.GetObjectInput{
+		Bucket: aws.String(parts[0]),
+		Key:    aws.String(parts[1]),
+	})
+
 	if err != nil {
-		return fmt.Errorf("Encounted err while downloading %s: %s\n", rotatedMessage.Keyname, err)
+		return fmt.Errorf("Error downloading %s into %s: %v", rotatedMessage.Keyname, tmpFile.Name(), err)
 	}
-	writer.Flush()
+
+	log.Printf("Downloaded a %d byte file\n", n)
 
 	return handler.Router.ReadFile(tmpFile.Name())
 }
@@ -91,32 +84,23 @@ func main() {
 
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.
-	auth, err := aws.GetAuth("", "", "", time.Now())
-	if err != nil {
-		log.Fatalf("Failed to recieve auth from env: %s\n", err)
-	}
-	s3Connection := s3.New(
-		auth,
-		aws.USWest2,
-	)
+
+	session := session.New()
+	sqs := sqs.New(session)
 
 	poller := listener.BuildSQSListener(
-		&listener.SQSAddr{
-			Region:    aws.USWest2,
-			QueueName: "spade-nontracked-" + env,
-			Auth:      auth,
-		},
 		&BPHandler{
 			Router: processor.NewRouter(
 				*staticFileDir,
 				5*time.Minute,
 				scoopClient,
 			),
-			S3: s3Connection,
+			Downloader: s3manager.NewDownloader(session),
 		},
 		2*time.Minute,
+		sqs,
 	)
-	go poller.Listen()
+	go poller.Listen("spade-nontracked-" + env)
 
 	sigc := make(chan os.Signal, 1)
 	wait := make(chan bool)

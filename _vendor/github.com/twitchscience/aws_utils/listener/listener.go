@@ -6,18 +6,13 @@ package listener
 
 // TODO make seperate sqs wrapper for queues
 import (
-	"github.com/AdRoll/goamz/aws"
-	"github.com/AdRoll/goamz/sqs"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 
 	"fmt"
 	"time"
 )
-
-type SQSAddr struct {
-	Region    aws.Region
-	QueueName string
-	Auth      aws.Auth
-}
 
 type SQSHandler interface {
 	Handle(*sqs.Message) error
@@ -26,81 +21,88 @@ type SQSHandler interface {
 type SQSListener struct {
 	Handler SQSHandler
 
-	SQSClient      *sqs.SQS
-	PollInterval   time.Duration
-	Queue          *SQSAddr
+	sqsClient      sqsiface.SQSAPI
+	pollInterval   time.Duration
 	closeRequested chan bool
 	closed         chan bool
 }
 
-func (a *SQSAddr) Network() string {
-	return a.Region.Name
-}
-
-func (a *SQSAddr) String() string {
-	return fmt.Sprintf("%s:%s", a.Region.Name, a.QueueName)
-}
-
-func makeSQSConnection(a *SQSAddr) *sqs.SQS {
-	return sqs.New(a.Auth, a.Region)
-}
-
-func BuildSQSListener(addr *SQSAddr, handler SQSHandler, pollInterval time.Duration) *SQSListener {
+func BuildSQSListener(handler SQSHandler, pollInterval time.Duration, client sqsiface.SQSAPI) *SQSListener {
 	return &SQSListener{
-		SQSClient:      sqs.New(addr.Auth, addr.Region),
-		PollInterval:   pollInterval,
-		Queue:          addr,
-		Handler:        handler,
-		closeRequested: make(chan bool),
-		closed:         make(chan bool),
+		sqsClient:    client,
+		pollInterval: pollInterval,
+		Handler:      handler,
 	}
 }
 
 func (l *SQSListener) Close() {
-	l.closeRequested <- true
+	close(l.closeRequested)
 	<-l.closed
 }
 
-func (l *SQSListener) handle(msg *sqs.Message, q *sqs.Queue) {
+func (l *SQSListener) handle(msg *sqs.Message, qURL *string) {
 	err := l.Handler.Handle(msg)
 	if err != nil {
-		q.ChangeMessageVisibility(msg, 10)
-		fmt.Println(err)
+		fmt.Printf("SQS Handler returned error: %s\n", err)
+
+		_, err = l.sqsClient.ChangeMessageVisibility(&sqs.ChangeMessageVisibilityInput{
+			QueueUrl:          qURL,
+			ReceiptHandle:     msg.ReceiptHandle,
+			VisibilityTimeout: aws.Int64(10), // seconds
+		})
+
+		if err != nil {
+			fmt.Printf("Error setting message visibility: %s\n", err)
+		}
 		return
 	}
-	_, err = q.DeleteMessage(msg)
+
+	_, err = l.sqsClient.DeleteMessage(&sqs.DeleteMessageInput{
+		QueueUrl:      qURL,
+		ReceiptHandle: msg.ReceiptHandle,
+	})
+
 	if err != nil {
 		fmt.Println("unable to delete msg: ", err)
 	}
 }
 
-func (l *SQSListener) waitForMessages(q *sqs.Queue) {
-	msgResponse, err := q.ReceiveMessage(1)
-	if err != nil || len(msgResponse.Messages) < 1 {
-		time.Sleep(l.PollInterval)
+func (l *SQSListener) waitForMessages(qURL *string) {
+	o, err := l.sqsClient.ReceiveMessage(&sqs.ReceiveMessageInput{
+		MaxNumberOfMessages: aws.Int64(1),
+		QueueUrl:            qURL,
+		VisibilityTimeout:   aws.Int64(10),
+	})
+	if err != nil || len(o.Messages) < 1 {
+		time.Sleep(l.pollInterval)
 		return
 	}
-	l.handle(&msgResponse.Messages[0], q)
+	l.handle(o.Messages[0], qURL)
 }
 
-func (l *SQSListener) process(q *sqs.Queue) {
+func (l *SQSListener) process(qURL *string) {
 	for {
 		select {
 		case <-l.closeRequested:
 			return
 		default:
-			l.waitForMessages(q)
+			l.waitForMessages(qURL)
 		}
 	}
 }
 
-func (l *SQSListener) Listen() {
-	q, err := l.SQSClient.GetQueue(l.Queue.QueueName)
+func (l *SQSListener) Listen(qName string) {
+	l.closeRequested = make(chan bool)
+	l.closed = make(chan bool)
+
+	defer close(l.closed)
+	o, err := l.sqsClient.GetQueueUrl(&sqs.GetQueueUrlInput{
+		QueueName: aws.String(qName),
+	})
 	if err != nil {
-		fmt.Println("Specified queue ", l.Queue, " does not exist")
+		fmt.Printf("Error getting URL for SQS queue %s: %v", qName, err)
 		return
 	}
 
-	l.process(q)
-	l.closed <- true
+	l.process(o.QueueUrl)
 }
