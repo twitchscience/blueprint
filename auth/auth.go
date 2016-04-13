@@ -65,8 +65,19 @@ type GithubAuth struct {
 func (a *GithubAuth) AuthorizeOrRedirect(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
-		if user == nil || user.IsMemberOfOrg == false {
+		if user == nil {
 			http.Redirect(w, r, a.LoginUrl+"?redirect_to="+r.RequestURI, http.StatusFound)
+			return
+		}
+		if user.IsMemberOfOrg == false {
+			//return "access forbidden"" error in HttpResponse
+			// do not redirect to loginURL, which will get into an endless loop
+			logMsg := fmt.Sprintf("User %s is not a member of %s organization",
+				user.Name, a.RequiredOrg)
+			log.Println(logMsg)
+			errMsg := fmt.Sprintf("You need to be a member of %s organization",
+				a.RequiredOrg)
+			http.Error(w, errMsg, http.StatusForbidden)
 			return
 		}
 
@@ -130,6 +141,7 @@ func (a *GithubAuth) User(r *http.Request) *AuthUser {
 			log.Printf("Failed to get membership: %v", err)
 			return nil
 		}
+		defer resp.Body.Close()
 
 		isMember = resp.StatusCode >= 200 && resp.StatusCode <= 299
 	}
