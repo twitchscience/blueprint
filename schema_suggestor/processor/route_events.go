@@ -112,6 +112,7 @@ func (e *EventRouter) ReadFile(filename string) error {
 func (e *EventRouter) UpdateCurrentTables() {
 	configs, err := e.ScoopClient.FetchAllSchemas()
 	if err != nil {
+		log.Printf("Error fetching schemas from scoop: %v", err)
 		return
 	}
 	newTables := make([]string, len(configs))

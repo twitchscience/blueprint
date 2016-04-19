@@ -28,6 +28,7 @@ var (
 	scoopURL        = flag.String("url", "http://localhost:8080", "the url to talk to scoop")
 	staticFileDir   = flag.String("staticfiles", "./static/events", "the location to serve static files from")
 	transformConfig = flag.String("transformConfig", "transforms_available.json", "config for available transforms in spade")
+	nonTrackedQueue = flag.String("nonTrackedQueue", "", "SQS Queue name to listen to for nontracked events.")
 	env             = environment.GetCloudEnv()
 )
 
@@ -80,6 +81,9 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 
 func main() {
 	flag.Parse()
+	if *nonTrackedQueue == "" {
+		log.Fatal("Missing required flag: --nonTrackedQueue.")
+	}
 	scoopClient := cachingscoopclient.New(*scoopURL, *transformConfig)
 
 	// SQS listener pools SQS queue and then kicks off a jobs to
@@ -100,7 +104,7 @@ func main() {
 		2*time.Minute,
 		sqs,
 	)
-	go poller.Listen("spade-nontracked-" + env)
+	go poller.Listen(*nonTrackedQueue)
 
 	sigc := make(chan os.Signal, 1)
 	wait := make(chan bool)

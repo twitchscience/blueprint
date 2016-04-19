@@ -183,7 +183,7 @@ func (c *client) PropertyTypes() ([]string, error) {
 func (c *client) makeRequest(url string) ([]byte, error) {
 	res, err := c.hc.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching url: %s, StatusCode: %d, Error: %s", url, res.StatusCode, err.Error())
+		return nil, fmt.Errorf("Error fetching url: %s, Error: %s", url, err.Error())
 	}
 
 	if res.StatusCode != 200 {
