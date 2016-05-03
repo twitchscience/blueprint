@@ -8,8 +8,6 @@ import (
 	"os"
 	"path"
 	"strings"
-
-	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 // SchemaSuggestion indicates a schema for an event that has occurred a certain number of times.
@@ -29,7 +27,7 @@ func fourOhFour(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, http.StatusText(404), 404)
 }
 
-func writeEvent(w http.ResponseWriter, events []scoop_protocol.Config) {
+func writeEvent(w http.ResponseWriter, events interface{}) {
 	b, err := json.Marshal(events)
 	if err != nil {
 		log.Println("Error serializing data")

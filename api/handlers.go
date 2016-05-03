@@ -133,10 +133,23 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	err = s.bpdbBackend.UpdateSchema(&req)
+	if err != nil {
+		log.Printf("Error updating schema in bpdb, ignoring: %v", err)
+	}
 }
 
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	cfgs, err := s.datasource.FetchAllSchemas()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeEvent(w, cfgs)
+}
+
+func (s *server) bpAllSchemas(w http.ResponseWriter, r *http.Request) {
+	cfgs, err := s.bpdbBackend.AllSchemas()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
