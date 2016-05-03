@@ -24,6 +24,7 @@ WHERE event = $1
 GROUP BY event`
 )
 
+// PGConfig stores config options for a postgres connection
 type PGConfig struct {
 	DatabaseURL    string
 	MaxConnections int
@@ -34,16 +35,18 @@ type postgresBackend struct {
 }
 
 type operationRow struct {
-	event          string
-	action         string
-	inbound        string
-	outbound       string
-	column_type    string
-	column_options string
-	version        int
-	ordering       int
+	event         string
+	action        string
+	inbound       string
+	outbound      string
+	columnType    string
+	columnOptions string
+	version       int
+	ordering      int
 }
 
+// NewPostgresBackend creates a postgres bpdb backend to interface with
+// the schema store
 func NewPostgresBackend(cfg *PGConfig) (Bpdb, error) {
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
@@ -105,7 +108,7 @@ func (p *postgresBackend) AllSchemas() ([]Schema, error) {
 	ops := []operationRow{}
 	for rows.Next() {
 		var op operationRow
-		err = rows.Scan(&op.event, &op.action, &op.inbound, &op.outbound, &op.column_type, &op.column_options, &op.version, &op.ordering)
+		err = rows.Scan(&op.event, &op.action, &op.inbound, &op.outbound, &op.columnType, &op.columnOptions, &op.version, &op.ordering)
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing operation row: %v.", err)
 		}
@@ -125,11 +128,11 @@ func generateSchemas(ops []operationRow) ([]Schema, error) {
 			schemas[op.event] = &Schema{EventName: op.event}
 		}
 		schemas[op.event].ApplyOperation(Operation{
-			action:         op.action,
-			inbound:        op.inbound,
-			outbound:       op.outbound,
-			column_type:    op.column_type,
-			column_options: op.column_options,
+			action:        op.action,
+			inbound:       op.inbound,
+			outbound:      op.outbound,
+			columnType:    op.columnType,
+			columnOptions: op.columnOptions,
 		})
 	}
 	ret := make([]Schema, len(schemas))

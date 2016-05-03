@@ -12,6 +12,8 @@ func (s *Schema) addColumn(col Column) error {
 	return nil
 }
 
+// ApplyOperations applies the list of operations in order to the schema,
+// migrating the schema to a new state
 func (s *Schema) ApplyOperations(operations []Operation) error {
 	for _, op := range operations {
 		err := s.ApplyOperation(op)
@@ -22,10 +24,12 @@ func (s *Schema) ApplyOperations(operations []Operation) error {
 	return nil
 }
 
+// ApplyOperation applies a single operation to the schema, migrating the
+// schema to a new state
 func (s *Schema) ApplyOperation(op Operation) error {
 	switch op.action {
 	case "add":
-		err := s.addColumn(Column{op.inbound, op.outbound, op.column_type, op.column_options})
+		err := s.addColumn(Column{op.inbound, op.outbound, op.columnType, op.columnOptions})
 		if err != nil {
 			return err
 		}

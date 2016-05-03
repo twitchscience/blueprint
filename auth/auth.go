@@ -101,7 +101,7 @@ func (a *GithubAuth) AuthorizeOrForbid(h http.Handler) http.Handler {
 
 // Fetch the login information, or nil if you're not above an auth middleware
 // If you're not using the middlewares, you probably want RequireLogin instead
-func (a *GithubAuth) User(r *http.Request) *AuthUser {
+func (a *GithubAuth) User(r *http.Request) *User {
 	session, _ := a.CookieStore.Get(r, cookieName)
 
 	loginTime, present := session.Values["login-time"]
@@ -146,13 +146,13 @@ func (a *GithubAuth) User(r *http.Request) *AuthUser {
 		isMember = resp.StatusCode >= 200 && resp.StatusCode <= 299
 	}
 
-	return &AuthUser{
+	return &User{
 		Name:          session.Values["login-name"].(string),
 		IsMemberOfOrg: isMember,
 	}
 }
 
-func (a *GithubAuth) requireUser(w http.ResponseWriter, r *http.Request) *AuthUser {
+func (a *GithubAuth) requireUser(w http.ResponseWriter, r *http.Request) *User {
 	user := a.User(r)
 	if user == nil {
 		http.Redirect(w, r, a.LoginUrl+"?redirect_to="+r.RequestURI, http.StatusFound)
