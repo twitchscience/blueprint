@@ -13,6 +13,7 @@ source conf.sh
 
 exec ./blueprint "$@"                                        \
   -scoopURL="${SCOOP_URL}"                                   \
+  -bpdbConnection="${BLUEPRINT_DB_URL}"                      \
   -cookieSecret=${COOKIE_SECRET}                             \
   -clientID=${CLIENT_ID}                                     \
   -clientSecret=${CLIENT_SECRET}                             \
