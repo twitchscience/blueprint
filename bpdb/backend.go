@@ -1,6 +1,9 @@
 package bpdb
 
-import "github.com/twitchscience/blueprint/core"
+import (
+	"github.com/twitchscience/blueprint/core"
+	"github.com/twitchscience/scoop_protocol/scoop_protocol"
+)
 
 // Operation represents a single change to a schema
 type Operation struct {
@@ -29,4 +32,5 @@ type Schema struct {
 type Bpdb interface {
 	AllSchemas() ([]Schema, error)
 	UpdateSchema(*core.ClientUpdateSchemaRequest) error
+	CreateSchema(*scoop_protocol.Config) error
 }

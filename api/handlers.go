@@ -107,6 +107,10 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	err = s.bpdbBackend.CreateSchema(&cfg)
+	if err != nil {
+		log.Printf("Error creating schema in bpdb, ignoring: %v", err)
+	}
 }
 
 func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {

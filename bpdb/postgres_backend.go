@@ -6,6 +6,7 @@ import (
 
 	_ "github.com/lib/pq" // To register "postgres" with database/sql
 	"github.com/twitchscience/blueprint/core"
+	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 var (
@@ -96,6 +97,38 @@ func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) erro
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("Error commiting schema update for %s: %v", req.EventName, err)
+	}
+	return nil
+}
+
+func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config) error {
+	tx, err := p.db.Begin()
+	if err != nil {
+		return fmt.Errorf("Error beginning transaction for schema creation: %v.", err)
+	}
+
+	for i, col := range req.Columns {
+		_, err = tx.Exec(addColumnQuery,
+			req.EventName,
+			"add",
+			col.InboundName,
+			col.OutboundName,
+			col.Transformer,
+			col.ColumnCreationOptions,
+			0,
+			i,
+		)
+		if err != nil {
+			rollErr := tx.Rollback()
+			if rollErr != nil {
+				return fmt.Errorf("Error rolling back commit: %v.", rollErr)
+			}
+			return fmt.Errorf("Error INSERTing row for new column on %s: %v", req.EventName, err)
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("Error commiting schema creation for %s: %v", req.EventName, err)
 	}
 	return nil
 }
