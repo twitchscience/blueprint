@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS operation
   column_type varchar,
   column_options varchar,
   version int,
-  ordering int
+  ordering int,
+  PRIMARY KEY (event, version, ordering)
 );
