@@ -25,12 +25,6 @@ WHERE event = $1
 GROUP BY event`
 )
 
-// PGConfig stores config options for a postgres connection
-type PGConfig struct {
-	DatabaseURL    string
-	MaxConnections int
-}
-
 type postgresBackend struct {
 	db *sql.DB
 }
@@ -48,8 +42,8 @@ type operationRow struct {
 
 // NewPostgresBackend creates a postgres bpdb backend to interface with
 // the schema store
-func NewPostgresBackend(cfg *PGConfig) (Bpdb, error) {
-	db, err := sql.Open("postgres", cfg.DatabaseURL)
+func NewPostgresBackend(dbConnection string) (Bpdb, error) {
+	db, err := sql.Open("postgres", dbConnection)
 	if err != nil {
 		return nil, fmt.Errorf("Got err %v while connecting to db.", err)
 	}
@@ -57,7 +51,6 @@ func NewPostgresBackend(cfg *PGConfig) (Bpdb, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Got err %v trying to ping the db.", err)
 	}
-	db.SetMaxOpenConns(cfg.MaxConnections)
 	b := &postgresBackend{db: db}
 	return b, nil
 }

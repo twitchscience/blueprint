@@ -22,7 +22,7 @@ var (
 func main() {
 	flag.Parse()
 	scoopClient := cachingscoopclient.New(*scoopURL, *transformConfig)
-	bpdbBackend, err := bpdb.NewPostgresBackend(&bpdb.PGConfig{DatabaseURL: *bpdbConnection, MaxConnections: 4})
+	bpdbBackend, err := bpdb.NewPostgresBackend(*bpdbConnection)
 	if err != nil {
 		log.Fatalf("Error setting up blueprint db backend: %v.", err)
 	}
