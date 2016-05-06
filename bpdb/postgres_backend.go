@@ -160,13 +160,16 @@ func generateSchemas(ops []operationRow) ([]Schema, error) {
 		if !exists {
 			schemas[op.event] = &Schema{EventName: op.event}
 		}
-		schemas[op.event].ApplyOperation(Operation{
+		err := schemas[op.event].ApplyOperation(Operation{
 			action:        op.action,
 			inbound:       op.inbound,
 			outbound:      op.outbound,
 			columnType:    op.columnType,
 			columnOptions: op.columnOptions,
 		})
+		if err != nil {
+			return []Schema{}, fmt.Errorf("Error applying operation to schema: %v", err)
+		}
 	}
 	ret := make([]Schema, len(schemas))
 
