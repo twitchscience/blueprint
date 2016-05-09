@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/context"
 	"github.com/twitchscience/blueprint/auth"
+	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/blueprint/scoopclient"
 	"github.com/zenazn/goji"
@@ -14,8 +15,9 @@ import (
 )
 
 type server struct {
-	docRoot    string
-	datasource scoopclient.ScoopClient
+	docRoot     string
+	datasource  scoopclient.ScoopClient
+	bpdbBackend bpdb.Bpdb
 }
 
 var (
@@ -42,10 +44,11 @@ func init() {
 }
 
 // New returns an API process.
-func New(docRoot string, client scoopclient.ScoopClient) core.Subprocess {
+func New(docRoot string, client scoopclient.ScoopClient, bpdbBackend bpdb.Bpdb) core.Subprocess {
 	return &server{
-		docRoot:    docRoot,
-		datasource: client,
+		docRoot:     docRoot,
+		datasource:  client,
+		bpdbBackend: bpdbBackend,
 	}
 }
 
@@ -61,6 +64,7 @@ func (s *server) Setup() error {
 	api.Get("/types", s.types)
 	api.Get("/suggestions", s.listSuggestions)
 	api.Get("/suggestion/:id", s.suggestion)
+	api.Get("/bpschemas", s.bpAllSchemas)
 
 	goji.Handle("/health", healthcheck)
 	goji.Handle("/schemas", api)
@@ -68,6 +72,7 @@ func (s *server) Setup() error {
 	goji.Handle("/suggestions", api)
 	goji.Handle("/suggestion/*", api)
 	goji.Handle("/types", api)
+	goji.Handle("/bpschemas", api)
 
 	if !readonly {
 		a := auth.New(githubServer,

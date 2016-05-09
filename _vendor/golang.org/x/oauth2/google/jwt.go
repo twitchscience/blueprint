@@ -1,4 +1,4 @@
-// Copyright 2015 The oauth2 Authors. All rights reserved.
+// Copyright 2015 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -67,5 +67,5 @@ func (ts *jwtAccessTokenSource) Token() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, fmt.Errorf("google: could not encode JWT: %v", err)
 	}
-	return &oauth2.Token{AccessToken: msg, TokenType: "Bearer"}, nil
+	return &oauth2.Token{AccessToken: msg, TokenType: "Bearer", Expiry: exp}, nil
 }

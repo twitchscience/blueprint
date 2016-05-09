@@ -6,7 +6,8 @@ package auth
 
 import "net/http"
 
-type AuthUser struct {
+// User represents a user for authorization purposes
+type User struct {
 	Name          string
 	IsMemberOfOrg bool
 }
@@ -17,5 +18,5 @@ type Auth interface {
 	LoginHandler(w http.ResponseWriter, r *http.Request)
 	LogoutHandler(w http.ResponseWriter, r *http.Request)
 	AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
-	User(r *http.Request) *AuthUser
+	User(r *http.Request) *User
 }
