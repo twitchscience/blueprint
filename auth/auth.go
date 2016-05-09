@@ -15,14 +15,15 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// New creates and returns a github auth object
 func New(githubServer string,
-	clientId string,
+	clientID string,
 	clientSecret string,
 	cookieSecret string,
 	requiredOrg string,
 	loginURL string) Auth {
 
-	if clientId == "" || clientSecret == "" {
+	if clientID == "" || clientSecret == "" {
 		log.Fatalln("Authentication ClientId and ClientSecret missing")
 	}
 
@@ -32,12 +33,12 @@ func New(githubServer string,
 
 	cfg := &GithubAuth{
 		RequiredOrg:  requiredOrg,
-		LoginUrl:     loginURL,
+		LoginURL:     loginURL,
 		CookieStore:  sessions.NewCookieStore([]byte(cookieSecret)),
 		GithubServer: githubServer,
 		LoginTTL:     3600 * 24 * 7, // 7 days
 		OauthConfig: &oauth2.Config{
-			ClientID:     clientId,
+			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Scopes:       []string{"read:org"},
 
@@ -51,22 +52,24 @@ func New(githubServer string,
 	return cfg
 }
 
+// GithubAuth is an object managing the auth flow with github
 type GithubAuth struct {
 	RequiredOrg  string // If empty, membership will not be tested
-	LoginUrl     string
+	LoginURL     string
 	GithubServer string
 	LoginTTL     int64 // seconds
 	CookieStore  *sessions.CookieStore
 	OauthConfig  *oauth2.Config
 }
 
-// Require a user login
-// Always use context.ClearHandler as the base middleware or you'll leak memory (unless you're using gorilla as your server)
+// AuthorizeOrRedirect requires that the user be logged in and have proper permissions, else sends
+// them to the login with a redirect.
 func (a *GithubAuth) AuthorizeOrRedirect(h http.Handler) http.Handler {
+	// Always use context.ClearHandler as the base middleware or you'll leak memory (unless you're using gorilla as your server)
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
 		if user == nil {
-			http.Redirect(w, r, a.LoginUrl+"?redirect_to="+r.RequestURI, http.StatusFound)
+			http.Redirect(w, r, a.LoginURL+"?redirect_to="+r.RequestURI, http.StatusFound)
 			return
 		}
 		if user.IsMemberOfOrg == false {
@@ -86,6 +89,8 @@ func (a *GithubAuth) AuthorizeOrRedirect(h http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
+// AuthorizeOrForbid requires the user be logged in and have proper permissions,
+// else 403s
 func (a *GithubAuth) AuthorizeOrForbid(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
@@ -99,7 +104,7 @@ func (a *GithubAuth) AuthorizeOrForbid(h http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-// Fetch the login information, or nil if you're not above an auth middleware
+// User fetches the login information, or nil if you're not above an auth middleware
 // If you're not using the middlewares, you probably want RequireLogin instead
 func (a *GithubAuth) User(r *http.Request) *User {
 	session, _ := a.CookieStore.Get(r, cookieName)
@@ -115,14 +120,14 @@ func (a *GithubAuth) User(r *http.Request) *User {
 		return nil
 	}
 
-	tokenJson, present := session.Values["auth-token"]
+	tokenJSON, present := session.Values["auth-token"]
 	if !present {
 		log.Println("No token value in cookie")
 		return nil
 	}
 
 	var token oauth2.Token
-	err := json.Unmarshal(tokenJson.([]byte), &token)
+	err := json.Unmarshal(tokenJSON.([]byte), &token)
 
 	if err != nil {
 		log.Printf("Failed to unmarshal token: %v", err)
@@ -141,7 +146,12 @@ func (a *GithubAuth) User(r *http.Request) *User {
 			log.Printf("Failed to get membership: %v", err)
 			return nil
 		}
-		defer resp.Body.Close()
+		defer func() {
+			err = resp.Body.Close()
+			if err != nil {
+				log.Printf("Error closing response body: %v.", err)
+			}
+		}()
 
 		isMember = resp.StatusCode >= 200 && resp.StatusCode <= 299
 	}
@@ -155,7 +165,7 @@ func (a *GithubAuth) User(r *http.Request) *User {
 func (a *GithubAuth) requireUser(w http.ResponseWriter, r *http.Request) *User {
 	user := a.User(r)
 	if user == nil {
-		http.Redirect(w, r, a.LoginUrl+"?redirect_to="+r.RequestURI, http.StatusFound)
+		http.Redirect(w, r, a.LoginURL+"?redirect_to="+r.RequestURI, http.StatusFound)
 		return nil
 	}
 	return user

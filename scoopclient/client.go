@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"sort"
@@ -43,8 +44,8 @@ func makeScoopHTTPClient(connTimeout, readTimeout time.Duration) func(n, a strin
 		if err != nil {
 			return nil, err
 		}
-		conn.SetReadDeadline(time.Now().Add(readTimeout))
-		return conn, nil
+		err = conn.SetReadDeadline(time.Now().Add(readTimeout))
+		return conn, err
 	}
 }
 
@@ -139,7 +140,12 @@ func (c *client) CreateSchema(cfg *scoop_protocol.Config) error {
 		return err
 	}
 	if res.StatusCode != 200 {
-		defer res.Body.Close()
+		defer func() {
+			err = res.Body.Close()
+			if err != nil {
+				log.Printf("Error closing response body: %v.", err)
+			}
+		}()
 		b, _ := ioutil.ReadAll(res.Body)
 		return fmt.Errorf("Error creating schema: %s, %s", cfg.EventName, b)
 	}
@@ -158,7 +164,12 @@ func (c *client) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 		return err
 	}
 	if res.StatusCode != 200 {
-		defer res.Body.Close()
+		defer func() {
+			err = res.Body.Close()
+			if err != nil {
+				log.Printf("Error closing response body: %v.", err)
+			}
+		}()
 		b, _ := ioutil.ReadAll(res.Body)
 		return fmt.Errorf("Error updating schema: %s, %s", req.EventName, b)
 	}
@@ -190,7 +201,12 @@ func (c *client) makeRequest(url string) ([]byte, error) {
 		return nil, fmt.Errorf("Non-200 status fetching url: %s, StatusCode: %d", url, res.StatusCode)
 	}
 
-	defer res.Body.Close()
+	defer func() {
+		err = res.Body.Close()
+		if err != nil {
+			log.Printf("Error closing response body: %v.", err)
+		}
+	}()
 
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {

@@ -28,7 +28,12 @@ func (a *GithubAuth) exchangeToken(code string, state string) (*oauth2.Token, er
 		return nil, fmt.Errorf("Error getting token: %s", err)
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			log.Printf("Error closing response body: %v.", err)
+		}
+	}()
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
@@ -52,12 +57,16 @@ func (a *GithubAuth) exchangeToken(code string, state string) (*oauth2.Token, er
 }
 
 func responseBodyToMap(r *http.Response) (map[string]interface{}, error) {
-	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
-
 	if err != nil {
 		return nil, fmt.Errorf("Error reading body from response: %s", err)
 	}
+	defer func() {
+		err = r.Body.Close()
+		if err != nil {
+			log.Printf("Error closing response body: %v.", err)
+		}
+	}()
 
 	var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
@@ -69,11 +78,17 @@ func responseBodyToMap(r *http.Response) (map[string]interface{}, error) {
 	return result, nil
 }
 
+// AuthCallbackHandler receives the callback portion of the auth flow
 func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("AuthCallbackHandler")
 	session, _ := a.CookieStore.Get(r, cookieName)
 
-	r.ParseForm()
+	err := r.ParseForm()
+	if err != nil {
+		log.Printf("Error parsing form: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	expectedState := session.Values["auth-state"]
 	if expectedState == nil {
@@ -106,7 +121,7 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 
 	userInfo, err := responseBodyToMap(resp)
 	if err != nil {
-		log.Println(err.Error())
+		log.Printf("Error creating map from response body: %v.", err)
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
@@ -131,28 +146,45 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 	redirectTarget := session.Values["auth-redirect-to"].(string)
 	delete(session.Values, "auth-redirect-to")
 	delete(session.Values, "auth-state")
-	session.Save(r, w)
+	err = session.Save(r, w)
+	if err != nil {
+		log.Printf("Error saving auth info to cookie: %v.", err.Error())
+		http.Error(w, "Error saving auth.", http.StatusInternalServerError)
+		return
+	}
 
 	http.Redirect(w, r, "/"+redirectTarget, http.StatusFound)
 }
 
+// LoginHandler handles the login portion of the auth flow
 func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Generate random string to protect the user from CSRF attacks.
 	// See http://tools.ietf.org/html/rfc6749#section-10.12 for more info
 	bytes := make([]byte, 32)
-	rand.Read(bytes)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		log.Printf("Error generating random string: %v.", err.Error())
+		http.Error(w, "Error logging in.", http.StatusInternalServerError)
+		return
+	}
 	oauthStateString := fmt.Sprintf("%032x", bytes)
 
 	// Store the state and where to redirect to after login in the cookie
 	session, _ := a.CookieStore.Get(r, cookieName)
 	session.Values["auth-redirect-to"] = r.FormValue("redirect_to")
 	session.Values["auth-state"] = oauthStateString
-	session.Save(r, w)
+	err = session.Save(r, w)
+	if err != nil {
+		log.Printf("Error saving auth info to cookie: %v.", err.Error())
+		http.Error(w, "Error saving auth.", http.StatusInternalServerError)
+		return
+	}
 
 	url := a.OauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
+// LogoutHandler handles the logout step of the auth flow
 func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := a.CookieStore.Get(r, cookieName)
 
@@ -161,7 +193,12 @@ func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	delete(session.Values, "auth-state")
 	delete(session.Values, "auth-token")
 	delete(session.Values, "auth-redirect-to")
-	session.Save(r, w)
+	err := session.Save(r, w)
+	if err != nil {
+		log.Printf("Error wiping auth info from cookie: %v.", err.Error())
+		http.Error(w, "Error updating auth.", http.StatusInternalServerError)
+		return
+	}
 
 	applicationAccessURL := fmt.Sprintf("%s/settings/connections/applications/%s",
 		a.GithubServer, a.OauthConfig.ClientID)

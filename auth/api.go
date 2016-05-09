@@ -12,6 +12,7 @@ type User struct {
 	IsMemberOfOrg bool
 }
 
+// Auth is the interface managing user auth flow
 type Auth interface {
 	AuthorizeOrRedirect(h http.Handler) http.Handler
 	AuthorizeOrForbid(h http.Handler) http.Handler

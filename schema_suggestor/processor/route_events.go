@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -83,15 +84,22 @@ func (e *EventRouter) ReadFile(filename string) error {
 	}
 
 	defer func() {
-		e.GzipReader.Close()
-		file.Close()
+		err = e.GzipReader.Close()
+		if err != nil {
+			log.Printf("Error closing gzip reader body: %v.", err)
+		}
+		err = file.Close()
+		if err != nil {
+			log.Printf("Error closing %s: %v.", filename, err)
+		}
 	}()
 
 	d := json.NewDecoder(e.GzipReader)
 	d.UseNumber()
 	for {
 		var event MPEvent
-		if err := d.Decode(&event); err == io.EOF {
+		err := d.Decode(&event)
+		if err == io.EOF {
 			break
 		} else if err != nil {
 			log.Fatal(err)
@@ -128,7 +136,8 @@ func (e *EventRouter) Route(eventName string, properties map[string]interface{})
 		return
 	}
 
-	if _, ok := e.Processors[eventName]; !ok {
+	_, ok := e.Processors[eventName]
+	if !ok {
 		e.Processors[eventName] = e.ProcessorFactory(e.OutputDir)
 	}
 	e.Processors[eventName].Accept(properties)
@@ -152,7 +161,11 @@ func (e *EventRouter) FlushRouters() {
 			continue
 		}
 		if strings.HasSuffix(info.Name(), ".json") && e.EventCreated(strings.TrimSuffix(info.Name(), ".json")) {
-			os.Remove(e.OutputDir + "/" + info.Name())
+			fname := path.Join(e.OutputDir, info.Name())
+			err = os.Remove(fname)
+			if err != nil {
+				log.Printf("Error removing file %s: %v", fname, err)
+			}
 		}
 	}
 }

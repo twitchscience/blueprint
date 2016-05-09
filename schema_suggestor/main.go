@@ -18,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/twitchscience/aws_utils/environment"
 	"github.com/twitchscience/aws_utils/listener"
 	"github.com/twitchscience/blueprint/schema_suggestor/processor"
 	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
@@ -29,7 +28,6 @@ var (
 	staticFileDir   = flag.String("staticfiles", "./static/events", "the location to serve static files from")
 	transformConfig = flag.String("transformConfig", "transforms_available.json", "config for available transforms in spade")
 	nonTrackedQueue = flag.String("nonTrackedQueue", "", "SQS Queue name to listen to for nontracked events.")
-	env             = environment.GetCloudEnv()
 )
 
 // BPHandler listens to SQS for new messages describing freshly uploaded event data in S3.
@@ -54,14 +52,19 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 
 	err := json.Unmarshal([]byte(aws.StringValue(msg.Body)), &rotatedMessage)
 	if err != nil {
-		return fmt.Errorf("Could not decode %s\n", msg.Body)
+		return fmt.Errorf("Could not decode %s\n", aws.StringValue(msg.Body))
 	}
 
 	tmpFile, err := ioutil.TempFile("", "schema_suggestor")
 	if err != nil {
 		return fmt.Errorf("Failed to create a tempfile to download %s: %v", rotatedMessage.Keyname, err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		err = os.Remove(tmpFile.Name())
+		if err != nil {
+			log.Printf("Error removing file %s: %v", tmpFile.Name(), err)
+		}
+	}()
 	log.Printf("Downloading %s into %s", rotatedMessage.Keyname, tmpFile.Name())
 
 	parts := strings.SplitN(rotatedMessage.Keyname, "/", 2)

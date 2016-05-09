@@ -34,7 +34,12 @@ func writeEvent(w http.ResponseWriter, events interface{}) {
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
-	w.Write(b)
+	_, err = w.Write(b)
+	if err != nil {
+		log.Printf("Error writing json to response: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func jsonResponse(h http.Handler) http.Handler {
@@ -57,11 +62,17 @@ func getAvailableSuggestions(docRoot string) ([]SchemaSuggestion, error) {
 		}
 		if strings.HasSuffix(entry.Name(), ".json") {
 			var newSuggestion SchemaSuggestion
-			f, err := os.Open(path.Join(docRoot, "events", entry.Name()))
+			p := path.Join(docRoot, "events", entry.Name())
+			f, err := os.Open(p)
 			if err != nil {
 				return nil, err
 			}
-			defer f.Close()
+			defer func() {
+				err = f.Close()
+				if err != nil {
+					log.Printf("Error closing file %s: %v.", p, err)
+				}
+			}()
 
 			dec := json.NewDecoder(f)
 

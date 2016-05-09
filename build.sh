@@ -25,6 +25,8 @@ go vet ./... # Replace with gometalinter soon
 go test -v ./...
 go install -v ./...
 
+gometalinter ./... --disable=gocyclo  --disable=dupl --deadline 90s
+
 packer                                         \
     -machine-readable build                    \
     -var "project=${PROJECT}"                  \

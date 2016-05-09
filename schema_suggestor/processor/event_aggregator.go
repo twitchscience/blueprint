@@ -6,6 +6,10 @@ import (
 	"strconv"
 )
 
+const (
+	stringType = "string"
+)
+
 // EventAggregator summarizes a set of events.
 type EventAggregator struct {
 	// CriticalPercent is the threshold percent of events that contain a given property, under which a property will be ommitted from the event summary.
@@ -49,7 +53,8 @@ func NewTypeAggregator() *TypeAggregator {
 // Aggregate JSON objects.
 func (e *EventAggregator) Aggregate(properties map[string]interface{}) {
 	for columnName, val := range properties {
-		if _, ok := e.Columns[columnName]; !ok {
+		_, ok := e.Columns[columnName]
+		if !ok {
 			e.Columns[columnName] = NewTypeAggregator()
 		}
 		e.Columns[columnName].Aggregate(val)
@@ -90,9 +95,10 @@ func (t *TypeAggregator) Aggregate(val interface{}) {
 		typ = coerceJSONNumberToFloatOrInt(val.(json.Number))
 	}
 
-	if _, ok := t.Counts[typ.Name()]; !ok {
+	_, ok := t.Counts[typ.Name()]
+	if !ok {
 		switch typ.Name() {
-		case "string":
+		case stringType:
 			t.Counts[typ.Name()] = &TypeCounter{
 				Type:         typ,
 				LenEstimator: LengthEstimator{},
@@ -131,7 +137,7 @@ func (t *TypeAggregator) Summarize() PropertySummary {
 
 // Aggregate Go values of a single type. For strings, will store lengths of all strings for estimating 99th percentile.
 func (c *TypeCounter) Aggregate(val interface{}) {
-	if c.Type.Name() == "string" {
+	if c.Type.Name() == stringType {
 		s := val.(string)
 		c.LenEstimator.Increment(len(s))
 	}
@@ -140,7 +146,7 @@ func (c *TypeCounter) Aggregate(val interface{}) {
 
 // Summarize values that have been aggregated.
 func (c *TypeCounter) Summarize() PropertySummary {
-	if c.Type.Name() == "string" {
+	if c.Type.Name() == stringType {
 		return PropertySummary{
 			T:   c.Type,
 			Len: c.LenEstimator.Estimate(),

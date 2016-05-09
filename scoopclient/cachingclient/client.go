@@ -50,7 +50,12 @@ func (c *CachingClient) FetchAllSchemas() ([]scoop_protocol.Config, error) {
 	} else if c.ttl.Before(time.Now()) {
 		// serve stale results, then populate cache in the background
 		defer func() {
-			go c.populateCache()
+			go func() {
+				_, err := c.populateCache()
+				if err != nil {
+					log.Printf("Error populating schema cache: %v", err)
+				}
+			}()
 		}()
 	}
 	return c.cache, nil

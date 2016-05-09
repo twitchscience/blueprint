@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -19,11 +20,11 @@ import (
 	"github.com/zenazn/goji/web"
 )
 
-// respondWithJsonError responds with a JSON error with the given error code. The format of the
+// respondWithJSONError responds with a JSON error with the given error code. The format of the
 // JSON error is {"Error": text}
 // It's very likely that you want to return from the handler after calling
 // this.
-func respondWithJsonError(w http.ResponseWriter, text string, responseCode int) {
+func respondWithJSONError(w http.ResponseWriter, text string, responseCode int) {
 
 	var jsonError struct {
 		Error string
@@ -31,12 +32,17 @@ func respondWithJsonError(w http.ResponseWriter, text string, responseCode int) 
 	jsonError.Error = text
 	js, err := json.Marshal(jsonError)
 	if err != nil {
+		log.Printf("Error marshalling JSON: %v.", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(responseCode)
-	w.Write(js)
+	_, err = w.Write(js)
+	if err != nil {
+		log.Printf("Error writing JSON to response: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // ingest proxies the request through to the ingester /control/ingest
@@ -47,7 +53,7 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 	}
 	err := decoder.Decode(&tableArg)
 	if err != nil {
-		respondWithJsonError(w, "Problem decoding JSON POST data.", http.StatusBadRequest)
+		respondWithJSONError(w, "Problem decoding JSON POST data.", http.StatusBadRequest)
 		return
 	}
 
@@ -62,13 +68,14 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 
 	js, err := json.Marshal(tableArg)
 	if err != nil {
+		log.Printf("Error marshalling JSON: %v.", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	req, err := http.NewRequest("POST", ingesterURL+"/control/ingest", bytes.NewBuffer(js))
 	if err != nil {
-		respondWithJsonError(w, "Error building request to ingester: "+err.Error(), http.StatusInternalServerError)
+		respondWithJSONError(w, "Error building request to ingester: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -76,21 +83,42 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		respondWithJsonError(w, "Error making request to ingester: "+err.Error(), http.StatusBadRequest)
+		respondWithJSONError(w, "Error making request to ingester: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			log.Printf("Error closing response body: %v.", err)
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(resp.Body)
-	w.Write(buf.Bytes())
+	_, err = buf.ReadFrom(resp.Body)
+	if err != nil {
+		log.Printf("Error writing to response: %v.", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		log.Printf("Error writing to response: %v.", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	return
 }
 
 func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func() {
+		err := r.Body.Close()
+		if err != nil {
+			log.Printf("Error closing request body: %v.", err)
+		}
+	}()
+
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -103,7 +131,8 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	if err := s.datasource.CreateSchema(&cfg); err != nil {
+	err = s.datasource.CreateSchema(&cfg)
+	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -118,7 +147,13 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	// since it should be infered from the url
 	eventName := c.URLParams["id"]
 
-	defer r.Body.Close()
+	defer func() {
+		err := r.Body.Close()
+		if err != nil {
+			log.Printf("Error closing request body: %v.", err)
+		}
+	}()
+
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -133,7 +168,8 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	req.EventName = eventName
 
-	if err := s.datasource.UpdateSchema(&req); err != nil {
+	err = s.datasource.UpdateSchema(&req)
+	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -171,16 +207,25 @@ func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 		fourOhFour(w, r)
 		return
 	}
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 	writeEvent(w, []scoop_protocol.Config{*cfg})
 }
 
 func (s *server) fileHandler(w http.ResponseWriter, r *http.Request) {
-	fh, err := os.Open(staticPath(s.docRoot, r.URL.Path))
+	fname := staticPath(s.docRoot, r.URL.Path)
+	fh, err := os.Open(fname)
 	if err != nil {
 		fourOhFour(w, r)
 		return
 	}
-	io.Copy(w, fh)
+	_, err = io.Copy(w, fh)
+	if err != nil {
+		log.Printf("Error copying file %s to response: %v.", fname, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *server) types(w http.ResponseWriter, r *http.Request) {
@@ -195,11 +240,17 @@ func (s *server) types(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	w.Write(b)
+	_, err = w.Write(b)
+	if err != nil {
+		log.Printf("Error writing to response: %v.", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *server) expire(w http.ResponseWriter, r *http.Request) {
-	if v := s.datasource.(*cachingscoopclient.CachingClient); v != nil {
+	v := s.datasource.(*cachingscoopclient.CachingClient)
+	if v != nil {
 		v.Expire()
 	}
 }
@@ -212,7 +263,11 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(availableSuggestions) == 0 {
-		w.Write([]byte("[]"))
+		_, err = w.Write([]byte("[]"))
+		if err != nil {
+			log.Printf("Error writing to response: %v.", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -221,7 +276,12 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	w.Write(b)
+
+	_, err = w.Write(b)
+	if err != nil {
+		log.Printf("Error writing to response: %v.", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -229,12 +289,17 @@ func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
 		fourOhFour(w, r)
 		return
 	}
-	fh, err := os.Open(s.docRoot + "/events/" + c.URLParams["id"])
+	fname := path.Join(s.docRoot, "events", c.URLParams["id"])
+	fh, err := os.Open(fname)
 	if err != nil {
 		fourOhFour(w, r)
 		return
 	}
-	io.Copy(w, fh)
+	_, err = io.Copy(w, fh)
+	if err != nil {
+		log.Printf("Error copying file %s to response: %v.", fname, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -251,5 +316,9 @@ func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Reques
 }
 
 func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Healthy")
+	_, err := io.WriteString(w, "Healthy")
+	if err != nil {
+		log.Printf("Error writing to response: %v.", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
