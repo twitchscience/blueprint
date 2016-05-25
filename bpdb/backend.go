@@ -14,23 +14,10 @@ type Operation struct {
 	columnOptions string
 }
 
-// Column represents a schema's column
-type Column struct {
-	InboundName           string
-	OutboundName          string
-	Transformer           string
-	ColumnCreationOptions string
-}
-
-// Schema represents a single table/event
-type Schema struct {
-	EventName string
-	Columns   []Column
-}
-
 // Bpdb is the interface of the blueprint db backend that stores schema state
 type Bpdb interface {
-	AllSchemas() ([]Schema, error)
+	AllSchemas() ([]scoop_protocol.Config, error)
+	Schema(name string) (*scoop_protocol.Config, error)
 	UpdateSchema(*core.ClientUpdateSchemaRequest) error
 	CreateSchema(*scoop_protocol.Config) error
 }

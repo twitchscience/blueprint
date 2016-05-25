@@ -10,6 +10,12 @@ import (
 )
 
 var (
+	schemaQuery = `
+SELECT event, action, inbound, outbound, column_type, column_options, version, ordering
+FROM operation
+WHERE event = $1
+ORDER BY version ASC, ordering ASC
+`
 	allSchemasQuery = `
 SELECT event, action, inbound, outbound, column_type, column_options, version, ordering
 FROM operation
@@ -126,34 +132,76 @@ func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config) error {
 	return nil
 }
 
-func (p *postgresBackend) AllSchemas() ([]Schema, error) {
-	rows, err := p.db.Query(allSchemasQuery)
-	if err != nil {
-		return nil, fmt.Errorf("Error querying for all schemas: %v.", err)
-	}
+// scanOperationRows scans the rows into operationRow objects
+func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	ops := []operationRow{}
 	for rows.Next() {
 		var op operationRow
-		err = rows.Scan(&op.event, &op.action, &op.inbound, &op.outbound, &op.columnType, &op.columnOptions, &op.version, &op.ordering)
+		err := rows.Scan(&op.event, &op.action, &op.inbound, &op.outbound, &op.columnType, &op.columnOptions, &op.version, &op.ordering)
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing operation row: %v.", err)
 		}
 
 		ops = append(ops, op)
 	}
+	return ops, nil
+}
+
+// Schema returns the current schema for the table `name`
+func (p *postgresBackend) Schema(name string) (*scoop_protocol.Config, error) {
+	rows, err := p.db.Query(schemaQuery, name)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying for schema %s: %v.", name, err)
+	}
+	ops, err := scanOperationRows(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	schemas, err := generateSchemas(ops)
+	if err != nil {
+		return nil, err
+	}
+	if len(schemas) > 1 {
+		return nil, fmt.Errorf("Expected only one schema, received %v.", len(schemas))
+	}
+	if len(schemas) == 0 {
+		return nil, fmt.Errorf("Unable to find schema: %v", name)
+	}
+	return &schemas[0], nil
+}
+
+// Schema returns all of the current schemas
+func (p *postgresBackend) AllSchemas() ([]scoop_protocol.Config, error) {
+	rows, err := p.db.Query(allSchemasQuery)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying for all schemas: %v.", err)
+	}
+	ops, err := scanOperationRows(rows)
+	if err != nil {
+		return nil, err
+	}
 	return generateSchemas(ops)
+}
+
+// max returns the max of the two arguments
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
 }
 
 // generateSchemas creates schemas from a list of operations
 // by applying the operations in the order they appear in the array
-func generateSchemas(ops []operationRow) ([]Schema, error) {
-	schemas := make(map[string]*Schema)
+func generateSchemas(ops []operationRow) ([]scoop_protocol.Config, error) {
+	schemas := make(map[string]*scoop_protocol.Config)
 	for _, op := range ops {
 		_, exists := schemas[op.event]
 		if !exists {
-			schemas[op.event] = &Schema{EventName: op.event}
+			schemas[op.event] = &scoop_protocol.Config{EventName: op.event}
 		}
-		err := schemas[op.event].ApplyOperation(Operation{
+		err := ApplyOperation(schemas[op.event], Operation{
 			action:        op.action,
 			inbound:       op.inbound,
 			outbound:      op.outbound,
@@ -161,10 +209,11 @@ func generateSchemas(ops []operationRow) ([]Schema, error) {
 			columnOptions: op.columnOptions,
 		})
 		if err != nil {
-			return []Schema{}, fmt.Errorf("Error applying operation to schema: %v", err)
+			return []scoop_protocol.Config{}, fmt.Errorf("Error applying operation to schema: %v", err)
 		}
+		schemas[op.event].Version = max(schemas[op.event].Version, op.version)
 	}
-	ret := make([]Schema, len(schemas))
+	ret := make([]scoop_protocol.Config, len(schemas))
 
 	i := 0
 	for _, val := range schemas {

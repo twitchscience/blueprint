@@ -1,8 +1,12 @@
 package bpdb
 
-import "fmt"
+import (
+	"fmt"
 
-func (s *Schema) addColumn(col Column) error {
+	"github.com/twitchscience/scoop_protocol/scoop_protocol"
+)
+
+func addColumn(s *scoop_protocol.Config, col scoop_protocol.ColumnDefinition) error {
 	for _, existingCol := range s.Columns {
 		if existingCol.OutboundName == col.OutboundName {
 			return fmt.Errorf("Outbound column '%s' already exists in schema, cannot add again.", col.OutboundName)
@@ -14,9 +18,9 @@ func (s *Schema) addColumn(col Column) error {
 
 // ApplyOperations applies the list of operations in order to the schema,
 // migrating the schema to a new state
-func (s *Schema) ApplyOperations(operations []Operation) error {
+func ApplyOperations(s *scoop_protocol.Config, operations []Operation) error {
 	for _, op := range operations {
-		err := s.ApplyOperation(op)
+		err := ApplyOperation(s, op)
 		if err != nil {
 			return err
 		}
@@ -26,10 +30,15 @@ func (s *Schema) ApplyOperations(operations []Operation) error {
 
 // ApplyOperation applies a single operation to the schema, migrating the
 // schema to a new state
-func (s *Schema) ApplyOperation(op Operation) error {
+func ApplyOperation(s *scoop_protocol.Config, op Operation) error {
 	switch op.action {
 	case "add":
-		err := s.addColumn(Column{op.inbound, op.outbound, op.columnType, op.columnOptions})
+		err := addColumn(s, scoop_protocol.ColumnDefinition{
+			InboundName:           op.inbound,
+			OutboundName:          op.outbound,
+			Transformer:           op.columnType,
+			ColumnCreationOptions: op.columnOptions,
+		})
 		if err != nil {
 			return err
 		}

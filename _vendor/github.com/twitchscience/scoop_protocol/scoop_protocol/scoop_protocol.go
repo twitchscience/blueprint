@@ -22,6 +22,7 @@ type ColumnDefinition struct {
 type Config struct {
 	EventName string
 	Columns   []ColumnDefinition
+	Version   int
 }
 
 type RowCopyRequest struct {
