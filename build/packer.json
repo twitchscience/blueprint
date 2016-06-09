@@ -59,6 +59,11 @@
       "destination": "/tmp/{{user `project`}}/bin"
     },
     {
+      "type": "file",
+      "source": "init/init.sql",
+      "destination": "/tmp/{{user `project`}}/init.sql"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo chmod +x /tmp/{{user `project`}}/bin/*",
