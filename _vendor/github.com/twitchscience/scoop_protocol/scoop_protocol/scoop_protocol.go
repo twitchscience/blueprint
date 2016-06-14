@@ -25,6 +25,15 @@ type Config struct {
 	Version   int
 }
 
+// Operation represents a single change to a schema
+type Operation struct {
+	Action        string
+	Inbound       string
+	Outbound      string
+	ColumnType    string
+	ColumnOptions string
+}
+
 type RowCopyRequest struct {
 	KeyName   string
 	TableName string

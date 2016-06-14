@@ -24,14 +24,14 @@ func staticPath(root, file string) string {
 }
 
 func fourOhFour(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, http.StatusText(404), 404)
+	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }
 
 func writeEvent(w http.ResponseWriter, events interface{}) {
 	b, err := json.Marshal(events)
 	if err != nil {
 		log.Println("Error serializing data")
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	_, err = w.Write(b)

@@ -14,5 +14,6 @@ CREATE TABLE IF NOT EXISTS operation
   column_options varchar,
   version int,
   ordering int,
+  ts timestamp without time zone default NOW(),
   PRIMARY KEY (event, version, ordering)
 );

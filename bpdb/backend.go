@@ -20,4 +20,5 @@ type Bpdb interface {
 	Schema(name string) (*scoop_protocol.Config, error)
 	UpdateSchema(*core.ClientUpdateSchemaRequest) error
 	CreateSchema(*scoop_protocol.Config) error
+	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 }

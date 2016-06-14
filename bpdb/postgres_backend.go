@@ -21,6 +21,13 @@ SELECT event, action, inbound, outbound, column_type, column_options, version, o
 FROM operation
 ORDER BY version ASC, ordering ASC
 `
+	migrationQuery = `
+SELECT action, inbound, outbound, column_type, column_options
+FROM operation
+WHERE version = $1
+AND event = $2
+ORDER BY version ASC, ordering ASC
+`
 	addColumnQuery = `INSERT INTO operation
 (event, action, inbound, outbound, column_type, column_options, version, ordering)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -59,6 +66,24 @@ func NewPostgresBackend(dbConnection string) (Bpdb, error) {
 	}
 	b := &postgresBackend{db: db}
 	return b, nil
+}
+
+func (p *postgresBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
+	rows, err := p.db.Query(migrationQuery, to, table)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying for migration (%s) to v%v: %v.", table, to, err)
+	}
+	ops := []*scoop_protocol.Operation{}
+	for rows.Next() {
+		var op scoop_protocol.Operation
+		err := rows.Scan(&op.Action, &op.Inbound, &op.Outbound, &op.ColumnType, &op.ColumnOptions)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing operation row: %v.", err)
+		}
+
+		ops = append(ops, &op)
+	}
+	return ops, nil
 }
 
 func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -286,6 +287,40 @@ func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeEvent(w, []scoop_protocol.Config{*cfg})
+}
+
+func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
+	args := r.URL.Query()
+	to, err := strconv.Atoi(args.Get("to_version"))
+	if err != nil || to < 0 {
+		respondWithJSONError(w, "Error, 'to_version' argument must be non-negative integer.", http.StatusBadRequest)
+		log.Printf("Bad input for 'to': %s", args.Get("to"))
+		return
+	}
+	operations, err := s.bpdbBackend.Migration(
+		c.URLParams["schema"],
+		to,
+	)
+	if err != nil {
+		respondWithJSONError(w, "Internal Service Error", http.StatusInternalServerError)
+		log.Printf("Error getting migration steps: %v", err)
+		return
+	}
+	if len(operations) == 0 {
+		respondWithJSONError(w, fmt.Sprintf("No migration for table '%s' to v%d.", c.URLParams["schema"], to), http.StatusBadRequest)
+		return
+	}
+	b, err := json.Marshal(operations)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = w.Write(b)
+	if err != nil {
+		log.Printf("Error writing to response: %v.", err)
+		respondWithJSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *server) fileHandler(w http.ResponseWriter, r *http.Request) {
