@@ -15,9 +15,10 @@ import (
 )
 
 type server struct {
-	docRoot     string
-	datasource  scoopclient.ScoopClient
-	bpdbBackend bpdb.Bpdb
+	docRoot        string
+	datasource     scoopclient.ScoopClient
+	bpdbBackend    bpdb.Bpdb
+	configFilename string
 }
 
 var (
@@ -44,11 +45,12 @@ func init() {
 }
 
 // New returns an API process.
-func New(docRoot string, client scoopclient.ScoopClient, bpdbBackend bpdb.Bpdb) core.Subprocess {
+func New(docRoot string, client scoopclient.ScoopClient, bpdbBackend bpdb.Bpdb, configFilename string) core.Subprocess {
 	return &server{
-		docRoot:     docRoot,
-		datasource:  client,
-		bpdbBackend: bpdbBackend,
+		docRoot:        docRoot,
+		datasource:     client,
+		bpdbBackend:    bpdbBackend,
+		configFilename: configFilename,
 	}
 }
 

@@ -3,13 +3,17 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/twitchscience/blueprint/auth"
@@ -121,25 +125,104 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var cfg scoop_protocol.Config
 	err = json.Unmarshal(b, &cfg)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	blacklisted, err := s.isBlacklisted(cfg.EventName)
+	if err != nil {
+		log.Printf("Error testing %v in the blacklist: %v", cfg.EventName, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if blacklisted {
+		http.Error(w, fmt.Sprintf("%v is blacklisted", cfg.EventName), http.StatusForbidden)
+		return
+	}
+
 	err = s.datasource.CreateSchema(&cfg)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	err = s.bpdbBackend.CreateSchema(&cfg)
 	if err != nil {
 		log.Printf("Error creating schema in bpdb, ignoring: %v", err)
 	}
+}
+
+var mu sync.Mutex
+var blacklistRe []*regexp.Regexp
+var blacklistCompiled uint32
+
+func compileRegex(filename string) error {
+	configJSON, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	blacklistRe = nil
+
+	var jsonObj map[string][]string
+	err = json.Unmarshal(configJSON, &jsonObj)
+	if err != nil {
+		return err
+	}
+
+	blacklist, ok := jsonObj["blacklist"]
+
+	if !ok {
+		err = fmt.Errorf("Cannot find blacklist in %v\n", filename)
+		return err
+	}
+
+	for _, pattern := range blacklist {
+		re, err := regexp.Compile(strings.ToLower(pattern))
+		if err != nil {
+			return err
+		}
+		blacklistRe = append(blacklistRe, re)
+	}
+	return nil
+}
+
+// isBlacklisted check whether name matches (case insensitively) any regex in the blacklist.
+// It returns false when name is not blacklisted or an error occures.
+func (s *server) isBlacklisted(name string) (bool, error) {
+	var err error
+
+	// use the similary idea in sync.Once.Do, but we want to return the error
+	if atomic.LoadUint32(&blacklistCompiled) == 0 {
+		func() {
+			mu.Lock()
+			defer mu.Unlock()
+			if blacklistCompiled == 0 {
+				defer atomic.StoreUint32(&blacklistCompiled, 1)
+				err = compileRegex(s.configFilename)
+			}
+		}()
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	name = strings.ToLower(name)
+
+	for _, pattern := range blacklistRe {
+		if matched := pattern.MatchString(name); matched {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -156,21 +239,21 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var req core.ClientUpdateSchemaRequest
 	err = json.Unmarshal(b, &req)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	req.EventName = eventName
 
 	err = s.datasource.UpdateSchema(&req)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	err = s.bpdbBackend.UpdateSchema(&req)
@@ -182,7 +265,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	cfgs, err := s.bpdbBackend.AllSchemas()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeEvent(w, cfgs)
@@ -191,7 +274,7 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.bpdbBackend.Schema(c.URLParams["id"])
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if cfg == nil {
@@ -199,7 +282,7 @@ func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeEvent(w, []scoop_protocol.Config{*cfg})
@@ -222,13 +305,13 @@ func (s *server) fileHandler(w http.ResponseWriter, r *http.Request) {
 func (s *server) types(w http.ResponseWriter, r *http.Request) {
 	props, err := s.datasource.PropertyTypes()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	data := make(map[string][]string)
 	data["result"] = props
 	b, err := json.Marshal(data)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	_, err = w.Write(b)
@@ -249,7 +332,7 @@ func (s *server) expire(w http.ResponseWriter, r *http.Request) {
 func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 	availableSuggestions, err := getAvailableSuggestions(s.docRoot)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -264,7 +347,7 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(availableSuggestions)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
