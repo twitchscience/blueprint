@@ -26,7 +26,6 @@ import (
 var (
 	scoopURL        = flag.String("url", "http://localhost:8080", "the url to talk to scoop")
 	staticFileDir   = flag.String("staticfiles", "./static/events", "the location to serve static files from")
-	transformConfig = flag.String("transformConfig", "transforms_available.json", "config for available transforms in spade")
 	nonTrackedQueue = flag.String("nonTrackedQueue", "", "SQS Queue name to listen to for nontracked events.")
 )
 
@@ -87,7 +86,7 @@ func main() {
 	if *nonTrackedQueue == "" {
 		log.Fatal("Missing required flag: --nonTrackedQueue.")
 	}
-	scoopClient := cachingscoopclient.New(*scoopURL, *transformConfig)
+	scoopClient := cachingscoopclient.New(*scoopURL)
 
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.

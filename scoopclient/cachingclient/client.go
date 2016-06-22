@@ -22,8 +22,8 @@ type CachingClient struct {
 }
 
 // New allocates a new CachingClient.
-func New(urlBase string, transformConfig string) scoopclient.ScoopClient {
-	cli := scoopclient.New(urlBase, transformConfig)
+func New(urlBase string) scoopclient.ScoopClient {
+	cli := scoopclient.New(urlBase)
 	var cfgs []scoop_protocol.Config
 	return &CachingClient{
 		rawClient: cli,

@@ -17,6 +17,5 @@ export GOMAXPROCS="2"
 
 exec ./schema_suggestor \
   -url="${SCOOP_URL}" \
-  -transformConfig="${CONFIG_DIR}/transforms_available.json" \
   -staticfiles="${SCIENCE_DIR}/nginx/html/events" \
   -nonTrackedQueue="${NONTRACKED_QUEUE}"

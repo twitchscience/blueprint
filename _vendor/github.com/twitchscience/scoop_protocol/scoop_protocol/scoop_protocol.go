@@ -1,12 +1,10 @@
 package scoop_protocol
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/twitchscience/scoop_protocol/msg_signer"
@@ -25,9 +23,15 @@ type Config struct {
 	Version   int
 }
 
+type Action string
+
+const (
+	ADD Action = "add"
+)
+
 // Operation represents a single change to a schema
 type Operation struct {
-	Action        string
+	Action        Action
 	Inbound       string
 	Outbound      string
 	ColumnType    string
@@ -35,8 +39,9 @@ type Operation struct {
 }
 
 type RowCopyRequest struct {
-	KeyName   string
-	TableName string
+	KeyName      string
+	TableName    string
+	TableVersion int
 }
 
 type ManifestRowCopyRequest struct {
@@ -82,15 +87,7 @@ type AuthScoopSigner struct {
 }
 
 var (
-	BadVerified        error = errors.New("Bad Signature")
-	transformerTypeMap       = map[string]string{
-		"ipCity":       "varchar(64)",
-		"ipCountry":    "varchar(2)",
-		"ipRegion":     "varchar(64)",
-		"ipAsn":        "varchar(128)",
-		"ipAsnInteger": "int",
-		"f@timestamp":  "datetime",
-	}
+	BadVerified error = errors.New("Bad Signature")
 )
 
 // For now we are turning off the signer
@@ -179,40 +176,4 @@ func (s *FakeScoopSigner) GetRowCopyRequest(b io.Reader) (*RowCopyRequest, error
 	}
 
 	return c, nil
-}
-
-func (c *Config) GetColumnCreationString() string {
-	out := bytes.NewBuffer(make([]byte, 0, 256))
-	out.WriteRune('(')
-	for i, col := range c.Columns {
-		out.WriteString(col.GetCreationForm())
-		if i+1 != len(c.Columns) {
-			out.WriteRune(',')
-		}
-	}
-	out.WriteRune(')')
-	return out.String()
-}
-
-func (col *ColumnDefinition) GetCreationForm() string {
-	buf := bytes.NewBuffer(make([]byte, 0, 16))
-	buf.WriteString(col.OutboundName)
-	buf.WriteString(" ")
-	if translatedType, ok := transformerTypeMap[col.Transformer]; ok {
-		buf.WriteString(translatedType)
-	} else if len(col.Transformer) > 0 && col.Transformer[0] == 'f' && col.Transformer[1] == '@' {
-		// Its a function transformer
-		canonicalName := col.Transformer[:strings.LastIndex(col.Transformer, "@")]
-		if translatedType, ok := transformerTypeMap[canonicalName]; ok {
-			buf.WriteString(translatedType)
-		} else {
-			buf.WriteString(col.Transformer)
-		}
-	} else {
-		buf.WriteString(col.Transformer)
-	}
-	if len(col.ColumnCreationOptions) > 1 {
-		buf.WriteString(col.ColumnCreationOptions)
-	}
-	return buf.String()
 }

@@ -19,7 +19,6 @@ exec ./blueprint "$@"                                        \
   -clientID=${CLIENT_ID}                                     \
   -clientSecret=${CLIENT_SECRET}                             \
   -githubServer=${GITHUB_SERVER}                             \
-  -transformConfig="${CONFIG_DIR}/transforms_available.json" \
   -requiredOrg=${REQUIRED_ORG}                               \
   -staticfiles="${SCIENCE_DIR}/nginx/html"                   \
   -ingesterURL="${INGESTER_URL}"                             \

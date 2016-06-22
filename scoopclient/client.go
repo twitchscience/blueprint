@@ -8,12 +8,12 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
+	"github.com/twitchscience/scoop_protocol/transformer"
 )
 
 const (
@@ -33,9 +33,8 @@ type ScoopClient interface {
 }
 
 type client struct {
-	hc              *http.Client
-	urlBase         string
-	transformConfig string
+	hc      *http.Client
+	urlBase string
 }
 
 func makeScoopHTTPClient(connTimeout, readTimeout time.Duration) func(n, a string) (net.Conn, error) {
@@ -50,7 +49,7 @@ func makeScoopHTTPClient(connTimeout, readTimeout time.Duration) func(n, a strin
 }
 
 // New creates a new ScoopClient communicating with a given URL and configured with transforms (i.e. SQL types) available.
-func New(urlBase string, transformConfig string) ScoopClient {
+func New(urlBase string) ScoopClient {
 	hc := &http.Client{
 		Transport: &http.Transport{
 			Dial:                makeScoopHTTPClient(SchemaHostConnectTimeout, SchemaHostReadTimeout),
@@ -58,9 +57,8 @@ func New(urlBase string, transformConfig string) ScoopClient {
 		},
 	}
 	return &client{
-		hc:              hc,
-		urlBase:         urlBase,
-		transformConfig: transformConfig,
+		hc:      hc,
+		urlBase: urlBase,
 	}
 }
 
@@ -178,17 +176,7 @@ func (c *client) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 
 // PropertyTypes returns the available column types.
 func (c *client) PropertyTypes() ([]string, error) {
-	f, err := ioutil.ReadFile(c.transformConfig)
-	if err != nil {
-		return nil, err
-	}
-	var res sort.StringSlice
-	err = json.Unmarshal(f, &res)
-	if err != nil {
-		return nil, err
-	}
-	res.Sort()
-	return res, nil
+	return transformer.ValidTransforms, nil
 }
 
 func (c *client) makeRequest(url string) ([]byte, error) {
