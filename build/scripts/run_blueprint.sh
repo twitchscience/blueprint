@@ -13,6 +13,7 @@ aws s3 cp --region us-west-2 "$CONFIG_PREFIX/conf.json" $CONFIG_DIR/conf.json
 source conf.sh
 
 exec ./blueprint "$@"                                        \
+  -enableAuth=${ENABLE_AUTH}                                \
   -scoopURL="${SCOOP_URL}"                                   \
   -bpdbConnection="${BLUEPRINT_DB_URL}"                      \
   -cookieSecret=${COOKIE_SECRET}                             \

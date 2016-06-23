@@ -62,14 +62,18 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a := auth.New(githubServer,
-		clientID,
-		clientSecret,
-		cookieSecret,
-		requiredOrg,
-		loginURL)
-	user := a.User(r)
-	log.Printf("%s requested table %s be flushed.", user.Name, tableArg.Table)
+	if enableAuth {
+		a := auth.New(githubServer,
+			clientID,
+			clientSecret,
+			cookieSecret,
+			requiredOrg,
+			loginURL)
+		user := a.User(r)
+		log.Printf("%s requested table %s be flushed.", user.Name, tableArg.Table)
+	} else {
+		log.Printf("Flushing table %s with no user authenticated", tableArg.Table)
+	}
 
 	js, err := json.Marshal(tableArg)
 	if err != nil {
