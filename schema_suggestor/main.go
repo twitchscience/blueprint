@@ -94,7 +94,7 @@ func main() {
 	// suggest the schemas.
 
 	session := session.New()
-	sqs := sqs.New(session)
+	sqs := sqs.New(session, aws.NewConfig().WithMaxRetries(10))
 
 	poller := listener.BuildSQSListener(
 		&BPHandler{
