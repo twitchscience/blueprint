@@ -268,7 +268,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
-	cfgs, err := s.bpdbBackend.AllSchemas()
+	cfgs, err := s.datasource.FetchAllSchemas()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -277,7 +277,7 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.bpdbBackend.Schema(c.URLParams["id"])
+	cfg, err := s.datasource.FetchSchema(c.URLParams["id"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
