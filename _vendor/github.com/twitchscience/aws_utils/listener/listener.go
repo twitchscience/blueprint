@@ -63,7 +63,7 @@ func (l *SQSListener) handle(msg *sqs.Message, qURL *string) {
 	})
 
 	if err != nil {
-		fmt.Println("unable to delete msg: ", err)
+		fmt.Printf("Delete message failed with %s, message: %v", err, msg)
 	}
 }
 
@@ -71,7 +71,6 @@ func (l *SQSListener) waitForMessages(qURL *string) {
 	o, err := l.sqsClient.ReceiveMessage(&sqs.ReceiveMessageInput{
 		MaxNumberOfMessages: aws.Int64(1),
 		QueueUrl:            qURL,
-		VisibilityTimeout:   aws.Int64(10),
 	})
 	if err != nil || len(o.Messages) < 1 {
 		time.Sleep(l.pollInterval)

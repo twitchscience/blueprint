@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/api"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
@@ -24,7 +24,7 @@ func main() {
 	scoopClient := cachingscoopclient.New(*scoopURL)
 	bpdbBackend, err := bpdb.NewPostgresBackend(*bpdbConnection)
 	if err != nil {
-		log.Fatalf("Error setting up blueprint db backend: %v.", err)
+		logger.WithError(err).Fatal("Error setting up blueprint db backend")
 	}
 	apiProcess := api.New(*staticFileDir, scoopClient, bpdbBackend, *configFilename)
 	manager := &core.SubprocessManager{
