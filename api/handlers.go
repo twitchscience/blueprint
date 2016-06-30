@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -18,8 +19,8 @@ import (
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/core"
-	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
+	"github.com/twitchscience/scoop_protocol/transformer"
 
 	"github.com/zenazn/goji/web"
 )
@@ -61,7 +62,7 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fields := map[string]interface{} { "table": tableArg.Table }
+	fields := map[string]interface{}{"table": tableArg.Table}
 	if enableAuth {
 		a := auth.New(githubServer,
 			clientID,
@@ -128,6 +129,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Printf("Error reading body of request in creatSchema: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -135,6 +137,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	var cfg scoop_protocol.Config
 	err = json.Unmarshal(b, &cfg)
 	if err != nil {
+		log.Printf("Error getting marshalling config to json: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -153,28 +156,25 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.datasource.CreateSchema(&cfg)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	err = s.bpdbBackend.CreateSchema(&cfg)
 	if err != nil {
-		logger.WithError(err).Error("Failed to create schema in bpdb, ignoring")
+		logger.WithError(err).Error("Error creating schema.")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
 var (
-	blacklistOnce	sync.Once
-	blacklistRe	[]*regexp.Regexp
-	blacklistErr	error
+	blacklistOnce sync.Once
+	blacklistRe   []*regexp.Regexp
+	blacklistErr  error
 )
 
 // isBlacklisted check whether name matches any regex in the blacklist (case insensitive).
 // It returns false when name is not blacklisted or an error occurs.
 // TODO(clgroft): should this be per-server? Currently it's global.
 func (s *server) isBlacklisted(name string) (bool, error) {
-	blacklistOnce.Do(func () {
+	blacklistOnce.Do(func() {
 		var configJSON []byte
 		configJSON, blacklistErr = ioutil.ReadFile(s.configFilename)
 		if blacklistErr != nil {
@@ -231,6 +231,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Printf("Error reading request body in updateSchema: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -238,25 +239,24 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	var req core.ClientUpdateSchemaRequest
 	err = json.Unmarshal(b, &req)
 	if err != nil {
+		log.Printf("Error unmarshalling request body in updateSchema: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	req.EventName = eventName
 
-	err = s.datasource.UpdateSchema(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	err = s.bpdbBackend.UpdateSchema(&req)
 	if err != nil {
-		logger.WithError(err).Error("Failed to update schema in bpdb, ignoring")
+		logger.WithError(err).Error("Error updating schema.")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
-	cfgs, err := s.datasource.FetchAllSchemas()
+	cfgs, err := s.bpdbBackend.AllSchemas()
 	if err != nil {
+		log.Printf("Error retrieving allSchemas: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -264,17 +264,14 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.datasource.FetchSchema(c.URLParams["id"])
+	cfg, err := s.bpdbBackend.Schema(c.URLParams["id"])
 	if err != nil {
+		log.Printf("Error retrieving schemas %s: %v", c.URLParams["id"], err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if cfg == nil {
 		fourOhFour(w, r)
-		return
-	}
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeEvent(w, []scoop_protocol.Config{*cfg})
@@ -305,6 +302,7 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	b, err := json.Marshal(operations)
 	if err != nil {
+		log.Printf("Error getting marshalling operations to json: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -333,14 +331,11 @@ func (s *server) fileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) types(w http.ResponseWriter, r *http.Request) {
-	props, err := s.datasource.PropertyTypes()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 	data := make(map[string][]string)
-	data["result"] = props
+	data["result"] = transformer.ValidTransforms
 	b, err := json.Marshal(data)
 	if err != nil {
+		log.Printf("Error getting marshalling data to json: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -352,16 +347,10 @@ func (s *server) types(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) expire(w http.ResponseWriter, r *http.Request) {
-	v := s.datasource.(*cachingscoopclient.CachingClient)
-	if v != nil {
-		v.Expire()
-	}
-}
-
 func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 	availableSuggestions, err := getAvailableSuggestions(s.docRoot)
 	if err != nil {
+		log.Printf("Error listing suggestions: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -377,6 +366,7 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(availableSuggestions)
 	if err != nil {
+		log.Printf("Error getting marshalling suggestions to json: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -385,6 +375,7 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.WithError(err).Error("Failed to write to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 

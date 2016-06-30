@@ -1,4 +1,3 @@
-// Package api exposes the scoop HTTP API. Scoop manages the state of tables in Redshift.
 package api
 
 import (
@@ -9,7 +8,6 @@ import (
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
-	"github.com/twitchscience/blueprint/scoopclient"
 	"github.com/zenazn/goji"
 	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
@@ -18,7 +16,6 @@ import (
 
 type server struct {
 	docRoot        string
-	datasource     scoopclient.ScoopClient
 	bpdbBackend    bpdb.Bpdb
 	configFilename string
 }
@@ -49,10 +46,9 @@ func init() {
 }
 
 // New returns an API process.
-func New(docRoot string, client scoopclient.ScoopClient, bpdbBackend bpdb.Bpdb, configFilename string) core.Subprocess {
+func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string) core.Subprocess {
 	return &server{
 		docRoot:        docRoot,
-		datasource:     client,
 		bpdbBackend:    bpdbBackend,
 		configFilename: configFilename,
 	}
@@ -85,12 +81,10 @@ func (s *server) Setup() error {
 
 		api.Post("/ingest", s.ingest)
 		api.Put("/schema", s.createSchema)
-		api.Post("/expire", s.expire)
 		api.Post("/schema/:id", s.updateSchema)
 		api.Post("/removesuggestion/:id", s.removeSuggestion)
 
 		goji.Handle("/ingest", api)
-		goji.Handle("/expire", api)
 		goji.Handle("/schema", api)
 		goji.Handle("/removesuggestion/*", api)
 

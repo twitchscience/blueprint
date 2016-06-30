@@ -19,13 +19,10 @@ world view.
 
  + An angularjs frontend
  + An API
- + [scoop](https://github.com/TwitchScience/scoop)
+ + A postgres db storing schema state
 
-The frontend works with the API to create tables, scoop handles the
-creation of those tables.
-
-Systems that wish to know about the schemas currently route to scoop
-by way of blueprint.
+The frontend works with the API to create schemas in bpdb, the ingesters handle the
+creation of those tables later.
 
 ## Building
 

@@ -17,5 +17,6 @@ export GOMAXPROCS="2"
 
 exec ./schema_suggestor \
   -url="${SCOOP_URL}" \
+  -bpdbConnection="${BLUEPRINT_DB_URL}" \
   -staticfiles="${SCIENCE_DIR}/nginx/html/events" \
   -nonTrackedQueue="${NONTRACKED_QUEUE}"

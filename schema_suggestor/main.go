@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,13 +20,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/twitchscience/aws_utils/listener"
 	"github.com/twitchscience/aws_utils/logger"
+	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/schema_suggestor/processor"
-	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
 )
 
 var (
-	scoopURL        = flag.String("url", "http://localhost:8080", "the url to talk to scoop")
 	staticFileDir   = flag.String("staticfiles", "./static/events", "the location to serve static files from")
+	bpdbConnection  = flag.String("bpdbConnection", "", "The connection string for blueprintdb")
 	nonTrackedQueue = flag.String("nonTrackedQueue", "", "SQS Queue name to listen to for nontracked events.")
 )
 
@@ -64,9 +65,9 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 			logger.WithError(err).WithField("tmp_file", tmpFile.Name()).Error("Failed to remove file")
 		}
 	}()
-	logger.WithFields(map[string]interface{} {
-		"key":		rotatedMessage.Keyname,
-		"tmp_file":	tmpFile.Name(),
+	logger.WithFields(map[string]interface{}{
+		"key":      rotatedMessage.Keyname,
+		"tmp_file": tmpFile.Name(),
 	}).Debug("Downloading")
 
 	parts := strings.SplitN(rotatedMessage.Keyname, "/", 2)
@@ -88,8 +89,11 @@ func main() {
 	if *nonTrackedQueue == "" {
 		logger.Fatal("Missing required flag: --nonTrackedQueue")
 	}
-	scoopClient := cachingscoopclient.New(*scoopURL)
 
+	bpdb, err := bpdb.NewPostgresBackend(*bpdbConnection)
+	if err != nil {
+		log.Fatalf("Error creating bpdb backend: %v", err)
+	}
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.
 
@@ -101,7 +105,7 @@ func main() {
 			Router: processor.NewRouter(
 				*staticFileDir,
 				5*time.Minute,
-				scoopClient,
+				bpdb,
 			),
 			Downloader: s3manager.NewDownloader(session),
 		},

@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
-	"github.com/twitchscience/blueprint/scoopclient"
+	"github.com/twitchscience/blueprint/bpdb"
 )
 
 // EventRouter receives Mixpanel events, and for events that do not have a table yet, outputs files
 // describing the table for that event.
 type EventRouter struct {
-	// CurrentTables maintains the current event names with schemas in scoop. It is updated periodically.
+	// CurrentTables maintains the current event names with schemas in bpdb. It is updated periodically.
 	CurrentTables []string
 
 	// Processors aggregate data about different event types.
@@ -29,8 +29,8 @@ type EventRouter struct {
 	// FlushTimer will peridically flush data about events to the output directory.
 	FlushTimer <-chan time.Time
 
-	// ScoopClient talks to scoop to get the current tables.
-	ScoopClient scoopclient.ScoopClient
+	// Bpdb talks to blueprint's db to get the current tables.
+	bpdb bpdb.Bpdb
 
 	// GzipReader is for reading files, and is re-used.
 	GzipReader *gzip.Reader
@@ -43,13 +43,13 @@ type EventRouter struct {
 func NewRouter(
 	outputDir string,
 	flushInterval time.Duration,
-	scoopClient scoopclient.ScoopClient,
+	bpdb bpdb.Bpdb,
 ) *EventRouter {
 	r := &EventRouter{
 		Processors:       make(map[string]EventProcessor),
 		ProcessorFactory: NewNonTrackedEventProcessor,
 		FlushTimer:       time.Tick(flushInterval),
-		ScoopClient:      scoopClient,
+		bpdb:             bpdb,
 		OutputDir:        outputDir,
 	}
 	r.UpdateCurrentTables()
@@ -104,7 +104,7 @@ func (e *EventRouter) ReadFile(filename string) error {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			logger.WithError(err).Fatal("Decoding error")
+			logger.WithError(err).Fatal("Decoding event error")
 		}
 		e.Route(event.Event, event.Properties)
 	}
@@ -119,11 +119,11 @@ func (e *EventRouter) ReadFile(filename string) error {
 	return nil
 }
 
-// UpdateCurrentTables talks to scoop and updates the list of tables that have been created.
+// UpdateCurrentTables talks to bpdb and updates the list of tables that have been created.
 func (e *EventRouter) UpdateCurrentTables() {
-	configs, err := e.ScoopClient.FetchAllSchemas()
+	configs, err := e.bpdb.AllSchemas()
 	if err != nil {
-		logger.WithError(err).Error("Failed to fetch schemas from scoop")
+		logger.WithError(err).Error("Failed to fetch schemas from bpdb")
 		return
 	}
 	newTables := make([]string, len(configs))
@@ -173,7 +173,7 @@ func (e *EventRouter) FlushRouters() {
 	}
 }
 
-// EventCreated returns true if the event has a table in scoop.
+// EventCreated returns true if the event has a table in bpdb.
 func (e *EventRouter) EventCreated(eventName string) bool {
 	for _, tables := range e.CurrentTables {
 		if tables == eventName {
