@@ -1,9 +1,9 @@
 package core
 
 import (
-	"log"
 	"sync"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/scoop_protocol/schema"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
@@ -27,7 +27,7 @@ func (s *SubprocessManager) Start() {
 	for _, sp := range s.Processes {
 		err := sp.Setup()
 		if err != nil {
-			log.Fatal("Failed to set up subprocess", sp, err)
+			logger.WithError(err).WithField("subprocess", sp).Fatal("Failed to set up subprocess")
 		}
 
 		fn := sp

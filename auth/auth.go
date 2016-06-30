@@ -7,11 +7,11 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/sessions"
+	"github.com/twitchscience/aws_utils/logger"
 	"golang.org/x/oauth2"
 )
 
@@ -23,21 +23,31 @@ func New(githubServer string,
 	requiredOrg string,
 	loginURL string) Auth {
 
-	if clientID == "" || clientSecret == "" {
-		log.Fatalln("Authentication ClientId and ClientSecret missing")
+	fatalError := false
+	if clientID == "" {
+		logger.Error("Authentication ClientId missing")
+		fatalError = true
+	}
+	if clientSecret == "" {
+		logger.Error("Authentication ClientSecret missing")
+		fatalError = true
+	}
+	if len(cookieSecret) != 32 {
+		logger.WithField("cookie_secret", cookieSecret).
+			Error("Missing or broken cookie secret, must be length 32")
+		fatalError = true
+	}
+	if fatalError {
+		logger.Fatal("Malformed auth input, exiting")
 	}
 
-	if cookieSecret == "" || len(cookieSecret) != 32 {
-		log.Fatalln("Missing/broken cookie secret! It must be length 32")
-	}
-
-	cfg := &GithubAuth{
+	return &GithubAuth{
 		RequiredOrg:  requiredOrg,
 		LoginURL:     loginURL,
 		CookieStore:  sessions.NewCookieStore([]byte(cookieSecret)),
 		GithubServer: githubServer,
-		LoginTTL:     3600 * 24 * 7, // 7 days
-		OauthConfig: &oauth2.Config{
+		LoginTTL:     7 * 24 * time.Hour, // 1 week
+		OauthConfig:  &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Scopes:       []string{"read:org"},
@@ -48,8 +58,6 @@ func New(githubServer string,
 			},
 		},
 	}
-
-	return cfg
 }
 
 // GithubAuth is an object managing the auth flow with github
@@ -57,7 +65,7 @@ type GithubAuth struct {
 	RequiredOrg  string // If empty, membership will not be tested
 	LoginURL     string
 	GithubServer string
-	LoginTTL     int64 // seconds
+	LoginTTL     time.Duration
 	CookieStore  *sessions.CookieStore
 	OauthConfig  *oauth2.Config
 }
@@ -75,11 +83,11 @@ func (a *GithubAuth) AuthorizeOrRedirect(h http.Handler) http.Handler {
 		if user.IsMemberOfOrg == false {
 			//return "access forbidden"" error in HttpResponse
 			// do not redirect to loginURL, which will get into an endless loop
-			logMsg := fmt.Sprintf("User %s is not a member of %s organization",
-				user.Name, a.RequiredOrg)
-			log.Println(logMsg)
-			errMsg := fmt.Sprintf("You need to be a member of %s organization",
-				a.RequiredOrg)
+			logger.WithFields(map[string]interface{} {
+				"user":		user.Name,
+				"required_org":	a.RequiredOrg,
+			}).Warn("User is not a member of required organization")
+			errMsg := fmt.Sprintf("You need to be a member of %s organization", a.RequiredOrg)
 			http.Error(w, errMsg, http.StatusForbidden)
 			return
 		}
@@ -111,18 +119,16 @@ func (a *GithubAuth) User(r *http.Request) *User {
 
 	loginTime, present := session.Values["login-time"]
 	if !present {
-		log.Println("No login-time value in cookie")
+		logger.Warn("No login-time value in cookie")
 		return nil
-	}
-
-	if loginTime.(int64)+a.LoginTTL < time.Now().Unix() {
-		log.Println("Login expired")
+	} else if time.Unix(loginTime.(int64), 0).Add(a.LoginTTL).Before(time.Now()) {
+		logger.Warn("Login expired")
 		return nil
 	}
 
 	tokenJSON, present := session.Values["auth-token"]
 	if !present {
-		log.Println("No token value in cookie")
+		logger.Warn("No token value in cookie")
 		return nil
 	}
 
@@ -130,7 +136,7 @@ func (a *GithubAuth) User(r *http.Request) *User {
 	err := json.Unmarshal(tokenJSON.([]byte), &token)
 
 	if err != nil {
-		log.Printf("Failed to unmarshal token: %v", err)
+		logger.WithError(err).Warn("Failed to unmarshal token")
 		return nil
 	}
 
@@ -143,13 +149,13 @@ func (a *GithubAuth) User(r *http.Request) *User {
 
 		resp, err := client.Get(checkMembershipURL)
 		if err != nil {
-			log.Printf("Failed to get membership: %v", err)
+			logger.WithError(err).Warn("Failed to get membership")
 			return nil
 		}
 		defer func() {
 			err = resp.Body.Close()
 			if err != nil {
-				log.Printf("Error closing response body: %v.", err)
+				logger.WithError(err).Error("Failed to close response body")
 			}
 		}()
 
@@ -166,7 +172,6 @@ func (a *GithubAuth) requireUser(w http.ResponseWriter, r *http.Request) *User {
 	user := a.User(r)
 	if user == nil {
 		http.Redirect(w, r, a.LoginURL+"?redirect_to="+r.RequestURI, http.StatusFound)
-		return nil
 	}
 	return user
 }

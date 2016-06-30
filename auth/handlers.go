@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"golang.org/x/oauth2"
 )
 
@@ -31,7 +31,7 @@ func (a *GithubAuth) exchangeToken(code string, state string) (*oauth2.Token, er
 	defer func() {
 		err = resp.Body.Close()
 		if err != nil {
-			log.Printf("Error closing response body: %v.", err)
+			logger.WithError(err).Error("Failed to close response body")
 		}
 	}()
 	body, err := ioutil.ReadAll(resp.Body)
@@ -64,7 +64,7 @@ func responseBodyToMap(r *http.Response) (map[string]interface{}, error) {
 	defer func() {
 		err = r.Body.Close()
 		if err != nil {
-			log.Printf("Error closing response body: %v.", err)
+			logger.WithError(err).Error("Failed to close response body")
 		}
 	}()
 
@@ -80,33 +80,36 @@ func responseBodyToMap(r *http.Response) (map[string]interface{}, error) {
 
 // AuthCallbackHandler receives the callback portion of the auth flow
 func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("AuthCallbackHandler")
+	logger.Debug("AuthCallbackHandler")
 	session, _ := a.CookieStore.Get(r, cookieName)
 
 	err := r.ParseForm()
 	if err != nil {
-		log.Printf("Error parsing form: %v", err)
+		logger.WithError(err).Error("Failed to parse form")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	expectedState := session.Values["auth-state"]
 	if expectedState == nil {
-		log.Printf("AuthCallbackHandler: No auth state variable found in cookie\n")
+		logger.Error("No auth state variable found in cookie")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
-	recievedState := r.FormValue("state")
-	if expectedState != recievedState {
-		log.Printf("Invalid oauth state! Expected '%v' got '%v'", expectedState, recievedState)
+	receivedState := r.FormValue("state")
+	if expectedState != receivedState {
+		logger.WithFields(map[string]interface{} {
+			"expected_state": expectedState,
+			"received_state": receivedState,
+		}).Error("Invalid oauth state")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
-	token, err := a.exchangeToken(r.FormValue("code"), recievedState)
+	token, err := a.exchangeToken(r.FormValue("code"), receivedState)
 	if err != nil {
-		log.Printf("Unable to exchange token: %s", err)
+		logger.WithError(err).Error("Failed to exchange token")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
@@ -114,27 +117,27 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 	client := a.OauthConfig.Client(oauth2.NoContext, token)
 	resp, err := client.Get(a.GithubServer + "/api/v3/user")
 	if err != nil {
-		log.Printf("Error getting user info: %s", err)
+		logger.WithError(err).Error("Failed to get user info")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	userInfo, err := responseBodyToMap(resp)
 	if err != nil {
-		log.Printf("Error creating map from response body: %v.", err)
+		logger.WithError(err).Error("Failed to create map from response body")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	if userInfo["login"] == nil {
-		log.Println("User login not found in user info")
+		logger.Error("User login not found in user info")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
 
 	bytes, err := json.Marshal(token)
 	if err != nil {
-		log.Println("Error Marshalling oauth token:", err.Error())
+		logger.WithError(err).Error("Failed to marshal oauth token")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
@@ -148,7 +151,7 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 	delete(session.Values, "auth-state")
 	err = session.Save(r, w)
 	if err != nil {
-		log.Printf("Error saving auth info to cookie: %v.", err.Error())
+		logger.WithError(err).Error("Failed to save auth info to cookie")
 		http.Error(w, "Error saving auth.", http.StatusInternalServerError)
 		return
 	}
@@ -163,7 +166,7 @@ func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	bytes := make([]byte, 32)
 	_, err := rand.Read(bytes)
 	if err != nil {
-		log.Printf("Error generating random string: %v.", err.Error())
+		logger.WithError(err).Error("Failed to generate random string")
 		http.Error(w, "Error logging in.", http.StatusInternalServerError)
 		return
 	}
@@ -175,7 +178,7 @@ func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	session.Values["auth-state"] = oauthStateString
 	err = session.Save(r, w)
 	if err != nil {
-		log.Printf("Error saving auth info to cookie: %v.", err.Error())
+		logger.WithError(err).Error("Failed to save auth info to cookie")
 		http.Error(w, "Error saving auth.", http.StatusInternalServerError)
 		return
 	}
@@ -195,7 +198,7 @@ func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	delete(session.Values, "auth-redirect-to")
 	err := session.Save(r, w)
 	if err != nil {
-		log.Printf("Error wiping auth info from cookie: %v.", err.Error())
+		logger.WithError(err).Error("Failed to wipe auth info from cookie")
 		http.Error(w, "Error updating auth.", http.StatusInternalServerError)
 		return
 	}

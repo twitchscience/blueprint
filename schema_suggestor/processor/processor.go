@@ -2,8 +2,9 @@
 package processor
 
 import (
-	"log"
 	"reflect"
+
+	"github.com/twitchscience/aws_utils/logger"
 )
 
 var (
@@ -88,7 +89,7 @@ func (e *NonTrackedEventProcessor) Listen() {
 			if nRows > CriticalThreshold {
 				err := e.Out.Output(eventName, cols, nRows)
 				if err != nil {
-					log.Printf("Outputter error: %v\n", err)
+					logger.WithError(err).Error("Outputter failed")
 				}
 			}
 			e.Aggregator = NewEventAggregator(CriticalPercentage)

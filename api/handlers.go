@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -14,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/core"
 	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
@@ -37,7 +36,7 @@ func respondWithJSONError(w http.ResponseWriter, text string, responseCode int) 
 	jsonError.Error = text
 	js, err := json.Marshal(jsonError)
 	if err != nil {
-		log.Printf("Error marshalling JSON: %v.", err)
+		logger.WithError(err).Error("Failed to marshal JSON")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +44,7 @@ func respondWithJSONError(w http.ResponseWriter, text string, responseCode int) 
 	w.WriteHeader(responseCode)
 	_, err = w.Write(js)
 	if err != nil {
-		log.Printf("Error writing JSON to response: %v", err)
+		logger.WithError(err).Error("Failed to write JSON to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -62,6 +61,7 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fields := map[string]interface{} { "table": tableArg.Table }
 	if enableAuth {
 		a := auth.New(githubServer,
 			clientID,
@@ -69,15 +69,13 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 			cookieSecret,
 			requiredOrg,
 			loginURL)
-		user := a.User(r)
-		log.Printf("%s requested table %s be flushed.", user.Name, tableArg.Table)
-	} else {
-		log.Printf("Flushing table %s with no user authenticated", tableArg.Table)
+		fields["user_requesting"] = a.User(r).Name
 	}
+	logger.WithFields(fields).Info("Table flush request")
 
 	js, err := json.Marshal(tableArg)
 	if err != nil {
-		log.Printf("Error marshalling JSON: %v.", err)
+		logger.WithError(err).Error("Failed to marshal JSON")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -98,7 +96,7 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err = resp.Body.Close()
 		if err != nil {
-			log.Printf("Error closing response body: %v.", err)
+			logger.WithError(err).Error("Failed to close response body")
 		}
 	}()
 
@@ -107,13 +105,13 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(resp.Body)
 	if err != nil {
-		log.Printf("Error writing to response: %v.", err)
+		logger.WithError(err).Error("Failed to read from response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	_, err = w.Write(buf.Bytes())
 	if err != nil {
-		log.Printf("Error writing to response: %v.", err)
+		logger.WithError(err).Error("Failed to write to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +122,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := r.Body.Close()
 		if err != nil {
-			log.Printf("Error closing request body: %v.", err)
+			logger.WithError(err).Error("Failed to close request body")
 		}
 	}()
 
@@ -143,7 +141,9 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	blacklisted, err := s.isBlacklisted(cfg.EventName)
 	if err != nil {
-		log.Printf("Error testing %v in the blacklist: %v", cfg.EventName, err)
+		logger.WithError(err).
+			WithField("event_name", cfg.EventName).
+			Error("Failed to test event in the blacklist")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -160,70 +160,58 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	err = s.bpdbBackend.CreateSchema(&cfg)
 	if err != nil {
-		log.Printf("Error creating schema in bpdb, ignoring: %v", err)
+		logger.WithError(err).Error("Failed to create schema in bpdb, ignoring")
 	}
 }
 
-var mu sync.Mutex
-var blacklistRe []*regexp.Regexp
-var blacklistCompiled uint32
+var (
+	blacklistOnce	sync.Once
+	blacklistRe	[]*regexp.Regexp
+	blacklistErr	error
+)
 
-func compileRegex(filename string) error {
-	configJSON, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-
-	blacklistRe = nil
-
-	var jsonObj map[string][]string
-	err = json.Unmarshal(configJSON, &jsonObj)
-	if err != nil {
-		return err
-	}
-
-	blacklist, ok := jsonObj["blacklist"]
-
-	if !ok {
-		err = fmt.Errorf("Cannot find blacklist in %v\n", filename)
-		return err
-	}
-
-	for _, pattern := range blacklist {
-		re, err := regexp.Compile(strings.ToLower(pattern))
-		if err != nil {
-			return err
-		}
-		blacklistRe = append(blacklistRe, re)
-	}
-	return nil
-}
-
-// isBlacklisted check whether name matches (case insensitively) any regex in the blacklist.
-// It returns false when name is not blacklisted or an error occures.
+// isBlacklisted check whether name matches any regex in the blacklist (case insensitive).
+// It returns false when name is not blacklisted or an error occurs.
+// TODO(clgroft): should this be per-server? Currently it's global.
 func (s *server) isBlacklisted(name string) (bool, error) {
-	var err error
+	blacklistOnce.Do(func () {
+		var configJSON []byte
+		configJSON, blacklistErr = ioutil.ReadFile(s.configFilename)
+		if blacklistErr != nil {
+			return
+		}
 
-	// use the similary idea in sync.Once.Do, but we want to return the error
-	if atomic.LoadUint32(&blacklistCompiled) == 0 {
-		func() {
-			mu.Lock()
-			defer mu.Unlock()
-			if blacklistCompiled == 0 {
-				defer atomic.StoreUint32(&blacklistCompiled, 1)
-				err = compileRegex(s.configFilename)
+		var jsonObj map[string][]string
+		blacklistErr = json.Unmarshal(configJSON, &jsonObj)
+		if blacklistErr != nil {
+			return
+		}
+
+		blacklist, ok := jsonObj["blacklist"]
+		if !ok {
+			blacklistErr = fmt.Errorf("Cannot find blacklist in %v", s.configFilename)
+			return
+		}
+
+		for _, pattern := range blacklist {
+			var re *regexp.Regexp
+			re, blacklistErr = regexp.Compile(strings.ToLower(pattern))
+			if blacklistErr != nil {
+				blacklistRe = nil
+				return
 			}
-		}()
-	}
+			blacklistRe = append(blacklistRe, re)
+		}
+	})
 
-	if err != nil {
-		return false, err
+	if blacklistErr != nil {
+		return false, blacklistErr
 	}
 
 	name = strings.ToLower(name)
 
 	for _, pattern := range blacklistRe {
-		if matched := pattern.MatchString(name); matched {
+		if pattern.MatchString(name) {
 			return true, nil
 		}
 	}
@@ -231,14 +219,13 @@ func (s *server) isBlacklisted(name string) (bool, error) {
 }
 
 func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
-	// TODO: when refactoring the front end do not send the event name
-	// since it should be infered from the url
+	// TODO: when refactoring the front end do not send the event name (should be inferred from URL)
 	eventName := c.URLParams["id"]
 
 	defer func() {
 		err := r.Body.Close()
 		if err != nil {
-			log.Printf("Error closing request body: %v.", err)
+			logger.WithError(err).Error("Failed to close request body")
 		}
 	}()
 
@@ -263,7 +250,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	err = s.bpdbBackend.UpdateSchema(&req)
 	if err != nil {
-		log.Printf("Error updating schema in bpdb, ignoring: %v", err)
+		logger.WithError(err).Error("Failed to update schema in bpdb, ignoring")
 	}
 }
 
@@ -298,7 +285,9 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 	to, err := strconv.Atoi(args.Get("to_version"))
 	if err != nil || to < 0 {
 		respondWithJSONError(w, "Error, 'to_version' argument must be non-negative integer.", http.StatusBadRequest)
-		log.Printf("Bad input for 'to': %s", args.Get("to"))
+		logger.WithError(err).
+			WithField("to_version", args.Get("to")).
+			Error("'to' must be non-negative integer")
 		return
 	}
 	operations, err := s.bpdbBackend.Migration(
@@ -307,7 +296,7 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		respondWithJSONError(w, "Internal Service Error", http.StatusInternalServerError)
-		log.Printf("Error getting migration steps: %v", err)
+		logger.WithError(err).Error("Failed to get migration steps")
 		return
 	}
 	if len(operations) == 0 {
@@ -321,7 +310,7 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = w.Write(b)
 	if err != nil {
-		log.Printf("Error writing to response: %v.", err)
+		logger.WithError(err).Error("Failed to write to response")
 		respondWithJSONError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -336,7 +325,9 @@ func (s *server) fileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = io.Copy(w, fh)
 	if err != nil {
-		log.Printf("Error copying file %s to response: %v.", fname, err)
+		logger.WithError(err).
+			WithField("filename", fname).
+			Error("Failed to copy file to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -355,7 +346,7 @@ func (s *server) types(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = w.Write(b)
 	if err != nil {
-		log.Printf("Error writing to response: %v.", err)
+		logger.WithError(err).Error("Failed to write to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -378,7 +369,7 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 	if len(availableSuggestions) == 0 {
 		_, err = w.Write([]byte("[]"))
 		if err != nil {
-			log.Printf("Error writing to response: %v.", err)
+			logger.WithError(err).Error("Failed to write to response")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
@@ -392,7 +383,7 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(b)
 	if err != nil {
-		log.Printf("Error writing to response: %v.", err)
+		logger.WithError(err).Error("Failed to write to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -410,7 +401,7 @@ func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = io.Copy(w, fh)
 	if err != nil {
-		log.Printf("Error copying file %s to response: %v.", fname, err)
+		logger.WithError(err).WithField("filename", fname).Error("Failed to copy file to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -431,7 +422,7 @@ func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Reques
 func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {
 	_, err := io.WriteString(w, "Healthy")
 	if err != nil {
-		log.Printf("Error writing to response: %v.", err)
+		logger.WithError(err).Error("Failed to write to response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

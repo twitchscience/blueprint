@@ -1,12 +1,10 @@
 package api
 
 import (
-	"bytes"
-	"fmt"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
 	"github.com/zenazn/goji/web/mutil"
@@ -14,7 +12,7 @@ import (
 
 // SimpleLogger is a custom middleware logger that doesn't add colour
 func SimpleLogger(c *web.C, h http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqID := middleware.GetReqID(*c)
 
 		printStart(reqID, r)
@@ -30,30 +28,28 @@ func SimpleLogger(c *web.C, h http.Handler) http.Handler {
 		t2 := time.Now()
 
 		printEnd(reqID, lw, t2.Sub(t1))
-	}
-
-	return http.HandlerFunc(fn)
+	})
 }
 
 func printStart(reqID string, r *http.Request) {
-	var buf bytes.Buffer
-
-	if reqID != "" {
-		fmt.Fprintf(&buf, "[%s] ", reqID)
+	fields := map[string]interface{} {
+		"request_method":	r.Method,
+		"url":			r.URL.String(),
+		"remote_address":	r.RemoteAddr,
 	}
-	fmt.Fprintf(&buf, "Started %s %q from %s", r.Method, r.URL.String(), r.RemoteAddr)
-
-	log.Print(buf.String())
+	if reqID != "" {
+		fields["request_id"] = reqID
+	}
+	logger.WithFields(fields).Info("Started request")
 }
 
 func printEnd(reqID string, w mutil.WriterProxy, dt time.Duration) {
-	var buf bytes.Buffer
-
-	if reqID != "" {
-		fmt.Fprintf(&buf, "[%s] ", reqID)
+	fields := map[string]interface{} {
+		"status":	w.Status(),
+		"duration":	dt,
 	}
-	status := w.Status()
-	fmt.Fprintf(&buf, "Returning %03d in %s", status, dt)
-
-	log.Print(buf.String())
+	if reqID != "" {
+		fields["request_id"] = reqID
+	}
+	logger.WithFields(fields).Info("Completed request")
 }

@@ -1,9 +1,9 @@
 package cachingscoopclient
 
 import (
-	"log"
 	"time"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/blueprint/scoopclient"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
@@ -33,7 +33,7 @@ func New(urlBase string) scoopclient.ScoopClient {
 }
 
 func (c *CachingClient) populateCache() ([]scoop_protocol.Config, error) {
-	log.Println("Populating Schema Cache")
+	logger.Debug("Populating Schema Cache")
 	res, err := c.rawClient.FetchAllSchemas()
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (c *CachingClient) FetchAllSchemas() ([]scoop_protocol.Config, error) {
 			go func() {
 				_, err := c.populateCache()
 				if err != nil {
-					log.Printf("Error populating schema cache: %v", err)
+					logger.WithError(err).Error("Failed to populate schema cache")
 				}
 			}()
 		}()

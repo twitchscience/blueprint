@@ -3,9 +3,9 @@ package api
 
 import (
 	"flag"
-	"log"
 
 	"github.com/gorilla/context"
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
@@ -123,7 +123,7 @@ func (s *server) Setup() error {
 	// Replace with a custom logger that does not use colour.
 	err := goji.DefaultMux.Abandon(middleware.Logger)
 	if err != nil {
-		log.Printf("Could not abandon default logger, will continue as is: %s", err)
+		logger.WithError(err).Warn("Couldn't abandon default logger; will continue as is")
 	} else {
 		goji.DefaultMux.Use(SimpleLogger)
 	}

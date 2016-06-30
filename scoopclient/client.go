@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 	"github.com/twitchscience/scoop_protocol/transformer"
@@ -141,7 +141,7 @@ func (c *client) CreateSchema(cfg *scoop_protocol.Config) error {
 		defer func() {
 			err = res.Body.Close()
 			if err != nil {
-				log.Printf("Error closing response body: %v.", err)
+				logger.WithError(err).Error("Failed to close response body")
 			}
 		}()
 		b, _ := ioutil.ReadAll(res.Body)
@@ -165,7 +165,7 @@ func (c *client) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 		defer func() {
 			err = res.Body.Close()
 			if err != nil {
-				log.Printf("Error closing response body: %v.", err)
+				logger.WithError(err).Error("Failed to clone response body")
 			}
 		}()
 		b, _ := ioutil.ReadAll(res.Body)
@@ -192,7 +192,7 @@ func (c *client) makeRequest(url string) ([]byte, error) {
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
-			log.Printf("Error closing response body: %v.", err)
+			logger.WithError(err).Error("Failed to close response body")
 		}
 	}()
 

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/scoopclient"
 )
 
@@ -71,6 +71,13 @@ func (e *EventRouter) ReadFile(filename string) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = file.Close()
+		if err != nil {
+			logger.WithError(err).WithField("filename", filename).Error("Failed to close file")
+		}
+	}()
+
 	if e.GzipReader == nil {
 		e.GzipReader, err = gzip.NewReader(file)
 		if err != nil {
@@ -82,15 +89,10 @@ func (e *EventRouter) ReadFile(filename string) error {
 			return err
 		}
 	}
-
 	defer func() {
 		err = e.GzipReader.Close()
 		if err != nil {
-			log.Printf("Error closing gzip reader body: %v.", err)
-		}
-		err = file.Close()
-		if err != nil {
-			log.Printf("Error closing %s: %v.", filename, err)
+			logger.WithError(err).Error("Failed to close gzip reader body")
 		}
 	}()
 
@@ -102,10 +104,11 @@ func (e *EventRouter) ReadFile(filename string) error {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatal(err)
+			logger.WithError(err).Fatal("Decoding error")
 		}
 		e.Route(event.Event, event.Properties)
 	}
+
 	// if the Ticker has a message in the channel then we flush. Otherwise continue...
 	select {
 	case <-e.FlushTimer:
@@ -120,7 +123,7 @@ func (e *EventRouter) ReadFile(filename string) error {
 func (e *EventRouter) UpdateCurrentTables() {
 	configs, err := e.ScoopClient.FetchAllSchemas()
 	if err != nil {
-		log.Printf("Error fetching schemas from scoop: %v", err)
+		logger.WithError(err).Error("Failed to fetch schemas from scoop")
 		return
 	}
 	newTables := make([]string, len(configs))
@@ -164,7 +167,7 @@ func (e *EventRouter) FlushRouters() {
 			fname := path.Join(e.OutputDir, info.Name())
 			err = os.Remove(fname)
 			if err != nil {
-				log.Printf("Error removing file %s: %v", fname, err)
+				logger.WithError(err).WithField("filename", fname).Error("Failed to remove file")
 			}
 		}
 	}

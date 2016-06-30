@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/twitchscience/aws_utils/listener"
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/schema_suggestor/processor"
 	cachingscoopclient "github.com/twitchscience/blueprint/scoopclient/cachingclient"
 )
@@ -61,10 +61,13 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	defer func() {
 		err = os.Remove(tmpFile.Name())
 		if err != nil {
-			log.Printf("Error removing file %s: %v", tmpFile.Name(), err)
+			logger.WithError(err).WithField("tmp_file", tmpFile.Name()).Error("Failed to remove file")
 		}
 	}()
-	log.Printf("Downloading %s into %s", rotatedMessage.Keyname, tmpFile.Name())
+	logger.WithFields(map[string]interface{} {
+		"key":		rotatedMessage.Keyname,
+		"tmp_file":	tmpFile.Name(),
+	}).Debug("Downloading")
 
 	parts := strings.SplitN(rotatedMessage.Keyname, "/", 2)
 	n, err := handler.Downloader.Download(tmpFile, &s3.GetObjectInput{
@@ -75,8 +78,7 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	if err != nil {
 		return fmt.Errorf("Error downloading %s into %s: %v", rotatedMessage.Keyname, tmpFile.Name(), err)
 	}
-
-	log.Printf("Downloaded a %d byte file\n", n)
+	logger.WithField("size_bytes", n).Debug("Downloaded")
 
 	return handler.Router.ReadFile(tmpFile.Name())
 }
@@ -84,7 +86,7 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 func main() {
 	flag.Parse()
 	if *nonTrackedQueue == "" {
-		log.Fatal("Missing required flag: --nonTrackedQueue.")
+		logger.Fatal("Missing required flag: --nonTrackedQueue")
 	}
 	scoopClient := cachingscoopclient.New(*scoopURL)
 
