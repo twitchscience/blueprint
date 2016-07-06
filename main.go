@@ -18,11 +18,14 @@ var (
 )
 
 func main() {
+	logger.Init("info")
 	flag.Parse()
+
 	bpdbBackend, err := bpdb.NewPostgresBackend(*bpdbConnection)
 	if err != nil {
 		logger.WithError(err).Fatal("Error setting up blueprint db backend")
 	}
+
 	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
