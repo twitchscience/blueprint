@@ -71,7 +71,6 @@
         "sudo mv /opt/science/{{user `project`}}/config/schema_suggestor.conf /etc/init/",
         "sudo mv /opt/science/{{user `project`}}/config/blueprint.conf /etc/init/",
         "sudo mv /opt/science/{{user `project`}}/config/blueprint_readonly.conf /etc/init/",
-        "sudo mv /opt/science/{{user `project`}}/config/cloudwatchlogs.conf /var/awslogs/etc/config",
 
         "sudo apt-get update",
         "sudo apt-get install -y nginx",

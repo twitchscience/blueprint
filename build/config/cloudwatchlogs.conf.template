@@ -2,14 +2,14 @@
 
 [blueprint log]
 file = /var/log/upstart/blueprint.log
-log_group_name = science/blueprint
+log_group_name = science/$CLOUD_APP/$CLOUD_ENVIRONMENT
 log_stream_name = blueprint.log on {instance_id} at {hostname}
 datetime_format = %Y/%m/%d %H:%M:%S.%f
 batch_count = 100
 
 [blueprint_readonly log]
 file = /var/log/upstart/blueprint_readonly.log
-log_group_name = science/blueprint
+log_group_name = science/$CLOUD_APP/$CLOUD_ENVIRONMENT
 log_stream_name = blueprint_readonly.log on {instance_id} at {hostname}
 datetime_format = %Y/%m/%d %H:%M:%S.%f
 batch_count = 100
