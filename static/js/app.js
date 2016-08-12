@@ -165,7 +165,8 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         store.setError('API Error', '/schemas');
       }
       $scope.schema = schema;
-      $scope.additions = {Columns: [], EventName: schema.EventName}; // Used to hold new columns
+      $scope.additions = {Columns: []}; // Used to hold new columns
+      $scope.deletes = {ColInds: []}; // Used to hold dropped columns
       $scope.types = types;
       $scope.newCol = ColumnMaker.make();
       $scope.addColumnToSchema = function(column) {
@@ -188,21 +189,42 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         $scope.newCol = ColumnMaker.make();
         document.getElementById('newInboundName').focus()
       };
+      $scope.columnAlreadyStagedForDelete = function(colInd) {
+        if ($scope.deletes.ColInds.indexOf(colInd) < 0) return false;
+        return true;
+      };
+      $scope.deleteColumnFromSchema = function(colInd) {
+        $scope.deletes.ColInds.push(colInd);
+      };
+      $scope.undoDeleteColumnFromSchema = function(colInd) {
+        undoTarget = $scope.deletes.ColInds.indexOf(colInd);
+        // can only undo drop a column that was already deleted
+        if (undoTarget < 0) return;
+        $scope.deletes.ColInds.splice(undoTarget, 1);
+      };
       $scope.dropColumnFromAdditions = function(colInd) {
         $scope.additions.Columns.splice(colInd, 1);
       };
       $scope.updateSchema = function() {
         var additions = $scope.additions;
-        if (additions.Columns.length < 1) {
-          store.setError("No new columns, so no action taken.", undefined);
+        var deletes = [];
+        for (i = 0; i < $scope.deletes.ColInds.length; i++) {
+          deletes.push($scope.schema.Columns[$scope.deletes.ColInds[i]]);
+        }
+        if (additions.Columns.length + deletes.length < 1) {
+          store.setError("No change to columns, so no action taken.", undefined);
           return false;
         }
-        Schema.update({event: additions.EventName}, additions, function() {
-          store.setMessage("Succesfully updated schema: " +  additions.EventName);
-          $location.path('/schema/' + additions.EventName);
-        }, function(err) {
-          store.setError(err, undefined);
-        });
+        Schema.update(
+          {event: schema.EventName},
+          {additions: additions.Columns, deletes: deletes},
+          function() {
+            store.setMessage("Succesfully updated schema: " +  schema.EventName);
+            $location.path('/schema/' + schema.EventName);
+          },
+          function(err) {
+            store.setError(err, undefined);
+          });
       };
     });
   })

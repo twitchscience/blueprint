@@ -4,8 +4,6 @@ import (
 	"sync"
 
 	"github.com/twitchscience/aws_utils/logger"
-	"github.com/twitchscience/scoop_protocol/schema"
-	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 // Subprocess represents something that can be set up, started, and stopped. E.g. a server.
@@ -72,29 +70,6 @@ type Column struct {
 // ClientUpdateSchemaRequest is a request to update the schema for an event.
 type ClientUpdateSchemaRequest struct {
 	EventName string `json:"-"`
-	Columns   []Column
-}
-
-// ConvertToScoopRequest converts the Column data to scoop column definitions and returns a scoop update request.
-func (c *ClientUpdateSchemaRequest) ConvertToScoopRequest() *schema.UpdateSchemaRequest {
-	cols := make([]scoop_protocol.ColumnDefinition, 0, len(c.Columns))
-	for _, c := range c.Columns {
-		cols = append(cols, scoop_protocol.ColumnDefinition{
-			InboundName:           c.InboundName,
-			OutboundName:          c.OutboundName,
-			Transformer:           c.Transformer,
-			ColumnCreationOptions: makeColumnOpts(c.Length),
-		})
-	}
-	return &schema.UpdateSchemaRequest{
-		Columns: cols,
-	}
-}
-
-// TODO: as above, the client shouldn't massage this as it is, once
-// that is fixed this function will produce the necessary data
-// structure, maybe a string, maybe something provided by scoop (I
-// prefer the munging into a string to be in scoop).
-func makeColumnOpts(clientProvided string) string {
-	return clientProvided
+	Additions []Column
+	Deletes   []Column
 }

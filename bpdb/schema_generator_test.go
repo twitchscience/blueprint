@@ -18,12 +18,12 @@ func TestApplyOperationAddColumns(t *testing.T) {
 	}
 	ops := []Operation{
 		Operation{"add", "minutes_logged", "minutes_logged", "bigint", ""},
+		Operation{"delete", "backend", "backend", "varchar", "(32)"},
 		Operation{"add", "os", "os", "varchar", "(16)"},
 	}
 	expected := scoop_protocol.Config{
 		EventName: "video_ad_request_error",
 		Columns: []scoop_protocol.ColumnDefinition{
-			scoop_protocol.ColumnDefinition{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
 			scoop_protocol.ColumnDefinition{InboundName: "content_mode", OutboundName: "content_mode", Transformer: "varchar", ColumnCreationOptions: "(32)"},
 			scoop_protocol.ColumnDefinition{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)"},
 			scoop_protocol.ColumnDefinition{InboundName: "minutes_logged", OutboundName: "minutes_logged", Transformer: "bigint", ColumnCreationOptions: ""},
@@ -46,6 +46,22 @@ func TestApplyOperationAddDupeColumns(t *testing.T) {
 	ops := []Operation{
 		Operation{"add", "minutes_logged", "minutes_logged", "bigint", ""},
 		Operation{"add", "ip", "backend", "varchar", "(32)"}, // same outbound name as base col
+	}
+	err := ApplyOperations(&base, ops)
+	if err == nil {
+		t.Error("Expected error on adding existing row.")
+	}
+}
+
+func TestApplyOperationDeleteNonExistentColumns(t *testing.T) {
+	base := scoop_protocol.Config{
+		EventName: "video_ad_request_error",
+		Columns: []scoop_protocol.ColumnDefinition{
+			scoop_protocol.ColumnDefinition{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
+		},
+	}
+	ops := []Operation{
+		Operation{"delete", "minutes_logged", "minutes_logged", "bigint", ""}, // delete non-existent column
 	}
 	err := ApplyOperations(&base, ops)
 	if err == nil {

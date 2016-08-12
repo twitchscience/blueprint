@@ -96,6 +96,29 @@ func (p *postgresBackend) Migration(table string, to int) ([]*scoop_protocol.Ope
 	return ops, nil
 }
 
+func execAddColumns(reqEvent string, reqData []core.Column, tx *sql.Tx, newVersion int, op string, additionOffset int) error {
+	for i, col := range reqData {
+		_, err := tx.Exec(addColumnQuery,
+			reqEvent,
+			op,
+			col.InboundName,
+			col.OutboundName,
+			col.Transformer,
+			col.Length,
+			newVersion,
+			additionOffset+i,
+		)
+		if err != nil {
+			rollErr := tx.Rollback()
+			if rollErr != nil {
+				return fmt.Errorf("Error rolling back commit: %v.", rollErr)
+			}
+			return fmt.Errorf("Error INSERTing row for %s column on %s: %v", op, reqEvent, err)
+		}
+	}
+	return nil
+}
+
 func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
 	err := preValidateUpdate(req, p)
 	if err != nil {
@@ -114,25 +137,16 @@ func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) erro
 		return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
 	}
 
-	for i, col := range req.Columns {
-		_, err = tx.Exec(addColumnQuery,
-			req.EventName,
-			"add",
-			col.InboundName,
-			col.OutboundName,
-			col.Transformer,
-			col.Length,
-			newVersion,
-			i,
-		)
-		if err != nil {
-			rollErr := tx.Rollback()
-			if rollErr != nil {
-				return fmt.Errorf("Error rolling back commit: %v.", rollErr)
-			}
-			return fmt.Errorf("Error INSERTing row for new column on %s: %v", req.EventName, err)
-		}
+	err = execAddColumns(req.EventName, req.Additions, tx, newVersion, "add", 0)
+	if err != nil {
+		return err
 	}
+
+	err = execAddColumns(req.EventName, req.Deletes, tx, newVersion, "delete", len(req.Additions))
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("Error commiting schema update for %s: %v", req.EventName, err)
