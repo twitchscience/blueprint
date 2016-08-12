@@ -43,7 +43,7 @@ func validateIdentifier(name string) error {
 	if len(name) < 1 || len(name) > 127 {
 		return fmt.Errorf("must be between 1 and 127 characters, given length of %d", len(name))
 	}
-	matched, _ := regexp.MatchString(`^[A-Za-z_][A-Za-z_-]*$`, name)
+	matched, _ := regexp.MatchString(`^[A-Za-z_][A-Za-z0-9_-]*$`, name)
 	if !matched {
 		return fmt.Errorf("must begin with alpha or underscore and be composed of alphanumeric, underscore, or hyphen")
 	}
