@@ -84,6 +84,11 @@
                   class="btn btn-success">Update Schema</button>
       </td>
     </tr>
+    <tr>
+      <td colspan="5" class="text-right">
+        <span ng-if="deletes.ColInds.length > 0">WARNING: any Redshift views that depend on this table will be destroyed due to dropping columns.<br>
+                                                 You may want to contact the owners of the views.</span>
+      </td>
   </tfoot>
 </table>
 </form>
