@@ -193,6 +193,14 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         if ($scope.deletes.ColInds.indexOf(colInd) < 0) return false;
         return true;
       };
+      $scope.columnIsDeletable = function(colInd) {
+        forbiddenDeletes = ['distkey', 'sortkey'];
+        options = $scope.schema.Columns[colInd].ColumnCreationOptions;
+        for (var i = 0; i < forbiddenDeletes.length; i++) {
+          if (options.indexOf(forbiddenDeletes[i]) !== -1) return false;
+        }
+        return true;
+      };
       $scope.deleteColumnFromSchema = function(colInd) {
         $scope.deletes.ColInds.push(colInd);
       };

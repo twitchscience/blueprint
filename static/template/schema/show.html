@@ -20,12 +20,12 @@
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
       <td class="text-center">
         <button
-          ng-if="!columnAlreadyStagedForDelete($index)"
+          ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index)"
           ng-click="deleteColumnFromSchema($index)"
         type="button"
         class="btn btn-danger">Drop</button>
         <button
-          ng-if="columnAlreadyStagedForDelete($index)"
+          ng-if="columnAlreadyStagedForDelete($index) && columnIsDeletable($index)"
           ng-click="undoDeleteColumnFromSchema($index)"
         type="button"
         class="btn btn-info">Undo Drop</button>
