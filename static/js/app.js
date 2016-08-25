@@ -228,6 +228,19 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
           {additions: additions.Columns, deletes: deletes},
           function() {
             store.setMessage("Succesfully updated schema: " +  schema.EventName);
+            // update front-end schema
+            for (i = 0; i < $scope.deletes.ColInds.length; i++) {
+              $scope.schema.Columns.splice($scope.deletes.ColInds[i], 1);
+              // must decrement the indices after the delete as the column no longer exists
+              for (j = i; j < $scope.deletes.ColInds.length; j++) {
+                if ($scope.deletes.ColInds[j] > $scope.deletes.ColInds[i]) $scope.deletes.ColInds[j]--;
+              }
+            }
+            $scope.deletes = {ColInds: []};
+            angular.forEach($scope.additions.Columns, function(c) {
+              $scope.schema.Columns.push(c);
+            });
+            $scope.additions = {Columns: []};
             $location.path('/schema/' + schema.EventName);
           },
           function(err) {
