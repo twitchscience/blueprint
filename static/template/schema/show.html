@@ -16,12 +16,12 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
   <tbody>
     <tr ng-repeat="c in schema.Columns">
       <td>{{c.InboundName}}</td>
-      <td>{{c.OutboundName}}</td>
+      <td ng-class="outboundColumnStyle(c.OutboundName)"><input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)"> </td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
       <td class="text-center">
         <button
-          ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index)"
+          ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index) && !outboundColumnEdited(c.OutboundName)"
           ng-click="deleteColumnFromSchema($index)"
         type="button"
         class="btn btn-danger">Drop</button>
@@ -30,6 +30,11 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
           ng-click="undoDeleteColumnFromSchema($index)"
         type="button"
         class="btn btn-info">Undo Drop</button>
+        <button
+          ng-if="outboundColumnEdited(c.OutboundName)"
+          ng-click="undoRename(c.OutboundName)"
+        type="button"
+        class="btn btn-info">Undo Rename</button>
       </td>
     </tr>
     <tr ng-repeat="c in additions.Columns">
@@ -77,9 +82,10 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
       </td>
     </tr>
     <tr>
-      <td colspan="2"></td>
-      <td class="text-center">Adding {{additions.Columns.length}}</td>
-      <td class="text-center">Dropping {{deletes.ColInds.length}}</td>
+      <td colspan="1"></td>
+      <td ng-class="summaryStyle(numRenames())" class="text-center">Renaming {{numRenames()}}</td>
+      <td ng-class="summaryStyle(additions.Columns.length)" class="text-center">Adding {{additions.Columns.length}}</td>
+      <td ng-class="summaryStyle(deletes.ColInds.length)" class="text-center">Dropping {{deletes.ColInds.length}}</td>
       <td class="text-center">
           <button type="submit"
                   class="btn btn-success">Update Schema</button>

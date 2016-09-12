@@ -16,10 +16,10 @@ func TestApplyOperationAddColumns(t *testing.T) {
 			scoop_protocol.ColumnDefinition{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)"},
 		},
 	}
-	ops := []Operation{
-		Operation{"add", "minutes_logged", "minutes_logged", "bigint", ""},
-		Operation{"delete", "backend", "backend", "varchar", "(32)"},
-		Operation{"add", "os", "os", "varchar", "(16)"},
+	ops := []scoop_protocol.Operation{
+		{"add", "minutes_logged", map[string]string{"inbound": "minutes_logged", "column_type": "bigint", "column_options": ""}},
+		{"delete", "backend", map[string]string{"inbound": "backend", "column_type": "varchar", "column_options": "(32)"}},
+		{"add", "os", map[string]string{"inbound": "os", "column_type": "varchar", "column_options": "(16)"}},
 	}
 	expected := scoop_protocol.Config{
 		EventName: "video_ad_request_error",
@@ -43,9 +43,9 @@ func TestApplyOperationAddDupeColumns(t *testing.T) {
 			scoop_protocol.ColumnDefinition{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
 		},
 	}
-	ops := []Operation{
-		Operation{"add", "minutes_logged", "minutes_logged", "bigint", ""},
-		Operation{"add", "ip", "backend", "varchar", "(32)"}, // same outbound name as base col
+	ops := []scoop_protocol.Operation{
+		{"add", "minutes_logged", map[string]string{"inbound": "minutes_logged", "column_type": "bigint", "column_options": ""}},
+		{"add", "backend", map[string]string{"inbound": "ip", "column_type": "varchar", "column_options": "(32)"}},
 	}
 	err := ApplyOperations(&base, ops)
 	if err == nil {
@@ -60,8 +60,8 @@ func TestApplyOperationDeleteNonExistentColumns(t *testing.T) {
 			scoop_protocol.ColumnDefinition{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
 		},
 	}
-	ops := []Operation{
-		Operation{"delete", "minutes_logged", "minutes_logged", "bigint", ""}, // delete non-existent column
+	ops := []scoop_protocol.Operation{
+		{"delete", "minutes_logged", map[string]string{}}, // delete non-existent column
 	}
 	err := ApplyOperations(&base, ops)
 	if err == nil {

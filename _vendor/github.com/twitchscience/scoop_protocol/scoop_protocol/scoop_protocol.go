@@ -26,16 +26,44 @@ type Config struct {
 type Action string
 
 const (
-	ADD Action = "add"
+	ADD    Action = "add"
+	DELETE Action = "delete"
+	RENAME Action = "rename"
 )
 
 // Operation represents a single change to a schema
 type Operation struct {
-	Action        Action
-	Inbound       string
-	Outbound      string
-	ColumnType    string
-	ColumnOptions string
+	Action         Action
+	Name           string
+	ActionMetadata map[string]string
+}
+
+func NewAddOperation(outbound, inbound, type_, options string) Operation {
+	return Operation{
+		Action: ADD,
+		Name:   outbound,
+		ActionMetadata: map[string]string{
+			"inbound":        inbound,
+			"column_type":    type_,
+			"column_options": options,
+		},
+	}
+}
+func NewDeleteOperation(outbound string) Operation {
+	return Operation{
+		Action:         DELETE,
+		Name:           outbound,
+		ActionMetadata: map[string]string{},
+	}
+}
+func NewRenameOperation(current, new string) Operation {
+	return Operation{
+		Action: RENAME,
+		Name:   current,
+		ActionMetadata: map[string]string{
+			"new_outbound": new,
+		},
+	}
 }
 
 type RowCopyRequest struct {

@@ -1,17 +1,15 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'action') THEN
-    CREATE TYPE action AS ENUM ('add', 'delete');
+    CREATE TYPE action AS ENUM ('add', 'delete', 'rename');
   END IF;
 END $$;
 CREATE TABLE IF NOT EXISTS operation
 (
   event varchar,
   action action,
-  inbound varchar,
-  outbound varchar,
-  column_type varchar,
-  column_options varchar,
+  name varchar,
+  action_metadata jsonb,
   version int,
   ordering int,
   ts timestamp without time zone default NOW(),

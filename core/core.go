@@ -67,9 +67,14 @@ type Column struct {
 	Length string `json:"ColumnCreationOptions"`
 }
 
+// Renames is a map of old name to new name, representing a rename operation on
+// a set of columns.
+type Renames map[string]string
+
 // ClientUpdateSchemaRequest is a request to update the schema for an event.
 type ClientUpdateSchemaRequest struct {
 	EventName string `json:"-"`
 	Additions []Column
-	Deletes   []Column
+	Deletes   []string
+	Renames   Renames
 }

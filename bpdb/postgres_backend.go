@@ -2,37 +2,38 @@ package bpdb
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 
-	"github.com/lib/pq"
+	"encoding/json"
+
+	_ "github.com/lib/pq" // to include the 'postgres' driver
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 var (
 	schemaQuery = `
-SELECT event, action, inbound, outbound, column_type, column_options, version, ordering
+SELECT event, action, name, version, ordering, action_metadata
 FROM operation
 WHERE event = $1
 ORDER BY version ASC, ordering ASC
 `
 	allSchemasQuery = `
-SELECT event, action, inbound, outbound, column_type, column_options, version, ordering
+SELECT event, action, name,  version, ordering, action_metadata
 FROM operation
 ORDER BY version ASC, ordering ASC
 `
 	migrationQuery = `
-SELECT action, inbound, outbound, column_type, column_options
+SELECT action, name, action_metadata
 FROM operation
 WHERE version = $1
 AND event = $2
-ORDER BY version ASC, ordering ASC
+ORDER BY ordering ASC
 `
-	addColumnQuery = `INSERT INTO operation
-(event, action, inbound, outbound, column_type, column_options, version, ordering)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	insertOperationsQuery = `INSERT INTO operation
+(event, action, name, version, ordering, action_metadata)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 	nextVersionQuery = `SELECT max(version) + 1
 FROM operation
@@ -45,14 +46,12 @@ type postgresBackend struct {
 }
 
 type operationRow struct {
-	event         string
-	action        string
-	inbound       string
-	outbound      string
-	columnType    string
-	columnOptions string
-	version       int
-	ordering      int
+	event          string
+	action         string
+	name           string
+	actionMetadata map[string]string
+	version        int
+	ordering       int
 }
 
 // NewPostgresBackend creates a postgres bpdb backend to interface with
@@ -70,6 +69,7 @@ func NewPostgresBackend(dbConnection string) (Bpdb, error) {
 	return b, nil
 }
 
+// Migration returns the operations necessary to migration `table` from version `to -1` to version `to`
 func (p *postgresBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
 	rows, err := p.db.Query(migrationQuery, to, table)
 	if err != nil {
@@ -84,116 +84,100 @@ func (p *postgresBackend) Migration(table string, to int) ([]*scoop_protocol.Ope
 	}()
 	for rows.Next() {
 		var op scoop_protocol.Operation
-		var action string
-		err := rows.Scan(&action, &op.Inbound, &op.Outbound, &op.ColumnType, &op.ColumnOptions)
+		var b []byte
+		var s string
+		err := rows.Scan(&s, &op.Name, &b)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing operation row: %v.", err)
+			return nil, fmt.Errorf("Error parsing row into Operation: %v.", err)
 		}
-		op.Action = scoop_protocol.Action(action)
 
+		op.Action = scoop_protocol.Action(s)
+		err = json.Unmarshal(b, &op.ActionMetadata)
+		if err != nil {
+			return nil, fmt.Errorf("Error unmarshalling action_metadata: %v.", err)
+		}
 		ops = append(ops, &op)
 	}
 	return ops, nil
 }
 
-func execAddColumns(reqEvent string, reqData []core.Column, tx *sql.Tx, newVersion int, op string, additionOffset int) error {
-	for i, col := range reqData {
-		_, err := tx.Exec(addColumnQuery,
-			reqEvent,
-			op,
-			col.InboundName,
-			col.OutboundName,
-			col.Transformer,
-			col.Length,
-			newVersion,
-			additionOffset+i,
+//execFnInTransaction takes a closure function of a request and runs it on the db in a transaction
+func (p *postgresBackend) execFnInTransaction(work func(*sql.Tx) error) error {
+	tx, err := p.db.Begin()
+	if err != nil {
+		return err
+	}
+	err = work(tx)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return fmt.Errorf("Could not rollback successfully after error (%v), reason: %v", err, rollbackErr)
+		}
+		return err
+	}
+	return tx.Commit()
+}
+
+// returns error but does not rollback on error. Does not commit.
+func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, eventName string) error {
+	for i, op := range ops {
+		var b []byte
+		b, err := json.Marshal(op.ActionMetadata)
+		if err != nil {
+			return fmt.Errorf("Error marshalling %s column metadata json: %v", op.Action, err)
+		}
+		_, err = tx.Exec(insertOperationsQuery,
+			eventName,
+			string(op.Action),
+			op.Name,
+			version,
+			i, // ordering
+			b, // action_metadata
 		)
 		if err != nil {
 			rollErr := tx.Rollback()
 			if rollErr != nil {
 				return fmt.Errorf("Error rolling back commit: %v.", rollErr)
 			}
-			return fmt.Errorf("Error INSERTing row for %s column on %s: %v", op, reqEvent, err)
+			return fmt.Errorf("Error INSERTing row for delete column on %s: %v", eventName, err)
 		}
 	}
 	return nil
 }
 
-func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
-	err := preValidateUpdate(req, p)
-	if err != nil {
-		return fmt.Errorf("Invalid schema creation request: %v", err)
-	}
-
-	tx, err := p.db.Begin()
-	if err != nil {
-		return fmt.Errorf("Error beginning transaction for schema update: %v.", err)
-	}
-
-	row := tx.QueryRow(nextVersionQuery, req.EventName)
-	var newVersion int
-	err = row.Scan(&newVersion)
-	if err != nil {
-		return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
-	}
-
-	err = execAddColumns(req.EventName, req.Additions, tx, newVersion, "add", 0)
-	if err != nil {
-		return err
-	}
-
-	err = execAddColumns(req.EventName, req.Deletes, tx, newVersion, "delete", len(req.Additions))
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("Error commiting schema update for %s: %v", req.EventName, err)
-	}
-	return nil
-}
-
+// CreateSchema validates that the creation operation is valid and if so, stores
+// the schema as 'add' operations in bpdb
 func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config) error {
 	err := preValidateSchema(req)
 	if err != nil {
 		return fmt.Errorf("Invalid schema creation request: %v", err)
 	}
 
-	tx, err := p.db.Begin()
+	ops := schemaCreateRequestToOps(req)
+	return p.execFnInTransaction(func(tx *sql.Tx) error {
+		return insertOperations(tx, ops, 0, req.EventName)
+	})
+}
+
+// UpdateSchema validates that the update operation is valid and if so, stores
+// the operations for this migration to the schema as operations in bpdb. It
+// applies the operations in order of delete, add, then renames.
+func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
+	err := preValidateUpdate(req, p)
 	if err != nil {
-		return fmt.Errorf("Error beginning transaction for schema creation: %v.", err)
+		return fmt.Errorf("Invalid schema creation request: %v", err)
 	}
 
-	for i, col := range req.Columns {
-		_, err = tx.Exec(addColumnQuery,
-			req.EventName,
-			"add",
-			col.InboundName,
-			col.OutboundName,
-			col.Transformer,
-			col.ColumnCreationOptions,
-			0,
-			i,
-		)
+	ops := schemaUpdateRequestToOps(req)
+	return p.execFnInTransaction(func(tx *sql.Tx) error {
+		row := tx.QueryRow(nextVersionQuery, req.EventName)
+		var newVersion int
+		err = row.Scan(&newVersion)
 		if err != nil {
-			rollErr := tx.Rollback()
-			if rollErr != nil {
-				return fmt.Errorf("Error rolling back commit: %v.", rollErr)
-			}
-			if pqErr, ok := err.(*pq.Error); ok {
-				if pqErr.Code.Name() == "unique_violation" { // pkey violation, meaning table already exists
-					return errors.New("table already exists")
-				}
-			}
-			return fmt.Errorf("Error INSERTing row for new column on %s: %v", req.EventName, err)
+			return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
 		}
-	}
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("Error commiting schema creation for %s: %v", req.EventName, err)
-	}
-	return nil
+		return insertOperations(tx, ops, newVersion, req.EventName)
+	})
 }
 
 // scanOperationRows scans the rows into operationRow objects
@@ -207,11 +191,15 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	}()
 	for rows.Next() {
 		var op operationRow
-		err := rows.Scan(&op.event, &op.action, &op.inbound, &op.outbound, &op.columnType, &op.columnOptions, &op.version, &op.ordering)
+		var b []byte
+		err := rows.Scan(&op.event, &op.action, &op.name, &op.version, &op.ordering, &b)
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing operation row: %v.", err)
 		}
-
+		err = json.Unmarshal(b, &op.actionMetadata)
+		if err != nil {
+			return nil, fmt.Errorf("Error unmarshalling action_metadata: %v.", err)
+		}
 		ops = append(ops, op)
 	}
 	return ops, nil
@@ -271,12 +259,10 @@ func generateSchemas(ops []operationRow) ([]scoop_protocol.Config, error) {
 		if !exists {
 			schemas[op.event] = &scoop_protocol.Config{EventName: op.event}
 		}
-		err := ApplyOperation(schemas[op.event], Operation{
-			action:        op.action,
-			inbound:       op.inbound,
-			outbound:      op.outbound,
-			columnType:    op.columnType,
-			columnOptions: op.columnOptions,
+		err := ApplyOperation(schemas[op.event], scoop_protocol.Operation{
+			Action:         scoop_protocol.Action(op.action),
+			ActionMetadata: op.actionMetadata,
+			Name:           op.name,
 		})
 		if err != nil {
 			return []scoop_protocol.Config{}, fmt.Errorf("Error applying operation to schema: %v", err)
