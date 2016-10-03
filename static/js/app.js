@@ -364,16 +364,25 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
 
     var rewriteColumns = function(cols) {
       var rewrites = [
-        {"Name": "channel", "Change": [["size", 25]]  },
-        {"Name": "device_id", "Change": [["size", 32]]  },
-        {"Name": "url", "Change": [["size", 255]]},
-        {"Name": "referrer_url", "Change": [["size", 255]]},
+        {"Name": "app_version", "Change": [["size", 32]]},
+        {"Name": "browser", "Change": [["size", 255]]},
+        {"Name": "channel", "Change": [["size", 25]]},
+        {"Name": "content_mode", "Change": [["size", 32]]},
+        {"Name": "device_id", "Change": [["size", 32]]},
         {"Name": "domain", "Change": [["size", 255]]},
-        {"Name": "host", "Change": [["size", 127]]},
-        {"Name": "referrer_domain", "Change": [["size", 255]]},
-        {"Name": "referrer_host", "Change": [["size", 127]]},
-        {"Name": "received_language", "Change": [["size", 8]]},
+        {"Name": "game", "Change": [["size", 64]]},
+        {"Name": "host_channel", "Change": [["size", 25]]},
+        {"Name": "language", "Change": [["size", 8]]},
+        {"Name": "login", "Change": [["size", 25]]},
+        {"Name": "platform", "Change": [["size", 40]]},
+        {"Name": "player", "Change": [["size", 32]]},
         {"Name": "preferred_language", "Change": [["size", 8]]},
+        {"Name": "received_language", "Change": [["size", 8]]},
+        {"Name": "referrer_domain", "Change": [["size", 255]]},
+        {"Name": "referrer_url", "Change": [["size", 255]]},
+        {"Name": "url", "Change": [["size", 255]]},
+        {"Name": "user_agent", "Change": [["size", 255]]},
+        {"Name": "vod_id", "Change": [["size", 16]]},
       ];
 
       var deletes = [
