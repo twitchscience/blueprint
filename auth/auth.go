@@ -41,13 +41,18 @@ func New(githubServer string,
 		logger.Fatal("Malformed auth input, exiting")
 	}
 
+	cookieStore := sessions.NewCookieStore([]byte(cookieSecret))
+	cookieStore.Options = &sessions.Options{
+		HttpOnly: true,
+		Secure:   true,
+	}
 	return &GithubAuth{
 		RequiredOrg:  requiredOrg,
 		LoginURL:     loginURL,
-		CookieStore:  sessions.NewCookieStore([]byte(cookieSecret)),
+		CookieStore:  cookieStore,
 		GithubServer: githubServer,
 		LoginTTL:     7 * 24 * time.Hour, // 1 week
-		OauthConfig:  &oauth2.Config{
+		OauthConfig: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Scopes:       []string{"read:org"},
@@ -83,9 +88,9 @@ func (a *GithubAuth) AuthorizeOrRedirect(h http.Handler) http.Handler {
 		if user.IsMemberOfOrg == false {
 			//return "access forbidden"" error in HttpResponse
 			// do not redirect to loginURL, which will get into an endless loop
-			logger.WithFields(map[string]interface{} {
-				"user":		user.Name,
-				"required_org":	a.RequiredOrg,
+			logger.WithFields(map[string]interface{}{
+				"user":         user.Name,
+				"required_org": a.RequiredOrg,
 			}).Warn("User is not a member of required organization")
 			errMsg := fmt.Sprintf("You need to be a member of %s organization", a.RequiredOrg)
 			http.Error(w, errMsg, http.StatusForbidden)
