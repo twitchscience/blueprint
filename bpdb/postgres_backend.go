@@ -32,8 +32,8 @@ AND event = $2
 ORDER BY ordering ASC
 `
 	insertOperationsQuery = `INSERT INTO operation
-(event, action, name, version, ordering, action_metadata)
-VALUES ($1, $2, $3, $4, $5, $6)
+(event, action, name, version, ordering, action_metadata, user_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 	nextVersionQuery = `SELECT max(version) + 1
 FROM operation
@@ -119,7 +119,7 @@ func (p *postgresBackend) execFnInTransaction(work func(*sql.Tx) error) error {
 }
 
 // returns error but does not rollback on error. Does not commit.
-func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, eventName string) error {
+func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, eventName, user string) error {
 	for i, op := range ops {
 		var b []byte
 		b, err := json.Marshal(op.ActionMetadata)
@@ -133,6 +133,7 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 			version,
 			i, // ordering
 			b, // action_metadata
+			user,
 		)
 		if err != nil {
 			rollErr := tx.Rollback()
@@ -147,7 +148,7 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 
 // CreateSchema validates that the creation operation is valid and if so, stores
 // the schema as 'add' operations in bpdb
-func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config) error {
+func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) error {
 	err := preValidateSchema(req)
 	if err != nil {
 		return fmt.Errorf("Invalid schema creation request: %v", err)
@@ -155,14 +156,14 @@ func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config) error {
 
 	ops := schemaCreateRequestToOps(req)
 	return p.execFnInTransaction(func(tx *sql.Tx) error {
-		return insertOperations(tx, ops, 0, req.EventName)
+		return insertOperations(tx, ops, 0, req.EventName, user)
 	})
 }
 
 // UpdateSchema validates that the update operation is valid and if so, stores
 // the operations for this migration to the schema as operations in bpdb. It
 // applies the operations in order of delete, add, then renames.
-func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) error {
+func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) error {
 	err := preValidateUpdate(req, p)
 	if err != nil {
 		return fmt.Errorf("Invalid schema creation request: %v", err)
@@ -176,7 +177,7 @@ func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest) erro
 		if err != nil {
 			return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
 		}
-		return insertOperations(tx, ops, newVersion, req.EventName)
+		return insertOperations(tx, ops, newVersion, req.EventName, user)
 	})
 }
 

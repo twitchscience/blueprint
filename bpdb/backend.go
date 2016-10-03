@@ -19,8 +19,8 @@ var (
 type Bpdb interface {
 	AllSchemas() ([]scoop_protocol.Config, error)
 	Schema(name string) (*scoop_protocol.Config, error)
-	UpdateSchema(*core.ClientUpdateSchemaRequest) error
-	CreateSchema(*scoop_protocol.Config) error
+	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) error
+	CreateSchema(schema *scoop_protocol.Config, user string) error
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 }
 

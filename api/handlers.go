@@ -155,8 +155,20 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%v is blacklisted", cfg.EventName), http.StatusForbidden)
 		return
 	}
+	var user string
+	if enableAuth {
+		a := auth.New(githubServer,
+			clientID,
+			clientSecret,
+			cookieSecret,
+			requiredOrg,
+			loginURL)
+		user = a.User(r).Name
+	} else {
+		user = "unknown"
+	}
 
-	err = s.bpdbBackend.CreateSchema(&cfg)
+	err = s.bpdbBackend.CreateSchema(&cfg, user)
 	if err != nil {
 		logger.WithError(err).Error("Error creating schema.")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -244,7 +256,20 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	req.EventName = eventName
 
-	err = s.bpdbBackend.UpdateSchema(&req)
+	var user string
+	if enableAuth {
+		a := auth.New(githubServer,
+			clientID,
+			clientSecret,
+			cookieSecret,
+			requiredOrg,
+			loginURL)
+		user = a.User(r).Name
+	} else {
+		user = "unknown"
+	}
+
+	err = s.bpdbBackend.UpdateSchema(&req, user)
 	if err != nil {
 		logger.WithError(err).Error("Error updating schema.")
 		http.Error(w, err.Error(), http.StatusInternalServerError)

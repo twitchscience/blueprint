@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS operation
   version int,
   ordering int,
   ts timestamp without time zone default NOW(),
+  user_name varchar, -- will be 'legacy' for operations applied before this column existed. 'unknown' if user auth was disabled (like integration)
   PRIMARY KEY (event, version, ordering)
 );
