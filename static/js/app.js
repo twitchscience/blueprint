@@ -54,14 +54,6 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
   })
   .config(function($routeProvider) {
     $routeProvider
-      .when('/events/all', {
-        controller: 'EventListCtrl',
-        templateUrl: 'template/event/list.html'
-      })
-      .when('/event/:scope', {
-        controller: 'EventCtrl',
-        templateUrl: 'template/event/show.html'
-      })
       .when('/schemas', {
         controller: 'SchemaListCtrl',
         templateUrl: 'template/schema/list.html'
@@ -87,48 +79,6 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
     $scope.clearError = store.clearError;
     $scope.getMessage = store.getMessage;
     $scope.clearMessage = store.clearMessage;
-  })
-  .controller('EventListCtrl', function($scope, Event) {
-    Event.all(function(data) {
-      $scope.events = data;
-    });
-  })
-  .controller('EventCtrl', function($scope, $routeParams, $location, $q, store, Schema, Event) {
-    var event, schema, types;
-    var eventData = Event.get($routeParams, function(data) {
-      if (data[0]) {
-        event = data[0];
-        angular.forEach(event.properties, function(prop) {
-          if (prop.freq > 60 && prop.name !== 'token') {
-            prop.publish = true;
-          }
-        });
-      }
-    }).$promise;
-
-    var schemaData = Schema.get($routeParams, function(data) {
-      if (data[0]) {
-        schema = data[0];
-      }
-    }).$promise;
-
-    $q.all([eventData, schemaData]).then(function() {
-      // ordering is important here; we want to send you to the
-      // schema page if it exists, otherwise to the event page to
-      // begin creating the schema
-      // TODO: angular tests so that things like this don't need comments!
-      if (schema) {
-        $location.path('/schema/' + schema.eventname);
-      } else if (event) {
-        $scope.event = event;
-        $scope.showCreateSchema = function() {
-          store.setEvent($scope.event);
-          $location.path('/schema/create');
-        };
-      } else {
-        store.setError('No event or schema by this name', '/');
-      }
-    });
   })
   .controller('SchemaCacheExpireCtrl', function($location, Schema) {
     Schema.expire(function(data) {
