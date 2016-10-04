@@ -10,8 +10,9 @@
           <th>Outbound</th>
           <th>Column Type</th>
           <th class="text-center">Column Size</th>
-          <th class="text-center">Distribution Key</th>
+          <th class="text-center" ng-if="loginName">Distribution Key</th>
           <th class="text-center">Occurrence Rate</th>
+          <th ng-if="loginName">&nbsp;</th>
         </tr>
       </thead>
       <tbody>
@@ -19,22 +20,26 @@
           <td><input type="text"
                      value="{{p.InboundName}}"
                      ng-model="p.InboundName"
+                     ng-disabled="!loginName"
                      required/></td>
           <td><input type="text"
                      value="{{p.OutboundName}}"
                      ng-model="p.OutboundName"
+                     ng-disabled="!loginName"
                      required/></td>
           <td>
             <select ng-options="type for type in types"
+                    ng-disabled="!loginName"
                     ng-model="p.Transformer"/>
           </td>
           <td class="text-center">
             <input ng-if="p.Transformer == 'varchar'"
                    value="{{p.size}}"
                    ng-model="p.size"
+                   ng-disabled="!loginName"
                    required/>
           </td>
-          <td class="text-center">
+          <td class="text-center" ng-if="loginName">
             <input type="radio"
                    ng-model="event.distkey"
                    value="{{p.OutboundName}}"
@@ -43,7 +48,7 @@
           <td class="text-center">
             {{p.OccurrenceProbability | number : 4}}
           </td>
-          <td ng-if="p.InboundName !== 'time'">
+          <td ng-if="p.InboundName !== 'time' && loginName">
             <button ng-click="dropColumnFromSchema($index)"
                     type="button"
                     class="btn btn-warning">
@@ -53,7 +58,7 @@
         </tr>
       </tbody>
       <tfoot>
-        <tr>
+        <tr ng-if="loginName">
           <td>
             <input type="text"
                    id="newInboundName"
@@ -83,7 +88,7 @@
                     class="btn btn-primary">Add!</button>
           </td>
         </tr>
-        <tr>
+        <tr ng-if="loginName">
           <td colspan="4"></td>
           <td class="text-center">
             <input type="hidden"
@@ -94,11 +99,6 @@
           </td>
         </tr>
       </tfoot>
-      {{suggestions}}
     </table>
   </form>
-  <h2 ng-if="notes">Notes from the suggestion overrider</h2>
-  <ul>
-    <li ng-repeat="n in notes">{{n}}</li>
-  </ul>
 </div>

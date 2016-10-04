@@ -99,7 +99,7 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 
 	receivedState := r.FormValue("state")
 	if expectedState != receivedState {
-		logger.WithFields(map[string]interface{} {
+		logger.WithFields(map[string]interface{}{
 			"expected_state": expectedState,
 			"received_state": receivedState,
 		}).Error("Invalid oauth state")
@@ -138,6 +138,15 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 	bytes, err := json.Marshal(token)
 	if err != nil {
 		logger.WithError(err).Error("Failed to marshal oauth token")
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
+		return
+	}
+
+	if loginName, ok := userInfo["login"].(string); ok {
+		http.SetCookie(w, &http.Cookie{Name: "displayName", Value: loginName,
+			Secure: true})
+	} else {
+		logger.Error("User login in user info is not a string")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
 	}
@@ -191,6 +200,7 @@ func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := a.CookieStore.Get(r, cookieName)
 
+	http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
 	delete(session.Values, "login-time")
 	delete(session.Values, "login-name")
 	delete(session.Values, "auth-state")
@@ -203,8 +213,5 @@ func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	applicationAccessURL := fmt.Sprintf("%s/settings/connections/applications/%s",
-		a.GithubServer, a.OauthConfig.ClientID)
-
-	http.Redirect(w, r, applicationAccessURL, http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusFound)
 }

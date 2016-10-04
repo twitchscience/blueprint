@@ -75,33 +75,6 @@ type GithubAuth struct {
 	OauthConfig  *oauth2.Config
 }
 
-// AuthorizeOrRedirect requires that the user be logged in and have proper permissions, else sends
-// them to the login with a redirect.
-func (a *GithubAuth) AuthorizeOrRedirect(h http.Handler) http.Handler {
-	// Always use context.ClearHandler as the base middleware or you'll leak memory (unless you're using gorilla as your server)
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		user := a.User(r)
-		if user == nil {
-			http.Redirect(w, r, a.LoginURL+"?redirect_to="+r.RequestURI, http.StatusFound)
-			return
-		}
-		if user.IsMemberOfOrg == false {
-			//return "access forbidden"" error in HttpResponse
-			// do not redirect to loginURL, which will get into an endless loop
-			logger.WithFields(map[string]interface{}{
-				"user":         user.Name,
-				"required_org": a.RequiredOrg,
-			}).Warn("User is not a member of required organization")
-			errMsg := fmt.Sprintf("You need to be a member of %s organization", a.RequiredOrg)
-			http.Error(w, errMsg, http.StatusForbidden)
-			return
-		}
-
-		h.ServeHTTP(w, r)
-	}
-	return http.HandlerFunc(fn)
-}
-
 // AuthorizeOrForbid requires the user be logged in and have proper permissions,
 // else 403s
 func (a *GithubAuth) AuthorizeOrForbid(h http.Handler) http.Handler {

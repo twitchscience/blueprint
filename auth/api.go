@@ -14,7 +14,6 @@ type User struct {
 
 // Auth is the interface managing user auth flow
 type Auth interface {
-	AuthorizeOrRedirect(h http.Handler) http.Handler
 	AuthorizeOrForbid(h http.Handler) http.Handler
 	LoginHandler(w http.ResponseWriter, r *http.Request)
 	LogoutHandler(w http.ResponseWriter, r *http.Request)

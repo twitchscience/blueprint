@@ -1,4 +1,4 @@
-angular.module('blueprint', ['ngResource', 'ngRoute'])
+angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
   .factory('Event', function($resource) {
     return $resource(
       '/event/:scope', null,
@@ -74,11 +74,12 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
         redirectTo: '/schemas'
       });
   })
-  .controller('HeaderCtrl', function($scope, store) {
+  .controller('HeaderCtrl', function($scope, store, auth) {
     $scope.getError = store.getError;
     $scope.clearError = store.clearError;
     $scope.getMessage = store.getMessage;
     $scope.clearMessage = store.clearMessage;
+    $scope.loginName = auth.getLoginName();
   })
   .controller('SchemaCacheExpireCtrl', function($location, Schema) {
     Schema.expire(function(data) {
@@ -223,6 +224,10 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
               nameSet[originalName] = true;
               return true;
         });
+        if ($scope.newCol.InboundName || $scope.newCol.OutboundName) {
+          store.setError("Column addition not finished. Hit \"Add!\" or clear the inbound and outbound name.");
+          return false;
+        }
         if (!noErrors) {
           return false;
         }
@@ -249,9 +254,13 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
               $scope.schema.Columns.push(c);
               $scope.nameMap[c.OutboundName] = c.OutboundName
             });
-            angular.forEach(renames, function(newName, originalName) {
-              delete $scope.nameMap[originalName];
-              $scope.nameMap[newName] = newName;
+            angular.forEach($scope.schema.Columns, function(c) {
+              if (c.OutboundName in renames) {
+                var newName = renames[c.OutboundName];
+                delete $scope.nameMap[c.OutboundName];
+                $scope.nameMap[newName] = newName;
+                c.OutboundName = newName;
+              }
             });
             $scope.additions = {Columns: []};
             $location.path('/schema/' + schema.EventName);
@@ -262,7 +271,8 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       };
     });
   })
-  .controller('SchemaListCtrl', function($scope, $location, $http, Schema, Suggestions, store) {
+  .controller('SchemaListCtrl', function($scope, $location, $http, Schema, Suggestions, store, auth) {
+    $scope.loginName = auth.getLoginName();
     $scope.ingestTable = function(schema){
       schema.IngestStatus = 'flushing';
     $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
@@ -289,7 +299,8 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       });
     });
   })
-  .controller('SchemaCreateCtrl', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, ColumnMaker) {
+  .controller('SchemaCreateCtrl', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, ColumnMaker, auth) {
+    $scope.loginName = auth.getLoginName();
     var types, suggestions, suggestionData;
     var typeData = Types.get(function(data) {
       if (data) {
@@ -482,11 +493,19 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
       };
     });
   })
+  .service('auth', function($cookies) {
+    var loginName = $cookies.displayName;
+    return {
+      getLoginName: function() {
+        return loginName;
+      },
+    };
+  })
   .service('store', function($location) {
     var data = {
       event: undefined,
       message: undefined,
-      error: undefined
+      error: undefined,
     };
 
     return {
@@ -523,6 +542,6 @@ angular.module('blueprint', ['ngResource', 'ngRoute'])
 
       clearMessage: function() {
         data.message = undefined;
-      }
+      },
     };
   });

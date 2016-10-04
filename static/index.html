@@ -21,7 +21,10 @@
           <div class="navbar navbar-static-top">
             <div class="navbar-inner">
               <a class="navbar-brand" href="#">Blueprint</a>
+              <span ng-if="loginName" class="pull-right"><span class="navbar-text">Logged in as {{loginName}}</span>
               <a href="/logout"><button type="button" class="btn btn-primary navbar-btn pull-right">Logout</button></a>
+              </span>
+              <a href="/login" ng-if="!loginName"><button type="button" class="btn btn-primary navbar-btn pull-right">Login</button></a>
             </div>
           </div>
           <div class="alert alert-danger alert-dismissible" role="alert" ng-if="getError()">
@@ -44,6 +47,7 @@
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.7/angular.min.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.7/angular-resource.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.7/angular-route.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.7/angular-cookies.js"></script>
     <script src="/js/app.js"></script>
   </body>
 </html>

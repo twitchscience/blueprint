@@ -59,24 +59,25 @@ func (s *server) Setup() error {
 	healthcheck := web.New()
 	healthcheck.Get("/health", s.healthCheck)
 
-	api := web.New()
-	api.Use(jsonResponse)
-	api.Get("/schemas", s.allSchemas)
-	api.Get("/schema/:id", s.schema)
-	api.Get("/migration/:schema", s.migration)
-	api.Get("/types", s.types)
-	api.Get("/suggestions", s.listSuggestions)
-	api.Get("/suggestion/:id", s.suggestion)
+	ro_api := web.New()
+	ro_api.Use(jsonResponse)
+	ro_api.Get("/schemas", s.allSchemas)
+	ro_api.Get("/schema/:id", s.schema)
+	ro_api.Get("/migration/:schema", s.migration)
+	ro_api.Get("/types", s.types)
+	ro_api.Get("/suggestions", s.listSuggestions)
+	ro_api.Get("/suggestion/:id", s.suggestion)
 
-	goji.Handle("/health", healthcheck)
-	goji.Handle("/schemas", api)
-	goji.Handle("/schema/*", api)
-	goji.Handle("/migration/*", api)
-	goji.Handle("/suggestions", api)
-	goji.Handle("/suggestion/*", api)
-	goji.Handle("/types", api)
+	goji.Get("/health", healthcheck)
+	goji.Get("/schemas", ro_api)
+	goji.Get("/schema/*", ro_api)
+	goji.Get("/migration/*", ro_api)
+	goji.Get("/suggestions", ro_api)
+	goji.Get("/suggestion/*", ro_api)
+	goji.Get("/types", ro_api)
 
 	if !readonly {
+		api := web.New()
 		api.Use(context.ClearHandler)
 
 		api.Post("/ingest", s.ingest)
@@ -84,9 +85,10 @@ func (s *server) Setup() error {
 		api.Post("/schema/:id", s.updateSchema)
 		api.Post("/removesuggestion/:id", s.removeSuggestion)
 
-		goji.Handle("/ingest", api)
-		goji.Handle("/schema", api)
-		goji.Handle("/removesuggestion/*", api)
+		goji.Post("/ingest", api)
+		goji.Put("/schema", api)
+		goji.Post("/schema/*", api)
+		goji.Post("/removesuggestion/*", api)
 
 		files := web.New()
 		files.Use(context.ClearHandler)
@@ -104,8 +106,6 @@ func (s *server) Setup() error {
 			goji.Handle(loginURL, a.LoginHandler)
 			goji.Handle(logoutURL, a.LogoutHandler)
 			goji.Handle(authCallbackURL, a.AuthCallbackHandler)
-
-			files.Use(a.AuthorizeOrRedirect)
 		}
 
 		goji.Handle("/*", files)
