@@ -14,5 +14,6 @@ var (
 		"stringToIntegerMD5",
 		"varchar",
 		"f@timestamp@unix",
+		"f@timestamp@unix-utc",
 	}
 )
