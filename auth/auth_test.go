@@ -89,7 +89,7 @@ func TestIntegrationGoogle(t *testing.T) {
 
 	loggedIn := web.New()
 	goji.Handle("/user/*", loggedIn)
-	loggedIn.Use(authenticator.AuthorizeOrRedirect)
+	loggedIn.Use(authenticator.AuthorizeOrForbid)
 	loggedIn.Get("/user/greet", loggedInHandler)
 
 	goji.Use(context.ClearHandler) // THIS IS IMPORTANT - Prevent memory leaks
