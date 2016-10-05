@@ -80,7 +80,7 @@ type GithubAuth struct {
 func (a *GithubAuth) AuthorizeOrForbid(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
-		if user == nil || user.IsMemberOfOrg == false {
+		if user == nil || !user.IsMemberOfOrg {
 			http.Error(w, "Please authenticate", http.StatusForbidden)
 			return
 		}
