@@ -8,12 +8,12 @@ import (
 )
 
 func TestApplyOperationAddColumns(t *testing.T) {
-	base := scoop_protocol.Config{
+	base := AnnotatedSchema{
 		EventName: "video_ad_request_error",
 		Columns: []scoop_protocol.ColumnDefinition{
-			scoop_protocol.ColumnDefinition{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
-			scoop_protocol.ColumnDefinition{InboundName: "content_mode", OutboundName: "content_mode", Transformer: "varchar", ColumnCreationOptions: "(32)"},
-			scoop_protocol.ColumnDefinition{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)"},
+			{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
+			{InboundName: "content_mode", OutboundName: "content_mode", Transformer: "varchar", ColumnCreationOptions: "(32)"},
+			{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)"},
 		},
 	}
 	ops := []scoop_protocol.Operation{
@@ -21,13 +21,13 @@ func TestApplyOperationAddColumns(t *testing.T) {
 		{"delete", "backend", map[string]string{"inbound": "backend", "column_type": "varchar", "column_options": "(32)"}},
 		{"add", "os", map[string]string{"inbound": "os", "column_type": "varchar", "column_options": "(16)"}},
 	}
-	expected := scoop_protocol.Config{
+	expected := AnnotatedSchema{
 		EventName: "video_ad_request_error",
 		Columns: []scoop_protocol.ColumnDefinition{
-			scoop_protocol.ColumnDefinition{InboundName: "content_mode", OutboundName: "content_mode", Transformer: "varchar", ColumnCreationOptions: "(32)"},
-			scoop_protocol.ColumnDefinition{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)"},
-			scoop_protocol.ColumnDefinition{InboundName: "minutes_logged", OutboundName: "minutes_logged", Transformer: "bigint", ColumnCreationOptions: ""},
-			scoop_protocol.ColumnDefinition{InboundName: "os", OutboundName: "os", Transformer: "varchar", ColumnCreationOptions: "(16)"},
+			{InboundName: "content_mode", OutboundName: "content_mode", Transformer: "varchar", ColumnCreationOptions: "(32)"},
+			{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)"},
+			{InboundName: "minutes_logged", OutboundName: "minutes_logged", Transformer: "bigint", ColumnCreationOptions: ""},
+			{InboundName: "os", OutboundName: "os", Transformer: "varchar", ColumnCreationOptions: "(16)"},
 		},
 	}
 	err := ApplyOperations(&base, ops)
@@ -37,10 +37,10 @@ func TestApplyOperationAddColumns(t *testing.T) {
 }
 
 func TestApplyOperationAddDupeColumns(t *testing.T) {
-	base := scoop_protocol.Config{
+	base := AnnotatedSchema{
 		EventName: "video_ad_request_error",
 		Columns: []scoop_protocol.ColumnDefinition{
-			scoop_protocol.ColumnDefinition{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
+			{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
 		},
 	}
 	ops := []scoop_protocol.Operation{
@@ -54,10 +54,10 @@ func TestApplyOperationAddDupeColumns(t *testing.T) {
 }
 
 func TestApplyOperationDeleteNonExistentColumns(t *testing.T) {
-	base := scoop_protocol.Config{
+	base := AnnotatedSchema{
 		EventName: "video_ad_request_error",
 		Columns: []scoop_protocol.ColumnDefinition{
-			scoop_protocol.ColumnDefinition{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
+			{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
 		},
 	}
 	ops := []scoop_protocol.Operation{

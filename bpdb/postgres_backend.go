@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	"encoding/json"
 
@@ -14,13 +15,13 @@ import (
 
 var (
 	schemaQuery = `
-SELECT event, action, name, version, ordering, action_metadata
+SELECT event, action, name, version, ordering, action_metadata, ts, user_name
 FROM operation
 WHERE event = $1
 ORDER BY version ASC, ordering ASC
 `
 	allSchemasQuery = `
-SELECT event, action, name,  version, ordering, action_metadata
+SELECT event, action, name,  version, ordering, action_metadata, ts, user_name
 FROM operation
 ORDER BY version ASC, ordering ASC
 `
@@ -52,6 +53,8 @@ type operationRow struct {
 	actionMetadata map[string]string
 	version        int
 	ordering       int
+	ts             time.Time
+	userName       string
 }
 
 // NewPostgresBackend creates a postgres bpdb backend to interface with
@@ -193,7 +196,7 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	for rows.Next() {
 		var op operationRow
 		var b []byte
-		err := rows.Scan(&op.event, &op.action, &op.name, &op.version, &op.ordering, &b)
+		err := rows.Scan(&op.event, &op.action, &op.name, &op.version, &op.ordering, &b, &op.ts, &op.userName)
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing operation row: %v.", err)
 		}
@@ -207,7 +210,7 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 }
 
 // Schema returns the current schema for the table `name`
-func (p *postgresBackend) Schema(name string) (*scoop_protocol.Config, error) {
+func (p *postgresBackend) Schema(name string) (*AnnotatedSchema, error) {
 	rows, err := p.db.Query(schemaQuery, name)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying for schema %s: %v.", name, err)
@@ -231,7 +234,7 @@ func (p *postgresBackend) Schema(name string) (*scoop_protocol.Config, error) {
 }
 
 // Schema returns all of the current schemas
-func (p *postgresBackend) AllSchemas() ([]scoop_protocol.Config, error) {
+func (p *postgresBackend) AllSchemas() ([]AnnotatedSchema, error) {
 	rows, err := p.db.Query(allSchemasQuery)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying for all schemas: %v.", err)
@@ -243,22 +246,14 @@ func (p *postgresBackend) AllSchemas() ([]scoop_protocol.Config, error) {
 	return generateSchemas(ops)
 }
 
-// max returns the max of the two arguments
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 // generateSchemas creates schemas from a list of operations
 // by applying the operations in the order they appear in the array
-func generateSchemas(ops []operationRow) ([]scoop_protocol.Config, error) {
-	schemas := make(map[string]*scoop_protocol.Config)
+func generateSchemas(ops []operationRow) ([]AnnotatedSchema, error) {
+	schemas := make(map[string]*AnnotatedSchema)
 	for _, op := range ops {
 		_, exists := schemas[op.event]
 		if !exists {
-			schemas[op.event] = &scoop_protocol.Config{EventName: op.event}
+			schemas[op.event] = &AnnotatedSchema{EventName: op.event}
 		}
 		err := ApplyOperation(schemas[op.event], scoop_protocol.Operation{
 			Action:         scoop_protocol.Action(op.action),
@@ -266,11 +261,15 @@ func generateSchemas(ops []operationRow) ([]scoop_protocol.Config, error) {
 			Name:           op.name,
 		})
 		if err != nil {
-			return []scoop_protocol.Config{}, fmt.Errorf("Error applying operation to schema: %v", err)
+			return []AnnotatedSchema{}, fmt.Errorf("Error applying operation to schema: %v", err)
 		}
-		schemas[op.event].Version = max(schemas[op.event].Version, op.version)
+		if op.version >= schemas[op.event].Version {
+			schemas[op.event].Version = op.version
+			schemas[op.event].TS = op.ts
+			schemas[op.event].UserName = op.userName
+		}
 	}
-	ret := make([]scoop_protocol.Config, len(schemas))
+	ret := make([]AnnotatedSchema, len(schemas))
 
 	i := 0
 	for _, val := range schemas {

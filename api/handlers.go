@@ -18,6 +18,7 @@ import (
 
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/auth"
+	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 	"github.com/twitchscience/scoop_protocol/transformer"
@@ -278,27 +279,27 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
-	cfgs, err := s.bpdbBackend.AllSchemas()
+	schemas, err := s.bpdbBackend.AllSchemas()
 	if err != nil {
 		log.Printf("Error retrieving allSchemas: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeEvent(w, cfgs)
+	writeEvent(w, schemas)
 }
 
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.bpdbBackend.Schema(c.URLParams["id"])
+	schema, err := s.bpdbBackend.Schema(c.URLParams["id"])
 	if err != nil {
-		log.Printf("Error retrieving schemas %s: %v", c.URLParams["id"], err)
+		log.Printf("Error retrieving schema %s: %v", c.URLParams["id"], err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if cfg == nil {
+	if schema == nil {
 		fourOhFour(w, r)
 		return
 	}
-	writeEvent(w, []scoop_protocol.Config{*cfg})
+	writeEvent(w, []*bpdb.AnnotatedSchema{schema})
 }
 
 func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {

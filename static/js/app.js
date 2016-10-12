@@ -494,7 +494,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     });
   })
   .service('auth', function($cookies) {
-    var loginName = $cookies.displayName;
+    var loginName = $cookies.get('displayName');
     return {
       getLoginName: function() {
         return loginName;
