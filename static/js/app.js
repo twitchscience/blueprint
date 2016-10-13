@@ -457,7 +457,14 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       $scope.createSchema = function() {
         store.clearError();
         var setDistKey = $scope.event.distkey;
+        var nameSet = {};
         angular.forEach($scope.event.Columns, function(item) {
+          if(item.OutboundName in nameSet){
+            store.setError("Cannot repeat column name. Repeated '"+item.OutboundName+"'");
+            return false;
+          } else {
+            nameSet[item.OutboundName] = true;
+          }
           if (!ColumnMaker.validate(item)) {
             store.setError("At least one column is invalid; look at '" + item.InboundName + "'", undefined);
             return false;

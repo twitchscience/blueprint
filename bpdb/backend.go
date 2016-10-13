@@ -63,23 +63,28 @@ func validateIsNotKey(options string) error {
 	return nil
 }
 
-func preValidateSchema(cfg *scoop_protocol.Config) error {
-	err := validateIdentifier(cfg.EventName)
+func preValidateSchema(schema *scoop_protocol.Config) error {
+	err := validateIdentifier(schema.EventName)
 	if err != nil {
 		return fmt.Errorf("event name invalid: %v", err)
 	}
-	for _, col := range cfg.Columns {
+	for _, col := range schema.Columns {
 		err = validateIdentifier(col.OutboundName)
 		if err != nil {
 			return fmt.Errorf("column outbound name invalid: %v", err)
 		}
-		err := validateType(col.Transformer)
+		err = validateType(col.Transformer)
 		if err != nil {
 			return fmt.Errorf("column transformer invalid: %v", err)
 		}
 	}
-	if len(cfg.Columns) >= maxColumns {
-		return fmt.Errorf("too many columns, max is %d, given %d", maxColumns, len(cfg.Columns))
+	ops := schemaCreateRequestToOps(schema)
+	err = ApplyOperations(&AnnotatedSchema{}, ops)
+	if err != nil {
+		return err
+	}
+	if len(schema.Columns) >= maxColumns {
+		return fmt.Errorf("too many columns, max is %d, given %d", maxColumns, len(schema.Columns))
 	}
 	return nil
 }
