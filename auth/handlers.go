@@ -144,7 +144,7 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 
 	if loginName, ok := userInfo["login"].(string); ok {
 		http.SetCookie(w, &http.Cookie{Name: "displayName", Value: loginName,
-			Secure: true})
+			Secure: true, MaxAge: int(a.LoginTTL.Seconds())})
 	} else {
 		logger.Error("User login in user info is not a string")
 		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)

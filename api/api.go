@@ -93,14 +93,14 @@ func (s *server) Setup() error {
 		files := web.New()
 		files.Use(context.ClearHandler)
 
-		if enableAuth {
-			a := auth.New(githubServer,
-				clientID,
-				clientSecret,
-				cookieSecret,
-				requiredOrg,
-				loginURL)
+		a := auth.New(githubServer,
+			clientID,
+			clientSecret,
+			cookieSecret,
+			requiredOrg,
+			loginURL)
 
+		if enableAuth {
 			api.Use(a.AuthorizeOrForbid)
 
 			goji.Handle(loginURL, a.LoginHandler)
@@ -113,6 +113,7 @@ func (s *server) Setup() error {
 		}
 
 		goji.Handle("/*", files)
+		files.Use(a.ExpireDisplayName)
 		files.Get("/*", s.fileHandler)
 	}
 	goji.NotFound(fourOhFour)

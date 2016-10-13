@@ -92,9 +92,23 @@ func (a *GithubAuth) AuthorizeOrForbid(c *web.C, h http.Handler) http.Handler {
 		user := a.User(r)
 		if user == nil || !user.IsMemberOfOrg {
 			http.Error(w, "Please authenticate", http.StatusForbidden)
+			http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
 			return
 		}
 		c.Env["username"] = user.Name
+
+		h.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
+
+// ExpireDisplayName expires the display name if the github auth is no longer valid.
+func (a *GithubAuth) ExpireDisplayName(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		user := a.User(r)
+		if user == nil || !user.IsMemberOfOrg {
+			http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+		}
 
 		h.ServeHTTP(w, r)
 	}
