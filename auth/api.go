@@ -4,7 +4,11 @@
 
 package auth
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/zenazn/goji/web"
+)
 
 // User represents a user for authorization purposes
 type User struct {
@@ -14,7 +18,7 @@ type User struct {
 
 // Auth is the interface managing user auth flow
 type Auth interface {
-	AuthorizeOrForbid(h http.Handler) http.Handler
+	AuthorizeOrForbid(c *web.C, h http.Handler) http.Handler
 	LoginHandler(w http.ResponseWriter, r *http.Request)
 	LogoutHandler(w http.ResponseWriter, r *http.Request)
 	AuthCallbackHandler(w http.ResponseWriter, r *http.Request)

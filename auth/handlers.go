@@ -215,3 +215,15 @@ func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, "/", http.StatusFound)
 }
+
+// DummyLoginHandler logs the unknown user in automatically.
+func DummyLoginHandler(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: "displayName", Value: "unknown"})
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+// DummyLogoutHandler logs the unknown user out.
+func DummyLogoutHandler(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+	http.Redirect(w, r, "/", http.StatusFound)
+}

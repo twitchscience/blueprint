@@ -106,6 +106,10 @@ func (s *server) Setup() error {
 			goji.Handle(loginURL, a.LoginHandler)
 			goji.Handle(logoutURL, a.LogoutHandler)
 			goji.Handle(authCallbackURL, a.AuthCallbackHandler)
+		} else {
+			api.Use(auth.DummyAuth)
+			goji.Handle(loginURL, auth.DummyLoginHandler)
+			goji.Handle(logoutURL, auth.DummyLogoutHandler)
 		}
 
 		goji.Handle("/*", files)

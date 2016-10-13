@@ -12,8 +12,18 @@ import (
 
 	"github.com/gorilla/sessions"
 	"github.com/twitchscience/aws_utils/logger"
+	"github.com/zenazn/goji/web"
 	"golang.org/x/oauth2"
 )
+
+// DummyAuth creates a fake user.
+func DummyAuth(c *web.C, h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		c.Env["username"] = "unknown"
+		h.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
 
 // New creates and returns a github auth object
 func New(githubServer string,
@@ -77,13 +87,14 @@ type GithubAuth struct {
 
 // AuthorizeOrForbid requires the user be logged in and have proper permissions,
 // else 403s
-func (a *GithubAuth) AuthorizeOrForbid(h http.Handler) http.Handler {
+func (a *GithubAuth) AuthorizeOrForbid(c *web.C, h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
 		if user == nil || !user.IsMemberOfOrg {
 			http.Error(w, "Please authenticate", http.StatusForbidden)
 			return
 		}
+		c.Env["username"] = user.Name
 
 		h.ServeHTTP(w, r)
 	}

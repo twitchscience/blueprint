@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
-	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
@@ -52,7 +51,7 @@ func respondWithJSONError(w http.ResponseWriter, text string, responseCode int) 
 }
 
 // ingest proxies the request through to the ingester /control/ingest
-func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
+func (s *server) ingest(c web.C, w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var tableArg struct {
 		Table string
@@ -64,15 +63,7 @@ func (s *server) ingest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fields := map[string]interface{}{"table": tableArg.Table}
-	if enableAuth {
-		a := auth.New(githubServer,
-			clientID,
-			clientSecret,
-			cookieSecret,
-			requiredOrg,
-			loginURL)
-		fields["user_requesting"] = a.User(r).Name
-	}
+	fields["user_requesting"] = c.Env["username"].(string)
 	logger.WithFields(fields).Info("Table flush request")
 
 	js, err := json.Marshal(tableArg)
@@ -156,20 +147,8 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%v is blacklisted", cfg.EventName), http.StatusForbidden)
 		return
 	}
-	var user string
-	if enableAuth {
-		a := auth.New(githubServer,
-			clientID,
-			clientSecret,
-			cookieSecret,
-			requiredOrg,
-			loginURL)
-		user = a.User(r).Name
-	} else {
-		user = "unknown"
-	}
 
-	err = s.bpdbBackend.CreateSchema(&cfg, user)
+	err = s.bpdbBackend.CreateSchema(&cfg, c.Env["username"].(string))
 	if err != nil {
 		logger.WithError(err).Error("Error creating schema.")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -257,20 +236,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	req.EventName = eventName
 
-	var user string
-	if enableAuth {
-		a := auth.New(githubServer,
-			clientID,
-			clientSecret,
-			cookieSecret,
-			requiredOrg,
-			loginURL)
-		user = a.User(r).Name
-	} else {
-		user = "unknown"
-	}
-
-	err = s.bpdbBackend.UpdateSchema(&req, user)
+	err = s.bpdbBackend.UpdateSchema(&req, c.Env["username"].(string))
 	if err != nil {
 		logger.WithError(err).Error("Error updating schema.")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
