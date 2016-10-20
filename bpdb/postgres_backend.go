@@ -3,12 +3,12 @@ package bpdb
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	"encoding/json"
 
 	_ "github.com/lib/pq" // to include the 'postgres' driver
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
@@ -82,7 +82,7 @@ func (p *postgresBackend) Migration(table string, to int) ([]*scoop_protocol.Ope
 	defer func() {
 		err := rows.Close()
 		if err != nil {
-			log.Printf("Error closing rows in postgres backend Migration: %v", err)
+			logger.WithError(err).Error("Error closing rows in postgres backend Migration")
 		}
 	}()
 	for rows.Next() {
@@ -190,7 +190,7 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	defer func() {
 		err := rows.Close()
 		if err != nil {
-			log.Printf("Error closing rows in postgres backend Migration: %v", err)
+			logger.WithError(err).Error("Error closing rows in postgres backend Migration")
 		}
 	}()
 	for rows.Next() {

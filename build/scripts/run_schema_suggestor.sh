@@ -4,6 +4,7 @@ set -e -u -o pipefail
 CONFIG_DIR="/opt/science/blueprint/config"
 SCIENCE_DIR="/opt/science"
 
+source /etc/environment
 cd -- "$(dirname -- "$0")"
 export HOST="$(curl --silent 169.254.169.254/latest/meta-data/hostname)"
 export CONFIG_PREFIX="s3://$S3_CONFIG_BUCKET/$VPC_SUBNET_TAG/$CLOUD_APP/$CLOUD_ENVIRONMENT"
@@ -17,4 +18,6 @@ export GOMAXPROCS="2"
 exec ./schema_suggestor \
   -bpdbConnection="${BLUEPRINT_DB_URL}" \
   -staticfiles="${SCIENCE_DIR}/nginx/html/events" \
+  -rollbarToken="${ROLLBAR_TOKEN}" \
+  -rollbarEnvironment="${CLOUD_ENVIRONMENT}" \
   -nonTrackedQueue="${NONTRACKED_QUEUE}"

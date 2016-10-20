@@ -12,14 +12,20 @@ import (
 )
 
 var (
-	bpdbConnection = flag.String("bpdbConnection", "", "The connection string for blueprintdb")
-	staticFileDir  = flag.String("staticfiles", "./static", "the location to serve static files from")
-	configFilename = flag.String("config", "conf.json", "Blueprint config file")
+	bpdbConnection     = flag.String("bpdbConnection", "", "The connection string for blueprintdb")
+	staticFileDir      = flag.String("staticfiles", "./static", "the location to serve static files from")
+	configFilename     = flag.String("config", "conf.json", "Blueprint config file")
+	rollbarToken       = flag.String("rollbarToken", "", "Rollbar post_server_item token")
+	rollbarEnvironment = flag.String("rollbarEnvironment", "", "Rollbar environment")
 )
 
 func main() {
-	logger.Init("info")
 	flag.Parse()
+
+	logger.InitWithRollbar("info", *rollbarToken, *rollbarEnvironment)
+	logger.CaptureDefault()
+	logger.Info("Starting!")
+	defer logger.LogPanic()
 
 	bpdbBackend, err := bpdb.NewPostgresBackend(*bpdbConnection)
 	if err != nil {
@@ -36,10 +42,13 @@ func main() {
 
 	shutdownSignal := make(chan os.Signal)
 	signal.Notify(shutdownSignal)
-	go func() {
+	logger.Go(func() {
 		<-shutdownSignal
+		logger.Info("Sigint received -- shutting down")
 		manager.Stop()
-	}()
+	})
 
 	manager.Wait()
+	logger.Info("Exiting main cleanly.")
+	logger.Wait()
 }

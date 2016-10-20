@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -25,9 +24,11 @@ import (
 )
 
 var (
-	staticFileDir   = flag.String("staticfiles", "./static/events", "the location to serve static files from")
-	bpdbConnection  = flag.String("bpdbConnection", "", "The connection string for blueprintdb")
-	nonTrackedQueue = flag.String("nonTrackedQueue", "", "SQS Queue name to listen to for nontracked events.")
+	staticFileDir      = flag.String("staticfiles", "./static/events", "the location to serve static files from")
+	bpdbConnection     = flag.String("bpdbConnection", "", "The connection string for blueprintdb")
+	nonTrackedQueue    = flag.String("nonTrackedQueue", "", "SQS Queue name to listen to for nontracked events.")
+	rollbarToken       = flag.String("rollbarToken", "", "Rollbar post_server_item token")
+	rollbarEnvironment = flag.String("rollbarEnvironment", "", "Rollbar environment")
 )
 
 // BPHandler listens to SQS for new messages describing freshly uploaded event data in S3.
@@ -86,13 +87,19 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 
 func main() {
 	flag.Parse()
+
+	logger.InitWithRollbar("info", *rollbarToken, *rollbarEnvironment)
+	logger.CaptureDefault()
+	logger.Info("Starting!")
+	defer logger.LogPanic()
+
 	if *nonTrackedQueue == "" {
 		logger.Fatal("Missing required flag: --nonTrackedQueue")
 	}
 
 	bpdb, err := bpdb.NewPostgresBackend(*bpdbConnection)
 	if err != nil {
-		log.Fatalf("Error creating bpdb backend: %v", err)
+		logger.WithError(err).Fatalf("Error creating bpdb backend")
 	}
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.
@@ -112,20 +119,23 @@ func main() {
 		2*time.Minute,
 		sqs,
 	)
-	go poller.Listen(*nonTrackedQueue)
+	logger.Go(func() {
+		poller.Listen(*nonTrackedQueue)
+	})
 
 	sigc := make(chan os.Signal, 1)
 	wait := make(chan bool)
 
-	signal.Notify(sigc,
-		syscall.SIGINT)
-	go func() {
+	signal.Notify(sigc, syscall.SIGINT)
+	logger.Go(func() {
 		<-sigc
 		// Cause flush
+		logger.Info("Sigint received -- shutting down")
 		poller.Close()
-
+		logger.Info("Exiting main cleanly.")
+		logger.Wait()
 		wait <- true
-	}()
+	})
 
 	<-wait
 }

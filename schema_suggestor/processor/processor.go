@@ -63,7 +63,7 @@ func NewNonTrackedEventProcessor(outputDir string) EventProcessor {
 		In:  make(chan map[string]interface{}, 100),
 		F:   make(chan string),
 	}
-	go p.Listen()
+	logger.Go(p.Listen)
 	return p
 }
 

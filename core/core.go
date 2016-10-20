@@ -30,10 +30,10 @@ func (s *SubprocessManager) Start() {
 
 		fn := sp
 		wg.Add(1)
-		go func() {
+		logger.Go(func() {
 			fn.Start()
 			wg.Done()
-		}()
+		})
 	}
 	s.wg = &wg
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -121,7 +120,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error reading body of request in creatSchema: %v", err)
+		logger.WithError(err).Error("Error reading body of request in createSchema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -129,7 +128,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	var cfg scoop_protocol.Config
 	err = json.Unmarshal(b, &cfg)
 	if err != nil {
-		log.Printf("Error getting marshalling config to json: %v", err)
+		logger.WithError(err).Error("Error getting marshalling config to json")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -222,7 +221,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error reading request body in updateSchema: %v", err)
+		logger.WithError(err).Error("Error reading request body in updateSchema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -230,7 +229,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	var req core.ClientUpdateSchemaRequest
 	err = json.Unmarshal(b, &req)
 	if err != nil {
-		log.Printf("Error unmarshalling request body in updateSchema: %v", err)
+		logger.WithError(err).Error("Error unmarshalling request body in updateSchema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -247,7 +246,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	schemas, err := s.bpdbBackend.AllSchemas()
 	if err != nil {
-		log.Printf("Error retrieving allSchemas: %v", err)
+		logger.WithError(err).Error("Error retrieving allSchemas")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -257,7 +256,7 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 	schema, err := s.bpdbBackend.Schema(c.URLParams["id"])
 	if err != nil {
-		log.Printf("Error retrieving schema %s: %v", c.URLParams["id"], err)
+		logger.WithError(err).WithField("schema", c.URLParams["id"]).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -293,7 +292,7 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	b, err := json.Marshal(operations)
 	if err != nil {
-		log.Printf("Error getting marshalling operations to json: %v", err)
+		logger.WithError(err).Error("Error getting marshalling operations to json")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -326,7 +325,7 @@ func (s *server) types(w http.ResponseWriter, r *http.Request) {
 	data["result"] = transformer.ValidTransforms
 	b, err := json.Marshal(data)
 	if err != nil {
-		log.Printf("Error getting marshalling data to json: %v", err)
+		logger.WithError(err).Error("Error getting marshalling data to json")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -341,7 +340,7 @@ func (s *server) types(w http.ResponseWriter, r *http.Request) {
 func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 	availableSuggestions, err := getAvailableSuggestions(s.docRoot)
 	if err != nil {
-		log.Printf("Error listing suggestions: %v", err)
+		logger.WithError(err).Error("Error listing suggestions")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -357,7 +356,7 @@ func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(availableSuggestions)
 	if err != nil {
-		log.Printf("Error getting marshalling suggestions to json: %v", err)
+		logger.WithError(err).Error("Error getting marshalling suggestions to json")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
