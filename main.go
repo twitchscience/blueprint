@@ -9,12 +9,14 @@ import (
 	"github.com/twitchscience/blueprint/api"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
+	"github.com/twitchscience/blueprint/ingester"
 )
 
 var (
 	bpdbConnection     = flag.String("bpdbConnection", "", "The connection string for blueprintdb")
 	staticFileDir      = flag.String("staticfiles", "./static", "the location to serve static files from")
 	configFilename     = flag.String("config", "conf.json", "Blueprint config file")
+	ingesterURL        = flag.String("ingesterURL", "", "URL to the ingester")
 	rollbarToken       = flag.String("rollbarToken", "", "Rollbar post_server_item token")
 	rollbarEnvironment = flag.String("rollbarEnvironment", "", "Rollbar environment")
 )
@@ -32,7 +34,9 @@ func main() {
 		logger.WithError(err).Fatal("Error setting up blueprint db backend")
 	}
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename)
+	ingCont := ingester.NewController(*ingesterURL)
+
+	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename, ingCont)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,

@@ -9,7 +9,7 @@ import (
 )
 
 func TestMigrationNegativeTo(t *testing.T) {
-	s := New("", nil, "").(*server)
+	s := New("", nil, "", nil).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)

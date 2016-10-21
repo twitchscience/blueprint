@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/bpdb"
@@ -65,49 +63,12 @@ func (s *server) ingest(c web.C, w http.ResponseWriter, r *http.Request) {
 	fields["user_requesting"] = c.Env["username"].(string)
 	logger.WithFields(fields).Info("Table flush request")
 
-	js, err := json.Marshal(tableArg)
+	err = s.ingesterController.ForceIngest(tableArg.Table)
 	if err != nil {
-		logger.WithError(err).Error("Failed to marshal JSON")
+		logger.WithError(err).Error("Failed to issue ForceLoad to ingester")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	req, err := http.NewRequest("POST", ingesterURL+"/control/ingest", bytes.NewBuffer(js))
-	if err != nil {
-		respondWithJSONError(w, "Error building request to ingester: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		respondWithJSONError(w, "Error making request to ingester: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer func() {
-		err = resp.Body.Close()
-		if err != nil {
-			logger.WithError(err).Error("Failed to close response body")
-		}
-	}()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(resp.Body)
-	if err != nil {
-		logger.WithError(err).Error("Failed to read from response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, err = w.Write(buf.Bytes())
-	if err != nil {
-		logger.WithError(err).Error("Failed to write to response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	return
 }
 
 func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {

@@ -8,6 +8,7 @@ import (
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
+	"github.com/twitchscience/blueprint/ingester"
 	"github.com/zenazn/goji"
 	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
@@ -15,9 +16,10 @@ import (
 )
 
 type server struct {
-	docRoot        string
-	bpdbBackend    bpdb.Bpdb
-	configFilename string
+	docRoot            string
+	bpdbBackend        bpdb.Bpdb
+	configFilename     string
+	ingesterController ingester.Controller
 }
 
 var (
@@ -31,7 +33,6 @@ var (
 	clientSecret    string
 	githubServer    string
 	requiredOrg     string
-	ingesterURL     string
 )
 
 func init() {
@@ -42,15 +43,15 @@ func init() {
 	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
 	flag.StringVar(&githubServer, "githubServer", "http://github.com", "Github server to use for auth")
 	flag.StringVar(&requiredOrg, "requiredOrg", "", "Org user need to belong to to use auth")
-	flag.StringVar(&ingesterURL, "ingesterURL", "", "URL to the ingester")
 }
 
 // New returns an API process.
-func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string) core.Subprocess {
+func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller) core.Subprocess {
 	return &server{
-		docRoot:        docRoot,
-		bpdbBackend:    bpdbBackend,
-		configFilename: configFilename,
+		docRoot:            docRoot,
+		bpdbBackend:        bpdbBackend,
+		configFilename:     configFilename,
+		ingesterController: ingCont,
 	}
 }
 
