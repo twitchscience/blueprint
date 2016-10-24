@@ -106,6 +106,7 @@ func (s *server) Setup() error {
 			goji.Handle(loginURL, a.LoginHandler)
 			goji.Handle(logoutURL, a.LogoutHandler)
 			goji.Handle(authCallbackURL, a.AuthCallbackHandler)
+			files.Use(a.ExpireDisplayName)
 		} else {
 			api.Use(auth.DummyAuth)
 			goji.Handle(loginURL, auth.DummyLoginHandler)
@@ -113,7 +114,6 @@ func (s *server) Setup() error {
 		}
 
 		goji.Handle("/*", files)
-		files.Use(a.ExpireDisplayName)
 		files.Get("/*", s.fileHandler)
 	}
 	goji.NotFound(fourOhFour)
