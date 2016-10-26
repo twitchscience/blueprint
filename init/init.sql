@@ -1,7 +1,7 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'action') THEN
-    CREATE TYPE action AS ENUM ('add', 'delete', 'rename');
+    CREATE TYPE action AS ENUM ('add', 'delete', 'rename', 'request_drop_event', 'drop_event', 'cancel_drop_event');
   END IF;
 END $$;
 CREATE TABLE IF NOT EXISTS operation

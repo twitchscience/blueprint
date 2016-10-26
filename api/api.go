@@ -20,19 +20,21 @@ type server struct {
 	bpdbBackend        bpdb.Bpdb
 	configFilename     string
 	ingesterController ingester.Controller
+	slackbotURL        string
 }
 
 var (
-	loginURL        = "/login"
-	logoutURL       = "/logout"
-	authCallbackURL = "/github_oauth_cb"
-	enableAuth      bool
-	readonly        bool
-	cookieSecret    string
-	clientID        string
-	clientSecret    string
-	githubServer    string
-	requiredOrg     string
+	loginURL           = "/login"
+	logoutURL          = "/logout"
+	authCallbackURL    = "/github_oauth_cb"
+	slackbotDeletePath = "/request-table-delete"
+	enableAuth         bool
+	readonly           bool
+	cookieSecret       string
+	clientID           string
+	clientSecret       string
+	githubServer       string
+	requiredOrg        string
 )
 
 func init() {
@@ -46,12 +48,13 @@ func init() {
 }
 
 // New returns an API process.
-func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller) core.Subprocess {
+func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller, slackbotURL string) core.Subprocess {
 	return &server{
 		docRoot:            docRoot,
 		bpdbBackend:        bpdbBackend,
 		configFilename:     configFilename,
 		ingesterController: ingCont,
+		slackbotURL:        slackbotURL,
 	}
 }
 
@@ -64,6 +67,7 @@ func (s *server) Setup() error {
 	roAPI.Use(jsonResponse)
 	roAPI.Get("/schemas", s.allSchemas)
 	roAPI.Get("/schema/:id", s.schema)
+	roAPI.Get("/droppable/schema/:id", s.droppableSchema)
 	roAPI.Get("/migration/:schema", s.migration)
 	roAPI.Get("/types", s.types)
 	roAPI.Get("/suggestions", s.listSuggestions)
@@ -72,6 +76,7 @@ func (s *server) Setup() error {
 	goji.Get("/health", healthcheck)
 	goji.Get("/schemas", roAPI)
 	goji.Get("/schema/*", roAPI)
+	goji.Get("/droppable/schema/*", roAPI)
 	goji.Get("/migration/*", roAPI)
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
@@ -84,11 +89,13 @@ func (s *server) Setup() error {
 		api.Post("/ingest", s.ingest)
 		api.Put("/schema", s.createSchema)
 		api.Post("/schema/:id", s.updateSchema)
+		api.Post("/drop/schema", s.dropSchema)
 		api.Post("/removesuggestion/:id", s.removeSuggestion)
 
 		goji.Post("/ingest", api)
 		goji.Put("/schema", api)
 		goji.Post("/schema/*", api)
+		goji.Post("/drop/schema", api)
 		goji.Post("/removesuggestion/*", api)
 
 		files := web.New()

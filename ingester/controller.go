@@ -14,6 +14,7 @@ import (
 // Controller is used to issue requests to the ingester.
 type Controller interface {
 	ForceIngest(string) error
+	IncrementVersion(string) error
 	TableExists(string) (bool, error)
 }
 
@@ -30,6 +31,26 @@ func NewController(ingesterURL string) Controller {
 func (c *controller) ForceIngest(tableName string) (err error) {
 	action := "ForceIngest"
 	resp, err := c.sendRequest("/control/ingest", map[string]interface{}{"Table": tableName}, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("error making %s request to ingester: %v", action, err)
+	}
+	defer func() {
+		cerr := resp.Body.Close()
+		if cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close %s response body: %v", action, cerr)
+		}
+	}()
+
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+	return decodeErrorResponse(resp.Body, resp.StatusCode, action)
+}
+
+// IncrementVersion increments the table's version on the ingester.
+func (c *controller) IncrementVersion(tableName string) (err error) {
+	action := "IncrementVersion"
+	resp, err := c.sendRequest(fmt.Sprintf("/control/increment_version/%s", tableName), nil, 2*time.Minute)
 	if err != nil {
 		return fmt.Errorf("error making %s request to ingester: %v", action, err)
 	}

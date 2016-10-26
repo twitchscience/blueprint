@@ -14,12 +14,18 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
        get: {url: '/schema/:scope', method:'GET', isArray: true},
        put: {url: '/schema', method: 'PUT'},
        update: {url: '/schema/:event', method: 'POST'},
+       drop: {url: '/drop/schema', method: 'POST'},
        expire: {url: '/expire', method: 'POST'}}
     );
   })
   .factory('Types', function($resource) {
     return $resource(
       '/types', null, null
+    );
+  })
+  .factory('Droppable', function($resource) {
+    return $resource(
+      '/droppable/schema/:scope', null, null
     );
   })
   .factory('Suggestions', function($resource) {
@@ -86,8 +92,8 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       $location.path('/');
     });
   })
-  .controller('SchemaShowCtrl', function ($scope, $location, $routeParams, $q, store, Schema, Types, ColumnMaker) {
-    var types, schema;
+  .controller('SchemaShowCtrl', function ($scope, $location, $routeParams, $q, store, Schema, Types, Droppable, ColumnMaker) {
+    var types, schema, dropMessage, cancelDropMessage;
     var typeRequest = Types.get(function(data) {
       if (data) {
         types = data.result;
@@ -111,10 +117,37 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       store.setError(msg, '/schemas');
     }).$promise;
 
-    $q.all([typeRequest, schemaRequest]).then(function() {
+    var droppableRequest = Droppable.get($routeParams, function(data) {
+      if (data) {
+        if (data['Droppable']) {
+          dropMessage = 'Drop Table';
+          cancelDropMessage = 'Cancel Drop';
+          successDropMessage = 'Table Dropped';
+        } else {
+          dropMessage = 'Request Table Drop';
+          cancelDropMessage = 'Cancel Drop Request';
+          successDropMessage = 'Requested Table Drop';
+        }
+      }
+    }, function(err) {
+      var msg;
+      if (err.data) {
+        msg = 'API Error: ' + err.data;
+      } else {
+        msg = 'Schema not found or threw an error';
+      }
+      store.setError(msg, '/droppable');
+    }).$promise;
+
+    $q.all([typeRequest, schemaRequest, droppableRequest]).then(function() {
       if (!schema || !types) {
         store.setError('API Error', '/schemas');
       }
+      $scope.showDropTable = false;
+      $scope.dropTableReason = '';
+      $scope.dropMessage = dropMessage;
+      $scope.cancelDropMessage = cancelDropMessage;
+      $scope.successDropMessage = successDropMessage;
       $scope.schema = schema;
       $scope.additions = {Columns: []}; // Used to hold new columns
       $scope.deletes = {ColInds: []}; // Used to hold dropped columns
@@ -264,6 +297,21 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             });
             $scope.additions = {Columns: []};
             $location.path('/schema/' + schema.EventName);
+          },
+          function(err) {
+            store.setError(err, undefined);
+          });
+      };
+      $scope.dropTable = function() {
+        if ($scope.dropTableReason === '') {
+          store.setError("Please enter a reason for dropping the table");
+          return false
+        }
+        Schema.drop(
+          {EventName: schema.EventName, Reason: $scope.dropTableReason},
+          function() {
+            store.setMessage($scope.successDropMessage);
+            $location.path('/schemas');
           },
           function(err) {
             store.setError(err, undefined);

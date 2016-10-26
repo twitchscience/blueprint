@@ -204,6 +204,65 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		err := r.Body.Close()
+		if err != nil {
+			logger.WithError(err).Error("Failed to close request body")
+		}
+	}()
+
+	var req core.ClientDropSchemaRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.WithError(err).Error("Error decoding request body in dropSchema")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	schema, err := s.bpdbBackend.Schema(req.EventName)
+	if err != nil {
+		logger.WithError(err).Errorf("Error retrieving schema %s", req.EventName)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if schema == nil {
+		http.Error(w, "Unknown schema", http.StatusBadRequest)
+		return
+	}
+
+	exists, err := s.ingesterController.TableExists(schema.EventName)
+	if err != nil {
+		logger.WithError(err).Error("Error determining if schema exists")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if exists {
+		err = s.requestTableDeletion(schema.EventName, req.Reason, c.Env["username"].(string))
+		if err != nil {
+			logger.WithError(err).Error("Error making slackbot deletion request")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		err = s.ingesterController.IncrementVersion(schema.EventName)
+		if err != nil {
+			logger.WithError(err).Error("Error incrementing version in ingester")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	err = s.bpdbBackend.DropSchema(schema, req.Reason, exists, c.Env["username"].(string))
+	if err != nil {
+		logger.WithError(err).Error("Error dropping schema in operation")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+}
+
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	schemas, err := s.bpdbBackend.AllSchemas()
 	if err != nil {
@@ -226,6 +285,42 @@ func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeEvent(w, []*bpdb.AnnotatedSchema{schema})
+}
+
+func respondWithJSONBool(w http.ResponseWriter, key string, result bool) {
+	js, err := json.Marshal(map[string]bool{key: result})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(js)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// TODO: Update goji to goji/goji so handlers with URLParams are testable.
+func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request) {
+	schema, err := s.bpdbBackend.Schema(c.URLParams["id"])
+	if err != nil {
+		log.Printf("Error retrieving schema %s: %v", c.URLParams["id"], err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if schema == nil {
+		fourOhFour(w, r)
+		return
+	}
+	exists, err := s.ingesterController.TableExists(schema.EventName)
+	if err != nil {
+		logger.WithError(err).Error("Error determining if schema exists")
+		// default to true so we don't break the page.
+		exists = true
+	}
+
+	respondWithJSONBool(w, "Droppable", !exists)
 }
 
 func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {

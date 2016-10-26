@@ -9,7 +9,7 @@ import (
 func TestBlacklist(t *testing.T) {
 	var jsonFile *os.File
 	jsonFile, err := ioutil.TempFile("./", "testJson")
-	s := &server{"", nil, jsonFile.Name(), nil}
+	s := &server{"", nil, jsonFile.Name(), nil, ""}
 	if err != nil {
 		t.Errorf("%v", err)
 	}

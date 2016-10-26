@@ -143,7 +143,7 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 			if rollErr != nil {
 				return fmt.Errorf("Error rolling back commit: %v.", rollErr)
 			}
-			return fmt.Errorf("Error INSERTing row for delete column on %s: %v", eventName, err)
+			return fmt.Errorf("Error INSERTing operation row on %s: %v", eventName, err)
 		}
 	}
 	return nil
@@ -159,7 +159,16 @@ func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) 
 
 	ops := schemaCreateRequestToOps(req)
 	return p.execFnInTransaction(func(tx *sql.Tx) error {
-		return insertOperations(tx, ops, 0, req.EventName, user)
+		row := tx.QueryRow(nextVersionQuery, req.EventName)
+		var newVersion int
+		err = row.Scan(&newVersion)
+		switch {
+		case err == sql.ErrNoRows:
+			newVersion = 0
+		case err != nil:
+			return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
+		}
+		return insertOperations(tx, ops, newVersion, req.EventName, user)
 	})
 }
 
@@ -181,6 +190,25 @@ func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user
 			return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
 		}
 		return insertOperations(tx, ops, newVersion, req.EventName, user)
+	})
+}
+
+// DropSchema drops or requests a drop for a schema, depending on whether it exists according to ingester.
+func (p *postgresBackend) DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error {
+	return p.execFnInTransaction(func(tx *sql.Tx) error {
+		var newVersion int
+		row := tx.QueryRow(nextVersionQuery, schema.EventName)
+		err := row.Scan(&newVersion)
+		if err != nil {
+			return fmt.Errorf("error parsing response for version number for %s: %v", schema.EventName, err)
+		}
+		var op scoop_protocol.Operation
+		if exists {
+			op = scoop_protocol.NewRequestDropEventOperation(reason)
+		} else {
+			op = scoop_protocol.NewDropEventOperation(reason)
+		}
+		return insertOperations(tx, []scoop_protocol.Operation{op}, newVersion, schema.EventName, user)
 	})
 }
 
@@ -253,7 +281,7 @@ func generateSchemas(ops []operationRow) ([]AnnotatedSchema, error) {
 	for _, op := range ops {
 		_, exists := schemas[op.event]
 		if !exists {
-			schemas[op.event] = &AnnotatedSchema{EventName: op.event}
+			schemas[op.event] = &AnnotatedSchema{EventName: op.event, CreatedTS: op.ts}
 		}
 		err := ApplyOperation(schemas[op.event], scoop_protocol.Operation{
 			Action:         scoop_protocol.Action(op.action),
@@ -269,12 +297,12 @@ func generateSchemas(ops []operationRow) ([]AnnotatedSchema, error) {
 			schemas[op.event].UserName = op.userName
 		}
 	}
-	ret := make([]AnnotatedSchema, len(schemas))
+	ret := make([]AnnotatedSchema, 0, len(schemas))
 
-	i := 0
 	for _, val := range schemas {
-		ret[i] = *val
-		i++
+		if !val.Dropped {
+			ret = append(ret, *val)
+		}
 	}
 	return ret, nil
 }

@@ -18,11 +18,15 @@ var (
 
 // AnnotatedSchema is a schema annotated with modification information.
 type AnnotatedSchema struct {
-	EventName string
-	Columns   []scoop_protocol.ColumnDefinition
-	Version   int
-	TS        time.Time
-	UserName  string
+	EventName     string
+	Columns       []scoop_protocol.ColumnDefinition
+	Version       int
+	CreatedTS     time.Time
+	TS            time.Time
+	UserName      string
+	Dropped       bool
+	DropRequested bool
+	Reason        string
 }
 
 // Bpdb is the interface of the blueprint db backend that stores schema state
@@ -32,6 +36,7 @@ type Bpdb interface {
 	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) error
 	CreateSchema(schema *scoop_protocol.Config, user string) error
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
+	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
 }
 
 func validateType(t string) error {
@@ -117,6 +122,9 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, bpdb Bpdb) error {
 	schema, err := bpdb.Schema(req.EventName)
 	if err != nil {
 		return fmt.Errorf("error getting schema to validate schema update: %v", err)
+	}
+	if schema.DropRequested || schema.Dropped {
+		return fmt.Errorf("attempted to modify drop-requested/dropped schema")
 	}
 
 	// Validate schema "delete"s

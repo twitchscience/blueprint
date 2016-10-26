@@ -17,6 +17,7 @@ var (
 	staticFileDir      = flag.String("staticfiles", "./static", "the location to serve static files from")
 	configFilename     = flag.String("config", "conf.json", "Blueprint config file")
 	ingesterURL        = flag.String("ingesterURL", "", "URL to the ingester")
+	slackbotURL        = flag.String("slackbotURL", "", "URL for the slackbot")
 	rollbarToken       = flag.String("rollbarToken", "", "Rollbar post_server_item token")
 	rollbarEnvironment = flag.String("rollbarEnvironment", "", "Rollbar environment")
 )
@@ -36,7 +37,7 @@ func main() {
 
 	ingCont := ingester.NewController(*ingesterURL)
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename, ingCont)
+	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename, ingCont, *slackbotURL)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,

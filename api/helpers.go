@@ -2,11 +2,14 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
 )
@@ -101,4 +104,33 @@ func validSuggestion(suggestion, docRoot string) bool {
 		}
 	}
 	return false
+}
+
+func (s *server) requestTableDeletion(schemaName string, reason string, username string) (err error) {
+	v := url.Values{}
+	v.Set("table", schemaName)
+	v.Set("reason", reason)
+	v.Set("user", username)
+	url := fmt.Sprintf("%s%s", s.slackbotURL, slackbotDeletePath)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.PostForm(url, v)
+	if err != nil {
+		return fmt.Errorf("error making slackbot deletion request: %v", err)
+	}
+	defer func() {
+		cerr := resp.Body.Close()
+		if cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close slackbot deletion response body: %v", err)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error reading slackbot deletion response body: %v", err)
+		}
+		return fmt.Errorf("error in slackbot (code %d): %s", resp.StatusCode, body)
+	}
+	return nil
 }

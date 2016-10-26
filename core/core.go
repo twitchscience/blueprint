@@ -78,3 +78,9 @@ type ClientUpdateSchemaRequest struct {
 	Deletes   []string
 	Renames   Renames
 }
+
+// ClientDropSchemaRequest is a request to drop the schema for an event.
+type ClientDropSchemaRequest struct {
+	EventName string
+	Reason    string
+}
