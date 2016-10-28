@@ -25,4 +25,5 @@ exec ./blueprint "$@"                                        \
   -ingesterURL="${INGESTER_URL}"                             \
   -rollbarToken="${ROLLBAR_TOKEN}"                           \
   -rollbarEnvironment="${CLOUD_ENVIRONMENT}"                 \
+  -slackbotURL="${SLACKBOT_URL}"                             \
   -config="${CONFIG_DIR}/conf.json"
