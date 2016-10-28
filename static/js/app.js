@@ -15,7 +15,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
        put: {url: '/schema', method: 'PUT'},
        update: {url: '/schema/:event', method: 'POST'},
        drop: {url: '/drop/schema', method: 'POST'},
-       expire: {url: '/expire', method: 'POST'}}
+      }
     );
   })
   .factory('Types', function($resource) {
@@ -72,10 +72,6 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         controller: 'SchemaShowCtrl',
         templateUrl: 'template/schema/show.html'
       })
-      .when('/cache/expire', {
-        controller: 'SchemaCacheExpireCtrl',
-        templateUrl: 'template/noop.html'
-      })
       .otherwise({
         redirectTo: '/schemas'
       });
@@ -86,11 +82,6 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     $scope.getMessage = store.getMessage;
     $scope.clearMessage = store.clearMessage;
     $scope.loginName = auth.getLoginName();
-  })
-  .controller('SchemaCacheExpireCtrl', function($location, Schema) {
-    Schema.expire(function(data) {
-      $location.path('/');
-    });
   })
   .controller('SchemaShowCtrl', function ($scope, $location, $routeParams, $q, store, Schema, Types, Droppable, ColumnMaker) {
     var types, schema, dropMessage, cancelDropMessage;
