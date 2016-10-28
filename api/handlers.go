@@ -305,7 +305,7 @@ func respondWithJSONBool(w http.ResponseWriter, key string, result bool) {
 func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	schema, err := s.bpdbBackend.Schema(c.URLParams["id"])
 	if err != nil {
-		log.Printf("Error retrieving schema %s: %v", c.URLParams["id"], err)
+		logger.WithError(err).WithField("schema", c.URLParams["id"]).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
