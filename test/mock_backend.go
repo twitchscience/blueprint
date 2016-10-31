@@ -41,8 +41,8 @@ func (m *MockBpdb) Schema(name string) (*bpdb.AnnotatedSchema, error) {
 }
 
 // UpdateSchema returns nil.
-func (m *MockBpdb) UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) error {
-	return nil
+func (m *MockBpdb) UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) (string, error) {
+	return "", nil
 }
 
 // CreateSchema returns nil.

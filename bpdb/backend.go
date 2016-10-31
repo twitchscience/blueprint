@@ -33,7 +33,7 @@ type AnnotatedSchema struct {
 type Bpdb interface {
 	AllSchemas() ([]AnnotatedSchema, error)
 	Schema(name string) (*AnnotatedSchema, error)
-	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) error
+	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) (string, error)
 	CreateSchema(schema *scoop_protocol.Config, user string) error
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
@@ -118,64 +118,77 @@ func schemaUpdateRequestToOps(req *core.ClientUpdateSchemaRequest) []scoop_proto
 	return ops
 }
 
-func preValidateUpdate(req *core.ClientUpdateSchemaRequest, bpdb Bpdb) error {
-	schema, err := bpdb.Schema(req.EventName)
-	if err != nil {
-		return fmt.Errorf("error getting schema to validate schema update: %v", err)
-	}
+func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSchema) string {
 	if schema.DropRequested || schema.Dropped {
-		return fmt.Errorf("attempted to modify drop-requested/dropped schema")
+		return "Attempted to modify drop-requested/dropped schema"
+	}
+
+	columnDefs := make(map[string]*scoop_protocol.ColumnDefinition)
+	for _, col := range schema.Columns {
+		columnDefs[col.OutboundName] = &col
 	}
 
 	// Validate schema "delete"s
 	for _, columnName := range req.Deletes {
-		for _, existingCol := range schema.Columns {
-			if existingCol.OutboundName == columnName {
-				err = validateIsNotKey(existingCol.ColumnCreationOptions)
-				if err != nil {
-					return fmt.Errorf("column is a key and cannot be dropped: %v", err)
-				}
-				break // move on to next deleted column
-			}
+		existingCol, exists := columnDefs[columnName]
+		if !exists {
+			return fmt.Sprintf("Attempting to delete column that doesn't exist: %s", columnName)
 		}
+		err := validateIsNotKey(existingCol.ColumnCreationOptions)
+		if err != nil {
+			return fmt.Sprintf("Column is a key and cannot be dropped: %s", columnName)
+		}
+		delete(columnDefs, columnName)
 	}
 
 	// Validate schema "add"s
 	for _, col := range req.Additions {
-		err = validateIdentifier(col.OutboundName)
+		err := validateIdentifier(col.OutboundName)
 		if err != nil {
-			return fmt.Errorf("column outbound name invalid: %v", err)
+			return fmt.Sprintf("Column outbound name invalid: %v", err)
 		}
 		err = validateType(col.Transformer)
 		if err != nil {
-			return fmt.Errorf("column transformer invalid: %v", err)
+			return fmt.Sprintf("Column transformer invalid: %v", err)
 		}
+		_, exists := columnDefs[col.OutboundName]
+		if exists {
+			return fmt.Sprintf("Attempting to add duplicate column: %s", col.OutboundName)
+		}
+		columnDefs[col.OutboundName] = nil
 	}
 
+	renameSet := make(map[string]bool)
 	// Validate schema "rename"s
-	nameSet := make(map[string]bool)
 	for oldName, newName := range req.Renames {
-		err = validateIdentifier(newName)
+		err := validateIdentifier(newName)
 		if err != nil {
-			return fmt.Errorf("New name for column is invalid: %v", err)
+			return fmt.Sprintf("New name for column is invalid: %v", err)
+		}
+		_, exists := columnDefs[oldName]
+		if !exists {
+			return fmt.Sprintf("Attempting to rename column that doesn't exist: %s", oldName)
 		}
 		for _, name := range []string{oldName, newName} {
-			_, found := nameSet[name]
+			_, found := renameSet[name]
 			if found {
-				return fmt.Errorf("Cannot rename from or to a column that was already renamed from or to. Offending name: %v", name)
+				return fmt.Sprintf("Cannot rename from or to a column that was already renamed from or to. Offending name: %v", name)
 			}
-			nameSet[name] = true
+			renameSet[name] = true
 		}
 	}
-
-	ops := schemaUpdateRequestToOps(req)
-	err = ApplyOperations(schema, ops)
-	if err != nil {
-		return err
+	// Do this in a separate loop because the message about renaming to/from a column is better.
+	for _, newName := range req.Renames {
+		_, exists := columnDefs[newName]
+		if exists {
+			return fmt.Sprintf("Attempting to rename to duplicate column: %s", newName)
+		}
 	}
 
 	if len(schema.Columns) > maxColumns {
-		return fmt.Errorf("too many columns, max is %d, given %d adds and %d deletes, which would result in %d total", maxColumns, len(req.Additions), len(req.Deletes), len(schema.Columns))
+		return fmt.Sprintf(
+			"too many columns, max is %d, given %d adds and %d deletes, which would result in %d total",
+			maxColumns, len(req.Additions), len(req.Deletes), len(schema.Columns))
 	}
-	return nil
+	return ""
 }

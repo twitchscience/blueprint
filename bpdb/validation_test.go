@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
@@ -100,4 +101,137 @@ func TestValidateIdentifierBadCharacters(t *testing.T) {
 func TestValidateIdentifierValid(t *testing.T) {
 	err := validateIdentifier("minute-watched")
 	require.Nil(t, err, "Expected no error on valid identifier.")
+}
+
+func TestPreValidateUpdateEmpty(t *testing.T) {
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{},
+		Deletes:   []string{},
+		Renames:   core.Renames{},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{},
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.Equal(t, requestErr, "")
+}
+
+func TestPreValidateUpdateDropped(t *testing.T) {
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{},
+		Deletes:   []string{},
+		Renames:   core.Renames{},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{},
+		Dropped:   true,
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.Equal(t, requestErr, "Attempted to modify drop-requested/dropped schema")
+}
+
+func TestPreValidateUpdateDeleteErrors(t *testing.T) {
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{},
+		Deletes:   []string{"x"},
+		Renames:   core.Renames{},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{},
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.Equal(t, requestErr, "Attempting to delete column that doesn't exist: x")
+
+	schema.Columns = []scoop_protocol.ColumnDefinition{
+		{OutboundName: "x", ColumnCreationOptions: "distkey"},
+	}
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(t, requestErr, "Column is a key and cannot be dropped: x")
+}
+
+func TestPreValidateUpdateAddDelete(t *testing.T) {
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{{OutboundName: "x", Transformer: "bool"}},
+		Deletes:   []string{"x"},
+		Renames:   core.Renames{},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{{OutboundName: "x"}},
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.Equal(t, requestErr, "")
+}
+
+func TestPreValidateUpdateAddErrors(t *testing.T) {
+	require := require.New(t)
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{{OutboundName: ""}},
+		Deletes:   []string{},
+		Renames:   core.Renames{},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{},
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.Equal(requestErr[:28], "Column outbound name invalid")
+
+	req.Additions[0].OutboundName = "x"
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr[:26], "Column transformer invalid")
+
+	req.Additions[0].Transformer = "bool"
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr, "")
+
+	req.Additions = append(req.Additions, core.Column{OutboundName: "x", Transformer: "bool"})
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr, "Attempting to add duplicate column: x")
+
+	req.Additions = req.Additions[:1]
+	schema.Columns = []scoop_protocol.ColumnDefinition{{OutboundName: "x"}}
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr, "Attempting to add duplicate column: x")
+}
+
+func TestPreValidateUpdateRenameErrors(t *testing.T) {
+	require := require.New(t)
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{},
+		Deletes:   []string{},
+		Renames:   core.Renames{"x": ""},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{{OutboundName: "x"}},
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.Equal(requestErr[:30], "New name for column is invalid")
+
+	req.Renames["x"] = "y"
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr, "")
+
+	req.Renames["a"] = "b"
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr, "Attempting to rename column that doesn't exist: a")
+
+	schema.Columns = append(schema.Columns, scoop_protocol.ColumnDefinition{OutboundName: "y"})
+	req.Renames = core.Renames{"x": "z", "y": "x"}
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr[:33], "Cannot rename from or to a column")
+
+	req.Renames = core.Renames{"y": "x"}
+	requestErr = preValidateUpdate(&req, &schema)
+	require.Equal(requestErr, "Attempting to rename to duplicate column: x")
 }

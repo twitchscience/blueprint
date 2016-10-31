@@ -175,17 +175,28 @@ func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) 
 // UpdateSchema validates that the update operation is valid and if so, stores
 // the operations for this migration to the schema as operations in bpdb. It
 // applies the operations in order of delete, add, then renames.
-func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) error {
-	err := preValidateUpdate(req, p)
+func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) (requestErr string, serverErr error) {
+	schema, err := p.Schema(req.EventName)
 	if err != nil {
-		return fmt.Errorf("Invalid schema creation request: %v", err)
+		return "", fmt.Errorf("error getting schema to validate schema update: %v", err)
+	}
+	if schema == nil {
+		return "Unknown schema", nil
+	}
+	requestErr = preValidateUpdate(req, schema)
+	if requestErr != "" {
+		return requestErr, nil
+	}
+	ops := schemaUpdateRequestToOps(req)
+	err = ApplyOperations(schema, ops)
+	if err != nil {
+		return "", fmt.Errorf("error applying update operations: %v", err)
 	}
 
-	ops := schemaUpdateRequestToOps(req)
-	return p.execFnInTransaction(func(tx *sql.Tx) error {
+	return "", p.execFnInTransaction(func(tx *sql.Tx) error {
 		row := tx.QueryRow(nextVersionQuery, req.EventName)
 		var newVersion int
-		err = row.Scan(&newVersion)
+		err := row.Scan(&newVersion)
 		if err != nil {
 			return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
 		}
@@ -218,7 +229,7 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	defer func() {
 		err := rows.Close()
 		if err != nil {
-			logger.WithError(err).Error("Error closing rows in postgres backend Migration")
+			logger.WithError(err).Error("Error closing rows in postgres backend scanOperationRows")
 		}
 	}()
 	for rows.Next() {
@@ -256,7 +267,7 @@ func (p *postgresBackend) Schema(name string) (*AnnotatedSchema, error) {
 		return nil, fmt.Errorf("Expected only one schema, received %v.", len(schemas))
 	}
 	if len(schemas) == 0 {
-		return nil, fmt.Errorf("Unable to find schema: %v", name)
+		return nil, nil
 	}
 	return &schemas[0], nil
 }

@@ -222,12 +222,56 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       $scope.updateSchema = function() {
         var additions = $scope.additions;
         var deletes = [];
+        var delNames = {};
         angular.forEach($scope.deletes.ColInds, function(colIndex) {
           deletes.push($scope.schema.Columns[colIndex].OutboundName);
+          delNames[$scope.schema.Columns[colIndex].OutboundName] = true;
         });
+        var newNames = {};
+        var oldNames = {};
+        if (!Object.keys($scope.nameMap).every(function (oldName) {
+          var newName = $scope.nameMap[oldName];
+          if (oldName in delNames) {
+            return true;
+          }
+          oldNames[oldName] = true;
+          if (newName in newNames) {
+            store.setError("Duplicate name. Offending name: " + newName);
+            return false;
+          }
+          newNames[newName] = true;
+          return true;
+        })) {
+          return false;
+        }
+        if (!$scope.additions.Columns.every(function (col) {
+          if (col.OutboundName in newNames) {
+            store.setError("Duplicate name. Offending name: " + col.OutboundName);
+            return false;
+          }
+          newNames[col.OutboundName] = true;
+          if (col.OutboundName in oldNames) {
+            store.setError("Can't add a column while renaming away from it. Offending name: " + col.OutboundName);
+            return false;
+          }
+          return true;
+        })) {
+          return false;
+        }
+        var seenNames = {};
+        if (!Object.keys(newNames).every(function(newName) {
+          if (newName in seenNames) {
+            store.setError("Duplicate name. Offending name: " + newName);
+            return false;
+          }
+          seenNames[newName] = true;
+          return true;
+        })) {
+          return false;
+        }
         var renames = {};
         var nameSet = {};
-        var noErrors = Object.keys($scope.nameMap).every(function(originalName) {
+        if (!Object.keys($scope.nameMap).every(function(originalName) {
               var newName = $scope.nameMap[originalName];
 
               if(originalName != newName){
@@ -247,12 +291,11 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
               nameSet[newName] = true;
               nameSet[originalName] = true;
               return true;
-        });
-        if ($scope.newCol.InboundName || $scope.newCol.OutboundName) {
-          store.setError("Column addition not finished. Hit \"Add!\" or clear the inbound and outbound name.");
+        })) {
           return false;
         }
-        if (!noErrors) {
+        if ($scope.newCol.InboundName || $scope.newCol.OutboundName) {
+          store.setError("Column addition not finished. Hit \"Add!\" or clear the inbound and outbound name.");
           return false;
         }
 

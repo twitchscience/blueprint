@@ -175,10 +175,15 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	req.EventName = eventName
 
 	defer s.clearCache()
-	err = s.bpdbBackend.UpdateSchema(&req, c.Env["username"].(string))
-	if err != nil {
-		logger.WithError(err).Error("Error updating schema.")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	requestErr, serverErr := s.bpdbBackend.UpdateSchema(&req, c.Env["username"].(string))
+	if serverErr != nil {
+		logger.WithError(serverErr).Error("Error updating schema")
+		http.Error(w, serverErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if requestErr != "" {
+		logger.WithField("requestErr", requestErr).Warn("Error in updateSchema request")
+		http.Error(w, requestErr, http.StatusBadRequest)
 		return
 	}
 }
@@ -194,14 +199,14 @@ func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	var req core.ClientDropSchemaRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		logger.WithError(err).Error("Error decoding request body in dropSchema")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		logger.WithError(err).Warn("Error decoding request body in dropSchema")
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	schema, err := s.bpdbBackend.Schema(req.EventName)
 	if err != nil {
-		logger.WithError(err).Errorf("Error retrieving schema %s", req.EventName)
+		logger.WithError(err).WithField("schema", req.EventName).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
