@@ -2,6 +2,8 @@ package api
 
 import (
 	"flag"
+	"regexp"
+	"time"
 
 	"github.com/gorilla/context"
 	"github.com/twitchscience/aws_utils/logger"
@@ -15,12 +17,22 @@ import (
 	"github.com/zenazn/goji/web/middleware"
 )
 
+type schemaResult struct {
+	allSchemas []bpdb.AnnotatedSchema
+	err        error
+}
+
 type server struct {
 	docRoot            string
 	bpdbBackend        bpdb.Bpdb
 	configFilename     string
 	ingesterController ingester.Controller
 	slackbotURL        string
+	cacheSynchronizer  chan func()
+	cachedResult       *schemaResult
+	cachedVersion      int
+	cacheTimeout       time.Duration
+	blacklistRe        []*regexp.Regexp
 }
 
 var (
@@ -49,13 +61,25 @@ func init() {
 
 // New returns an API process.
 func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller, slackbotURL string) core.Subprocess {
-	return &server{
+	s := &server{
 		docRoot:            docRoot,
 		bpdbBackend:        bpdbBackend,
 		configFilename:     configFilename,
 		ingesterController: ingCont,
 		slackbotURL:        slackbotURL,
+		cacheSynchronizer:  make(chan func()),
+		cachedResult:       nil,
+		cachedVersion:      0,
 	}
+	if err := s.loadConfig(); err != nil {
+		logger.WithError(err).Fatal("failed to load config")
+	}
+	logger.Go(func() {
+		for f := range s.cacheSynchronizer {
+			f()
+		}
+	})
+	return s
 }
 
 // Setup route handlers.

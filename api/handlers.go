@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/bpdb"
@@ -21,6 +21,34 @@ import (
 
 	"github.com/zenazn/goji/web"
 )
+
+type config struct {
+	CacheTimeoutSecs time.Duration
+	Blacklist        []string
+}
+
+func (s *server) loadConfig() error {
+	configJSON, err := ioutil.ReadFile(s.configFilename)
+	if err != nil {
+		return err
+	}
+
+	var jsonObj config
+	if err := json.Unmarshal(configJSON, &jsonObj); err != nil {
+		return err
+	}
+	s.cacheTimeout = jsonObj.CacheTimeoutSecs * time.Second
+	blacklist := jsonObj.Blacklist
+
+	for _, pattern := range blacklist {
+		re, err := regexp.Compile(strings.ToLower(pattern))
+		if err != nil {
+			return err
+		}
+		s.blacklistRe = append(s.blacklistRe, re)
+	}
+	return nil
+}
 
 // respondWithJSONError responds with a JSON error with the given error code. The format of the
 // JSON error is {"Error": text}
@@ -94,20 +122,12 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blacklisted, err := s.isBlacklisted(cfg.EventName)
-	if err != nil {
-		logger.WithError(err).
-			WithField("event_name", cfg.EventName).
-			Error("Failed to test event in the blacklist")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if blacklisted {
+	if s.isBlacklisted(cfg.EventName) {
 		http.Error(w, fmt.Sprintf("%v is blacklisted", cfg.EventName), http.StatusForbidden)
 		return
 	}
 
+	defer s.clearCache()
 	err = s.bpdbBackend.CreateSchema(&cfg, c.Env["username"].(string))
 	if err != nil {
 		logger.WithError(err).Error("Error creating schema.")
@@ -116,58 +136,16 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var (
-	blacklistOnce sync.Once
-	blacklistRe   []*regexp.Regexp
-	blacklistErr  error
-)
-
 // isBlacklisted check whether name matches any regex in the blacklist (case insensitive).
 // It returns false when name is not blacklisted or an error occurs.
-// TODO(clgroft): should this be per-server? Currently it's global.
-func (s *server) isBlacklisted(name string) (bool, error) {
-	blacklistOnce.Do(func() {
-		var configJSON []byte
-		configJSON, blacklistErr = ioutil.ReadFile(s.configFilename)
-		if blacklistErr != nil {
-			return
-		}
-
-		var jsonObj map[string][]string
-		blacklistErr = json.Unmarshal(configJSON, &jsonObj)
-		if blacklistErr != nil {
-			return
-		}
-
-		blacklist, ok := jsonObj["blacklist"]
-		if !ok {
-			blacklistErr = fmt.Errorf("Cannot find blacklist in %v", s.configFilename)
-			return
-		}
-
-		for _, pattern := range blacklist {
-			var re *regexp.Regexp
-			re, blacklistErr = regexp.Compile(strings.ToLower(pattern))
-			if blacklistErr != nil {
-				blacklistRe = nil
-				return
-			}
-			blacklistRe = append(blacklistRe, re)
-		}
-	})
-
-	if blacklistErr != nil {
-		return false, blacklistErr
-	}
-
+func (s *server) isBlacklisted(name string) bool {
 	name = strings.ToLower(name)
-
-	for _, pattern := range blacklistRe {
+	for _, pattern := range s.blacklistRe {
 		if pattern.MatchString(name) {
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
 }
 
 func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -196,6 +174,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	req.EventName = eventName
 
+	defer s.clearCache()
 	err = s.bpdbBackend.UpdateSchema(&req, c.Env["username"].(string))
 	if err != nil {
 		logger.WithError(err).Error("Error updating schema.")
@@ -254,6 +233,7 @@ func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	defer s.clearCache()
 	err = s.bpdbBackend.DropSchema(schema, req.Reason, exists, c.Env["username"].(string))
 	if err != nil {
 		logger.WithError(err).Error("Error dropping schema in operation")
@@ -264,13 +244,48 @@ func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
-	schemas, err := s.bpdbBackend.AllSchemas()
-	if err != nil {
-		logger.WithError(err).Error("Error retrieving allSchemas")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	result := s.getAllSchemas()
+	if result.err != nil {
+		http.Error(w, result.err.Error(), http.StatusInternalServerError)
+	} else {
+		writeEvent(w, result.allSchemas)
 	}
-	writeEvent(w, schemas)
+}
+
+func (s *server) clearCache() {
+	s.cacheSynchronizer <- func() { s.cachedResult = nil }
+}
+
+func (s *server) timeoutCache(oldVersion int) {
+	logger.Go(func() {
+		time.Sleep(s.cacheTimeout)
+		s.cacheSynchronizer <- func() {
+			if oldVersion == s.cachedVersion {
+				s.cachedResult = nil
+			}
+		}
+	})
+}
+
+func (s *server) getAllSchemas() *schemaResult {
+	resultChan := make(chan *schemaResult)
+	s.cacheSynchronizer <- func() {
+		if s.cachedResult != nil {
+			resultChan <- s.cachedResult
+			return
+		}
+
+		schemas, err := s.bpdbBackend.AllSchemas()
+		if err != nil {
+			logger.WithError(err).Error("Failed to retrieve all schemas")
+		}
+		s.cachedVersion++
+		s.cachedResult = &schemaResult{schemas, err}
+		s.timeoutCache(s.cachedVersion)
+
+		resultChan <- s.cachedResult
+	}
+	return <-resultChan
 }
 
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {

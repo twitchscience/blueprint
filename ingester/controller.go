@@ -118,7 +118,7 @@ func decodeErrorResponse(respBody io.Reader, statusCode int, action string) erro
 	var ingErr struct{ Error string }
 	err = json.Unmarshal(body, &ingErr)
 	if err != nil {
-		return fmt.Errorf("failed to unmarhsal %s response (status code %d, body \"%s\"): %v",
+		return fmt.Errorf("failed to unmarshal %s response (status code %d, body \"%s\"): %v",
 			action, statusCode, body, err)
 	}
 	return fmt.Errorf("internal ingester error on %s: %s", action, ingErr.Error)

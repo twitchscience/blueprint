@@ -64,7 +64,7 @@ func getNewSuggestion(docRoot string, name string) (newSuggestion SchemaSuggesti
 	defer func() {
 		closeErr := f.Close()
 		if closeErr != nil {
-			logger.WithError(err).WithField("path", p).Error("Failed to close file")
+			logger.WithError(closeErr).WithField("path", p).Error("Failed to close file")
 		}
 		if err == nil {
 			err = closeErr

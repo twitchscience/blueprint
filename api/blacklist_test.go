@@ -1,33 +1,13 @@
 package api
 
-import (
-	"io/ioutil"
-	"os"
-	"testing"
-)
+import "testing"
 
 func TestBlacklist(t *testing.T) {
-	var jsonFile *os.File
-	jsonFile, err := ioutil.TempFile("./", "testJson")
-	s := &server{"", nil, jsonFile.Name(), nil, ""}
-	if err != nil {
-		t.Errorf("%v", err)
-	}
-	defer func() {
-		err = os.Remove(jsonFile.Name())
-		if err != nil {
-			t.Errorf("%v", err)
-		}
-	}()
-	s.configFilename = jsonFile.Name()
-	_, err = jsonFile.WriteString(`{ "blacklist": ["^wow$", "^logs\\.dfp_.*$", "^logs\\.a.c_.*$"] }`)
-	if err != nil {
-		t.Errorf("%v", err)
-	}
-	err = jsonFile.Close()
-	if err != nil {
-		t.Errorf("%v", err)
-	}
+	jsonFile := createJSONFile(t, "testBlacklist")
+	defer deleteJSONFile(t, jsonFile)
+	writeConfig(t, jsonFile)
+
+	s := New("", nil, jsonFile.Name(), nil, "").(*server)
 
 	var tests = []struct {
 		input string
@@ -60,9 +40,8 @@ func TestBlacklist(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got, err := s.isBlacklisted(test.input); got != test.want || err != nil {
-			t.Errorf("blacklist(%v) = %v, err = %v", test.input, got, err)
+		if got := s.isBlacklisted(test.input); got != test.want {
+			t.Errorf("blacklist(%v) = %v", test.input, got)
 		}
 	}
-
 }
