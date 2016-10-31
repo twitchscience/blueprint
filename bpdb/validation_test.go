@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
@@ -20,10 +21,7 @@ func TestPreValidateSchemaBadType(t *testing.T) {
 		},
 		Version: 0,
 	}
-	err := preValidateSchema(&cfg)
-	if err == nil {
-		t.Error("Expected error on invalid type.")
-	}
+	require.NotNil(t, preValidateSchema(&cfg), "Expected error on invalid type.")
 }
 
 func TestPreValidateSchemaOkay(t *testing.T) {
@@ -45,10 +43,7 @@ func TestPreValidateSchemaOkay(t *testing.T) {
 		},
 		Version: 0,
 	}
-	err := preValidateSchema(&cfg)
-	if err != nil {
-		t.Errorf("Expected no error on valid schema, got %v.", err)
-	}
+	require.Nil(t, preValidateSchema(&cfg), "Expected no error on valid schema.")
 }
 
 func TestPreValidateSchemaManyColumns(t *testing.T) {
@@ -67,10 +62,7 @@ func TestPreValidateSchemaManyColumns(t *testing.T) {
 		Columns:   columns,
 		Version:   0,
 	}
-	err := preValidateSchema(&cfg)
-	if err == nil {
-		t.Error("Expected error on too many columns.")
-	}
+	require.NotNil(t, preValidateSchema(&cfg), "Expected error on too many columns.")
 }
 
 func TestPreValidateSchemaColumnCollision(t *testing.T) {
@@ -92,29 +84,20 @@ func TestPreValidateSchemaColumnCollision(t *testing.T) {
 		},
 		Version: 0,
 	}
-	err := preValidateSchema(&cfg)
-	if err == nil {
-		t.Error("Expected error on duplicate column.")
-	}
+	require.NotNil(t, preValidateSchema(&cfg), "Expected error on duplicate column.")
 }
 
 func TestValidateIdentifierTooLong(t *testing.T) {
 	err := validateIdentifier("1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
-	if err == nil {
-		t.Error("Expected error on too long identifier.")
-	}
+	require.NotNil(t, err, "Expected error on too long identifier.")
 }
 
 func TestValidateIdentifierBadCharacters(t *testing.T) {
 	err := validateIdentifier("minute/watched")
-	if err == nil {
-		t.Error("Expected error on bad characters in identifier.")
-	}
+	require.NotNil(t, err, "Expected error on bad characters in identifier.")
 }
 
 func TestValidateIdentifierValid(t *testing.T) {
 	err := validateIdentifier("minute-watched")
-	if err != nil {
-		t.Errorf("Expected no error on valid identifier, got %v.", err)
-	}
+	require.Nil(t, err, "Expected no error on valid identifier.")
 }
