@@ -93,6 +93,8 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         types = [];
       }
     }).$promise;
+    $scope.eventName = $routeParams.scope;
+    $scope.loading = true;
 
     var schemaRequest = Schema.get($routeParams, function(data) {
       if (data) {
@@ -108,6 +110,11 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       store.setError(msg, '/schemas');
     }).$promise;
 
+    function makeUndroppable() {
+      dropMessage = 'Request Table Drop';
+      cancelDropMessage = 'Cancel Drop Request';
+      successDropMessage = 'Requested Table Drop';
+    }
     var droppableRequest = Droppable.get($routeParams, function(data) {
       if (data) {
         if (data['Droppable']) {
@@ -115,9 +122,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
           cancelDropMessage = 'Cancel Drop';
           successDropMessage = 'Table Dropped';
         } else {
-          dropMessage = 'Request Table Drop';
-          cancelDropMessage = 'Cancel Drop Request';
-          successDropMessage = 'Requested Table Drop';
+          makeUndroppable();
         }
       }
     }, function(err) {
@@ -125,18 +130,21 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       if (err.data) {
         msg = 'API Error: ' + err.data;
       } else {
-        msg = 'Schema not found or threw an error';
+        msg = 'Schema not found or threw an error when determining if droppable';
       }
-      store.setError(msg, '/droppable');
+      makeUndroppable()
+      store.setError(msg);
     }).$promise;
 
     $q.all([typeRequest, schemaRequest, droppableRequest]).then(function() {
       if (!schema || !types) {
         store.setError('API Error', '/schemas');
       }
+      $scope.loading = false;
       $scope.showDropTable = false;
       $scope.dropTableReason = '';
       $scope.dropMessage = dropMessage;
+      $scope.executingDrop = false;
       $scope.cancelDropMessage = cancelDropMessage;
       $scope.successDropMessage = successDropMessage;
       $scope.schema = schema;
@@ -341,14 +349,17 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
           store.setError("Please enter a reason for dropping the table");
           return false
         }
+        $scope.executingDrop = true;
         Schema.drop(
           {EventName: schema.EventName, Reason: $scope.dropTableReason},
           function() {
             store.setMessage($scope.successDropMessage);
             $location.path('/schemas');
+            $scope.executingDrop = false;
           },
           function(err) {
             store.setError(err, undefined);
+            $scope.executingDrop = false;
           });
       };
     });
@@ -357,13 +368,16 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     $scope.loginName = auth.getLoginName();
     $scope.ingestTable = function(schema){
       schema.IngestStatus = 'flushing';
-    $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
-      schema.IngestStatus = 'flushed';
-    }).error(function(data,status){
-      schema.IngestStatus = 'failed';
-    });
+      $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
+        schema.IngestStatus = 'flushed';
+      }).error(function(data,status){
+        schema.IngestStatus = 'failed';
+      });
     }
+    $scope.loading = true;
+    $scope.ready = false;
     Schema.all(function(data) {
+      $scope.loading = false;
       $scope.schemas = data;
       var existingSchemas = {};
       angular.forEach($scope.schemas, function(s) {
@@ -372,6 +386,8 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       });
 
       Suggestions.all(function(data) {
+        $scope.loading = false;
+        $scope.ready = true;
         $scope.suggestions = [];
         angular.forEach(data, function(s) {
           if (!existingSchemas[s.EventName]) {
@@ -379,6 +395,15 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
           }
         });
       });
+    }, function(err) {
+      $scope.loading = false;
+      var msg;
+      if (err.data) {
+        msg = err.data;
+      } else {
+        msg = 'Error loading schemas:' + err;
+      }
+      store.setError(msg);
     });
   })
   .controller('SchemaCreateCtrl', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, ColumnMaker, auth) {

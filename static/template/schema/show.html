@@ -1,9 +1,14 @@
-<h1><a href="#/schemas">&#x21e6</a> Published Schema for {{schema.EventName}}
+<h1><a href="#/schemas">&#x21e6</a> Published Schema for {{eventName}}
   <button ng-click="showDropTable = !showDropTable"
           type="button" class="btn" ng-class="{'btn-danger': !showDropTable, 'btn-success': showDropTable}"
           ng-show="dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
 </h1>
-<form ng-show="showDropTable && dropMessage" ng-submit="dropTable()">
+<div class="row" ng-if="loading">
+  <div class="col-md-1 col-md-offset-6">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px; margin-top: 30px"></i>
+  </div>
+</div>
+<form ng-show="showDropTable && dropMessage && !loading" ng-submit="dropTable()">
 <div class="row form-group" style="margin-top: 35px">
   <div class="col-xs-3">
     <label for="reason">Reason for dropping: </label>
@@ -11,13 +16,16 @@
   <div class="col-xs-6">
     <textarea name="reason" ng-model="dropTableReason" class="form-control"></textarea>
   </div>
-  <div class="col-xs-3">
-    <button type="submit" class="btn btn-danger">Drop Table</button>
+  <div class="col-xs-2">
+    <button type="submit" class="btn btn-danger" ng-disabled="executingDrop">Drop Table</button>
+  </div>
+  <div class="col-xs-1">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px" ng-show="executingDrop"></i>
   </div>
 </div>
 </form>
 
-<form ng-show="!showDropTable || !dropMessage" name="updateSchemaForm" ng-submit="updateSchema()">
+<form ng-show="!loading && (!showDropTable || !dropMessage)" name="updateSchemaForm" ng-submit="updateSchema()">
 Note: any changes will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.
 <table class="table table-hover">
   <thead>
