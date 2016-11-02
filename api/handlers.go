@@ -16,6 +16,7 @@ import (
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
+	"github.com/twitchscience/blueprint/ingester"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 	"github.com/twitchscience/scoop_protocol/transformer"
 
@@ -335,7 +336,11 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 	}
 	exists, err := s.ingesterController.TableExists(schema.EventName)
 	if err != nil {
-		logger.WithError(err).Error("Error determining if schema exists")
+		if _, ok := err.(ingester.ServiceUnavailableError); ok {
+			logger.Warn("Ingester is currently unavailable")
+		} else {
+			logger.WithError(err).Error("Error determining if schema exists")
+		}
 		// default to true so we don't break the page.
 		exists = true
 	}

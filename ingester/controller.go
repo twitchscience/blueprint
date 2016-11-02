@@ -22,6 +22,13 @@ type controller struct {
 	ingesterURL string
 }
 
+// ServiceUnavailableError means the ingester is currently unavailable.
+type ServiceUnavailableError struct{}
+
+func (s ServiceUnavailableError) Error() string {
+	return "ingester unavailable"
+}
+
 // NewController returns a controller for the ingester at the given URL.
 func NewController(ingesterURL string) Controller {
 	return &controller{ingesterURL}
@@ -100,7 +107,15 @@ func (c *controller) TableExists(tableName string) (tableExists bool, err error)
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, decodeErrorResponse(resp.Body, resp.StatusCode, "TableExists")
+		if resp.StatusCode == http.StatusServiceUnavailable {
+			return false, ServiceUnavailableError{}
+		}
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return false, fmt.Errorf("failed to read from TableExists (%d) response: %v", resp.StatusCode, err)
+		}
+		return false, fmt.Errorf("error in TableExists response (%d): %s", resp.StatusCode, body)
 	}
 	var exists struct{ Exists bool }
 	err = json.NewDecoder(resp.Body).Decode(&exists)

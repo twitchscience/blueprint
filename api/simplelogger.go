@@ -1,7 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
@@ -32,10 +34,19 @@ func SimpleLogger(c *web.C, h http.Handler) http.Handler {
 }
 
 func printStart(reqID string, r *http.Request) {
-	fields := map[string]interface{} {
-		"request_method":	r.Method,
-		"url":			r.URL.String(),
-		"remote_address":	r.RemoteAddr,
+	header := r.Header.Get("X-Forwarded-For")
+	var clientIP string
+	comma := strings.LastIndex(header, ",")
+	if comma > -1 {
+		clientIP = header[comma+1:]
+	} else {
+		clientIP = header
+	}
+
+	fields := map[string]interface{}{
+		"request_method": r.Method,
+		"url":            r.URL.String(),
+		"remote_address": strings.TrimSpace(clientIP),
 	}
 	if reqID != "" {
 		fields["request_id"] = reqID
@@ -43,10 +54,10 @@ func printStart(reqID string, r *http.Request) {
 	logger.WithFields(fields).Info("Started request")
 }
 
-func printEnd(reqID string, w mutil.WriterProxy, dt time.Duration) {
-	fields := map[string]interface{} {
-		"status":	w.Status(),
-		"duration":	dt,
+func printEnd(reqID string, w mutil.WriterProxy, dt fmt.Stringer) {
+	fields := map[string]interface{}{
+		"status":   w.Status(),
+		"duration": dt.String(),
 	}
 	if reqID != "" {
 		fields["request_id"] = reqID
