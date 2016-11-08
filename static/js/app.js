@@ -576,9 +576,11 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             store.setError("At least one column is invalid; look at '" + item.InboundName + "'", undefined);
             return false;
           }
-          item.ColumnCreationOptions = '';
+          if (!item.ColumnCreationOptions) {
+            item.ColumnCreationOptions = '';
+          }
           if (item.Transformer === 'varchar') {
-            item.ColumnCreationOptions += '(' + item.size + ')';
+            item.ColumnCreationOptions = '(' + item.size + ')';
           }
           if (setDistKey == item.OutboundName) {
             item.ColumnCreationOptions += ' distkey';
