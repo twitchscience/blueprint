@@ -535,6 +535,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             if (match) {
               col.size = parseInt(match[1]);
             }
+            col.ColumnCreationOptions = '';
           }
           if (col.InboundName == 'device_id') {
             event.distkey = 'device_id';
