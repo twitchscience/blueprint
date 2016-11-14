@@ -17,11 +17,10 @@ export GOARCH=amd64
 export GOOS=linux
 export GOBIN="/tmp/${PROJECT}_build_$$"
 
-go vet ./... # Replace with gometalinter soon
 go test -v ./...
 go install -v ./...
 
-gometalinter ./... --disable=gocyclo  --disable=dupl --deadline 90s
+gometalinter ./... --disable=gocyclo  --disable=dupl --disable=gas --deadline 90s
 
 packer                                         \
     -machine-readable build                    \
