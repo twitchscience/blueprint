@@ -32,4 +32,7 @@ packer                                         \
     -var "subnet_id=${SUBNET}"                 \
     -var "security_group_id=${SECURITY_GROUP}" \
     -var "use_private_ip=${USE_PRIVATE_IP}"    \
-    build/packer.json
+    build/packer.json | tee build.log
+
+AMIREF=`grep 'amazon-ebs,artifact,0,id,' build.log`
+echo ${AMIREF##*:} > amireference
