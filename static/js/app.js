@@ -96,6 +96,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     }).$promise;
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
+    $scope.loginName = auth.getLoginName();
 
     var schemaRequest = Schema.get($routeParams, function(data) {
       if (data) {

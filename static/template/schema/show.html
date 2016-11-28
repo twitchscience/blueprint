@@ -1,14 +1,26 @@
 <h1><a href="#/schemas">&#x21e6</a> Published Schema for {{eventName}}
-  <button ng-click="showDropTable = !showDropTable"
-          type="button" class="btn" ng-class="{'btn-danger': !showDropTable, 'btn-success': showDropTable}"
-          ng-show="dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
 </h1>
+<div class="row">
+  <div class="col-md-5">
+    <button ng-click="showDropTable = !showDropTable"
+            type="button" class="btn" ng-class="{'btn-danger': !showDropTable, 'btn-success': showDropTable}"
+            ng-show="loginName && dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
+  </div>
+  <div class="col-md-6 col-md-offset-1">
+    <span class="pull-right">
+      <span ng-if="schema.DropRequested">Deletion requested {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
+      <span ng-if="!schema.DropRequested && schema.Version == 0">Created {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
+      <span ng-if="!schema.DropRequested && schema.Version != 0">Last updated {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}} to version {{::schema.Version}}</span>
+      by {{::schema.UserName}}<span ng-if="schema.DropRequested"> because "{{::schema.Reason}}"
+    </span>
+  </div>
+</div>
 <div class="row" ng-if="loading">
   <div class="col-md-1 col-md-offset-6">
     <i class="fa fa-spinner fa-spin" style="font-size:24px; margin-top: 30px"></i>
   </div>
 </div>
-<form ng-show="showDropTable && dropMessage && !loading" ng-submit="dropTable()">
+<form ng-show="loginName && showDropTable && dropMessage && !loading" ng-submit="dropTable()">
 <div class="row form-group" style="margin-top: 35px">
   <div class="col-xs-3">
     <label for="reason">Reason for dropping: </label>
@@ -26,7 +38,7 @@
 </form>
 
 <form ng-show="!loading && (!showDropTable || !dropMessage)" name="updateSchemaForm" ng-submit="updateSchema()">
-Note: any changes will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.
+<span ng-show="loginName">Note: any changes will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.</span>
 <table class="table table-hover">
   <thead>
     <tr>
@@ -34,16 +46,19 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
       <th>Outbound</th>
       <th>Column Type</th>
       <th class="text-center">Column Options</th>
-      <th>&nbsp;</th>
+      <th ng-if="loginName">&nbsp;</th>
     </tr>
   </thead>
   <tbody>
     <tr ng-repeat="c in schema.Columns">
       <td>{{c.InboundName}}</td>
-      <td ng-class="outboundColumnStyle(c.OutboundName)"><input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)"> </td>
+      <td ng-class="outboundColumnStyle(c.OutboundName)">
+        <input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)" ng-if="loginName">
+        <span ng-if="!loginName">{{nameMap[c.OutboundName]}}</span>
+      </td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
-      <td class="text-center">
+      <td class="text-center" ng-if="loginName">
         <button
           ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index) && !outboundColumnEdited(c.OutboundName)"
           ng-click="deleteColumnFromSchema($index)"
@@ -61,7 +76,7 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
         class="btn btn-info">Undo Rename</button>
       </td>
     </tr>
-    <tr ng-repeat="c in additions.Columns">
+    <tr ng-repeat="c in additions.Columns" ng-if="loginName">
       <td>{{c.InboundName}}</td>
       <td>{{c.OutboundName}}</td>
       <td>{{c.Transformer}}</td>
@@ -73,7 +88,7 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
       </td>
     </tr>
   </tbody>
-  <tfoot>
+  <tfoot ng-if="loginName">
     <tr>
       <td>
         <input type="text"
