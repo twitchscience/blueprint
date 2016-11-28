@@ -8,7 +8,14 @@
            type="text"
            ng-model="search"
            class="form-control"
-           placeholder="search properties"/>
+           placeholder="Search properties"
+           autofocus
+           />
+  </div>
+</div>
+<div class="row">
+  <div class="col-xs-4">
+    <span>Search to show properties.</span>
   </div>
 </div>
 
@@ -22,17 +29,16 @@
                 orderBy:'EventName'">
 
   <h3 style="margin-top: 35px">
-    <a href="#/schema/{{schema.EventName}}" ng-if="loginName && !schema.DropRequested">{{schema.EventName}}</a>
-    <del ng-if="schema.DropRequested">{{schema.EventName}}</del>
-    <span ng-if="!loginName && !schema.DropRequested">{{schema.EventName}}</span>
-    <span class="pull-right"><small>
-        <span ng-if="schema.DropRequested">Deletion requested {{schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
-        <span ng-if="!schema.DropRequested && schema.Version == 0">Created {{schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
-        <span ng-if="!schema.DropRequested && schema.Version != 0">Last updated {{schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}} to version {{schema.Version}}</span>
-        by {{schema.UserName}}<span ng-if="schema.DropRequested"> because "{{schema.Reason}}"</small></span>
+    <a href="#/schema/{{::schema.EventName}}" ng-if="!schema.DropRequested">{{::schema.EventName}}</a>
+    <del ng-if="schema.DropRequested">{{::schema.EventName}}</del>
+    <span class="pull-right" ng-if="search.length > 3"><small>
+        <span ng-if="schema.DropRequested">Deletion requested {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
+        <span ng-if="!schema.DropRequested && schema.Version == 0">Created {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
+        <span ng-if="!schema.DropRequested && schema.Version != 0">Last updated {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}} to version {{::schema.Version}}</span>
+        by {{::schema.UserName}}<span ng-if="schema.DropRequested"> because "{{::schema.Reason}}"</small></span>
   </h3>
 
-  <table class="table table-hover">
+  <table class="table table-hover" ng-if="search.length > 3">
     <thead>
       <tr>
         <th>Inbound</th>
@@ -43,10 +49,10 @@
     </thead>
     <tbody>
       <tr ng-repeat="p in schema.Columns">
-        <td>{{p.InboundName}}</td>
-        <td>{{p.OutboundName}}</td>
-        <td>{{p.Transformer}}</td>
-        <td class="text-center">{{p.ColumnCreationOptions}}</td>
+        <td>{{::p.InboundName}}</td>
+        <td>{{::p.OutboundName}}</td>
+        <td>{{::p.Transformer}}</td>
+        <td class="text-center">{{::p.ColumnCreationOptions}}</td>
       </tr>
   </table>
 </div>
@@ -56,5 +62,5 @@
                 filter : search |
                 orderBy : 'Occurred' : true ">
 
-  <h3><a href="#/schema?scope={{event.EventName}}">{{event.EventName}}</a> - Occurred {{event.Occurred}} times in sample</h3>
+  <h3><a href="#/schema?scope={{::event.EventName}}">{{::event.EventName}}</a> - Occurred {{::event.Occurred}} times in sample</h3>
 </div>
