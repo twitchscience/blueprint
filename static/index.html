@@ -25,7 +25,7 @@
               <span ng-if="loginName" class="pull-right"><span class="navbar-text">Logged in as {{loginName}}</span>
               <a href="/logout"><button type="button" class="btn btn-primary navbar-btn pull-right">Logout</button></a>
               </span>
-              <a href="/login" ng-if="!loginName"><button type="button" class="btn btn-primary navbar-btn pull-right">Login</button></a>
+              <a href="/login?redirect_to=#{{loc.path()}}" ng-if="!loginName"><button type="button" class="btn btn-primary navbar-btn pull-right">Login</button></a>
             </div>
           </div>
           <div class="alert alert-danger alert-dismissible" role="alert" ng-if="getError()">

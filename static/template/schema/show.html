@@ -80,7 +80,7 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
                id="newInboundName"
                ng-model="newCol.InboundName"
                placeholder="Inbound Name"
-               autofocus/>
+               />
       </td>
       <td>
         <input type="text"
@@ -95,7 +95,6 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
       <td class="text-center">
         <input ng-if="newCol.Transformer == 'varchar'"
                type="number"
-               value="{{newCol.size}}"
                ng-model="newCol.size"
                name="columnSize"/>
       </td>
@@ -106,7 +105,7 @@ Note: any changes will be queued until offpeak hours - Redshift data for this ta
       </td>
     </tr>
     <tr>
-      <td colspan="1"></td>
+      <td></td>
       <td ng-class="summaryStyle(numRenames())" class="text-center">Renaming {{numRenames()}}</td>
       <td ng-class="summaryStyle(additions.Columns.length)" class="text-center">Adding {{additions.Columns.length}}</td>
       <td ng-class="summaryStyle(deletes.ColInds.length)" class="text-center">Dropping {{deletes.ColInds.length}}</td>

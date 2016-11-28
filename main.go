@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/api"
@@ -46,7 +47,7 @@ func main() {
 	manager.Start()
 
 	shutdownSignal := make(chan os.Signal)
-	signal.Notify(shutdownSignal)
+	signal.Notify(shutdownSignal, syscall.SIGINT)
 	logger.Go(func() {
 		<-shutdownSignal
 		logger.Info("Sigint received -- shutting down")
