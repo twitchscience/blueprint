@@ -25,9 +25,6 @@
     <a href="#/schema/{{schema.EventName}}" ng-if="loginName && !schema.DropRequested">{{schema.EventName}}</a>
     <del ng-if="schema.DropRequested">{{schema.EventName}}</del>
     <span ng-if="!loginName && !schema.DropRequested">{{schema.EventName}}</span>
-    <form ng-if="loginName && !schema.DropRequested" style="display:inline-block;margin-left:25px" ng-submit="ingestTable(schema)">
-      <input id="button-{{schema.EventName}}" class="btn" type="submit" value="Force Load" ng-class="{'btn-primary': schema.IngestStatus=='default', 'btn-success': schema.IngestStatus=='flushed', 'btn-danger': schema.IngestStatus=='failed', 'btn-primary disabled': schema.IngestStatus=='flushing'}">
-    </form>
     <span class="pull-right"><small>
         <span ng-if="schema.DropRequested">Deletion requested {{schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
         <span ng-if="!schema.DropRequested && schema.Version == 0">Created {{schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>

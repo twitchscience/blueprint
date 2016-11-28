@@ -84,7 +84,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     $scope.loginName = auth.getLoginName();
     $scope.loc = $location;
   })
-  .controller('SchemaShowCtrl', function ($scope, $location, $routeParams, $q, store, Schema, Types, Droppable, ColumnMaker) {
+  .controller('SchemaShowCtrl', function ($scope, $http, $location, $routeParams, $q, store, Schema, Types, Droppable, ColumnMaker, auth) {
     var types, schema, dropMessage, cancelDropMessage;
     var typeRequest = Types.get(function(data) {
       if (data) {
@@ -97,6 +97,14 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
     $scope.loginName = auth.getLoginName();
+
+    $scope.ingestTable = function(schema){
+      $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
+          store.setMessage("Force load successful");
+      }).error(function(data,status){
+          store.setError("Force load failed");
+      });
+    }
 
     var schemaRequest = Schema.get($routeParams, function(data) {
       if (data) {
@@ -366,16 +374,8 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       };
     });
   })
-  .controller('SchemaListCtrl', function($scope, $location, $http, Schema, Suggestions, store, auth) {
+  .controller('SchemaListCtrl', function($scope, $location, Schema, Suggestions, store, auth) {
     $scope.loginName = auth.getLoginName();
-    $scope.ingestTable = function(schema){
-      schema.IngestStatus = 'flushing';
-      $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
-        schema.IngestStatus = 'flushed';
-      }).error(function(data,status){
-        schema.IngestStatus = 'failed';
-      });
-    }
     $scope.loading = true;
     $scope.ready = false;
     Schema.all(function(data) {
@@ -384,7 +384,6 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       var existingSchemas = {};
       angular.forEach($scope.schemas, function(s) {
         existingSchemas[s.EventName] = true;
-        s.IngestStatus = 'default';
       });
 
       Suggestions.all(function(data) {
