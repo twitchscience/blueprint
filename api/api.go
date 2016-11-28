@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/context"
+	gzip "github.com/lidashuang/goji-gzip"
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/bpdb"
@@ -89,6 +90,7 @@ func (s *server) Setup() error {
 
 	roAPI := web.New()
 	roAPI.Use(jsonResponse)
+	roAPI.Use(gzip.GzipHandler)
 	roAPI.Get("/schemas", s.allSchemas)
 	roAPI.Get("/schema/:id", s.schema)
 	roAPI.Get("/droppable/schema/:id", s.droppableSchema)

@@ -178,6 +178,10 @@
 			"Rev": "4dd446efc17690bc53e154025146f73203b18309"
 		},
 		{
+			"ImportPath": "github.com/lidashuang/goji-gzip",
+			"Rev": "5864686f51198c49003bf49b6cc64f77cb987b9f"
+		},
+		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",
 			"Rev": "792786c7400a136282c1664665ae0a8db921c6c2"
 		},
