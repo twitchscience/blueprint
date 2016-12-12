@@ -36,6 +36,9 @@ ORDER BY ordering ASC
 (event, action, name, version, ordering, action_metadata, user_name)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
+
+	schemaExistsQuery = `SELECT 1 FROM operation WHERE event = $1`
+
 	nextVersionQuery = `SELECT max(version) + 1
 FROM operation
 WHERE event = $1
@@ -152,7 +155,14 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 // CreateSchema validates that the creation operation is valid and if so, stores
 // the schema as 'add' operations in bpdb
 func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) error {
-	err := preValidateSchema(req)
+	exists, err := p.SchemaExists(req.EventName)
+	if err != nil {
+		return fmt.Errorf("Error checking for schema existence: %v", err)
+	}
+	if exists {
+		return fmt.Errorf("Invalid schema name: %s already exists", req.EventName)
+	}
+	err = preValidateSchema(req)
 	if err != nil {
 		return fmt.Errorf("Invalid schema creation request: %v", err)
 	}
@@ -221,6 +231,22 @@ func (p *postgresBackend) DropSchema(schema *AnnotatedSchema, reason string, exi
 		}
 		return insertOperations(tx, []scoop_protocol.Operation{op}, newVersion, schema.EventName, user)
 	})
+}
+
+// SchemaExists checks if a schema name exists in blueprint already
+func (p *postgresBackend) SchemaExists(eventName string) (bool, error) {
+	rows, err := p.db.Query(schemaExistsQuery, eventName)
+	if err != nil {
+		return false, fmt.Errorf("Error querying existence of schema  %s: %v.", eventName, err)
+	}
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			logger.WithError(err).Error("Error closing rows in postgres backend SchemaExists")
+		}
+	}()
+
+	return rows.Next(), nil
 }
 
 // scanOperationRows scans the rows into operationRow objects
