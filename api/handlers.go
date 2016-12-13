@@ -334,6 +334,10 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 		fourOhFour(w, r)
 		return
 	}
+	if time.Since(schema.CreatedTS) < time.Second*3600 {
+		respondWithJSONBool(w, "Droppable", false)
+		return
+	}
 	exists, err := s.ingesterController.TableExists(schema.EventName)
 	if err != nil {
 		if _, ok := err.(ingester.ServiceUnavailableError); ok {
