@@ -33,6 +33,7 @@ func ApplyOperation(s *AnnotatedSchema, op scoop_protocol.Operation) error {
 			OutboundName:          op.Name,
 			Transformer:           op.ActionMetadata["column_type"],
 			ColumnCreationOptions: op.ActionMetadata["column_options"],
+			SupportingColumns:     op.ActionMetadata["supporting_columns"],
 		})
 		s.Dropped = false
 		s.DropRequested = false

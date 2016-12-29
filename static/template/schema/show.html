@@ -48,6 +48,7 @@
       <th>Outbound</th>
       <th>Column Type</th>
       <th class="text-center">Column Options</th>
+      <th class="text-center">Mapping Column</th>
       <th ng-if="loginName">&nbsp;</th>
     </tr>
   </thead>
@@ -60,6 +61,7 @@
       </td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
+      <td class="text-center">{{c.SupportingColumns}}</td>
       <td class="text-center" ng-if="loginName">
         <button
           ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index) && !outboundColumnEdited(c.OutboundName)"
@@ -83,6 +85,7 @@
       <td>{{c.OutboundName}}</td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
+      <td class="text-center">{{c.SupportingColumns}}</td>
       <td class="text-center">
         <button ng-click="dropColumnFromAdditions($index)"
                 type="button"
@@ -116,6 +119,11 @@
                name="columnSize"/>
       </td>
       <td class="text-center">
+        <select ng-if="usingMappingTransformer(newCol)"
+                ng-options="inbound as inbound for inbound in validInboundNames()"
+                ng-model="newCol.mappingColumn"/>
+      </td>
+      <td class="text-center">
         <button ng-click="addColumnToSchema(newCol)"
                 type="button"
                 class="btn btn-primary">Add!</button>
@@ -126,13 +134,14 @@
       <td ng-class="summaryStyle(numRenames())" class="text-center">Renaming {{numRenames()}}</td>
       <td ng-class="summaryStyle(additions.Columns.length)" class="text-center">Adding {{additions.Columns.length}}</td>
       <td ng-class="summaryStyle(deletes.ColInds.length)" class="text-center">Dropping {{deletes.ColInds.length}}</td>
+      <td></td>
       <td class="text-center">
           <button type="submit"
                   class="btn btn-success">Update Schema</button>
       </td>
     </tr>
     <tr>
-      <td colspan="5" class="text-right">
+      <td colspan="6" class="text-right">
         <span ng-if="deletes.ColInds.length > 0">WARNING: any Redshift views that depend on this table will be destroyed due to dropping columns.<br>
                                                  You may want to contact the owners of the views.</span>
       </td>

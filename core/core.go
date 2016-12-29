@@ -65,6 +65,9 @@ type Column struct {
 	// TODO: length should be an int, currently the client supplies this
 	// to us, so pass through now, with a view to fixing this later
 	Length string `json:"ColumnCreationOptions"`
+
+	// SupportingColumns are the names of extra columns required to map a value to this column
+	SupportingColumns string `json:"SupportingColumns"`
 }
 
 // Renames is a map of old name to new name, representing a rename operation on

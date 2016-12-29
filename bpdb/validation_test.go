@@ -18,6 +18,7 @@ func TestPreValidateSchemaBadType(t *testing.T) {
 				OutboundName:          "that",
 				Transformer:           "invalidtype",
 				ColumnCreationOptions: "",
+				SupportingColumns:     "",
 			},
 		},
 		Version: 0,
@@ -34,12 +35,14 @@ func TestPreValidateSchemaOkay(t *testing.T) {
 				OutboundName:          "that",
 				Transformer:           "bigint",
 				ColumnCreationOptions: "",
+				SupportingColumns:     "",
 			},
 			{
 				InboundName:           "foo",
 				OutboundName:          "bar",
 				Transformer:           "bigint",
 				ColumnCreationOptions: "",
+				SupportingColumns:     "",
 			},
 		},
 		Version: 0,
@@ -55,6 +58,7 @@ func TestPreValidateSchemaManyColumns(t *testing.T) {
 			OutboundName:          fmt.Sprintf("that%d", i),
 			Transformer:           "bigint",
 			ColumnCreationOptions: "",
+			SupportingColumns:     "",
 		}
 		columns = append(columns, col)
 	}
@@ -75,12 +79,14 @@ func TestPreValidateSchemaColumnCollision(t *testing.T) {
 				OutboundName:          "that",
 				Transformer:           "invalidtype",
 				ColumnCreationOptions: "",
+				SupportingColumns:     "",
 			},
 			{
 				InboundName:           "foo",
 				OutboundName:          "that",
 				Transformer:           "invalidtype",
 				ColumnCreationOptions: "",
+				SupportingColumns:     "",
 			},
 		},
 		Version: 0,

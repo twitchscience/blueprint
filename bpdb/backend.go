@@ -98,7 +98,8 @@ func preValidateSchema(schema *scoop_protocol.Config) error {
 func schemaCreateRequestToOps(req *scoop_protocol.Config) []scoop_protocol.Operation {
 	ops := make([]scoop_protocol.Operation, 0, len(req.Columns))
 	for _, col := range req.Columns {
-		ops = append(ops, scoop_protocol.NewAddOperation(col.OutboundName, col.InboundName, col.Transformer, col.ColumnCreationOptions))
+		ops = append(ops, scoop_protocol.NewAddOperation(col.OutboundName, col.InboundName,
+			col.Transformer, col.ColumnCreationOptions, col.SupportingColumns))
 	}
 	return ops
 }
@@ -110,7 +111,8 @@ func schemaUpdateRequestToOps(req *core.ClientUpdateSchemaRequest) []scoop_proto
 		ops = append(ops, scoop_protocol.NewDeleteOperation(colName))
 	}
 	for _, col := range req.Additions {
-		ops = append(ops, scoop_protocol.NewAddOperation(col.OutboundName, col.InboundName, col.Transformer, col.Length))
+		ops = append(ops, scoop_protocol.NewAddOperation(col.OutboundName, col.InboundName,
+			col.Transformer, col.Length, col.SupportingColumns))
 	}
 	for oldName, newName := range req.Renames {
 		ops = append(ops, scoop_protocol.NewRenameOperation(oldName, newName))

@@ -38,6 +38,11 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     );
   })
   .factory('ColumnMaker', function() {
+    // Design Note:
+    // Hard-coding this should be good enough for now, but we could instead augment the Types
+    // endpoint to obtain further meta-data, including if it's a mapping transformer type.
+    var mappingTransformers = ['userIDWithMapping'];
+
     return {
       make: function() {
       return {
@@ -45,7 +50,9 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         OutboundName: '',
         Transformer: 'varchar',
         size: 255,
-        ColumnCreationOptions: ''
+        ColumnCreationOptions: '',
+        mappingColumn: '', //For simplicity, we assume a single mapping column until we need more
+        SupportingColumns: '',
         };
       },
       validate: function(column) {
@@ -55,6 +62,9 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
           return false;
         }
         return true;
+      },
+      usingMappingTransformer: function(column) {
+        return mappingTransformers.indexOf(column.Transformer) != -1;
       }
     }
   })
@@ -160,12 +170,27 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       $scope.schema = schema;
       $scope.additions = {Columns: []}; // Used to hold new columns
       $scope.deletes = {ColInds: []}; // Used to hold dropped columns
-      $scope.nameMap = {}; // Used to hold renamed columns {originalName: newName, ...}
+      $scope.nameMap = {}; // Used to hold renamed outbound names {originalName: newName, ...}
       angular.forEach($scope.schema.Columns, function(col, i){
         $scope.nameMap[col.OutboundName] = col.OutboundName;
       });
       $scope.types = types;
       $scope.newCol = ColumnMaker.make();
+      $scope.usingMappingTransformer = ColumnMaker.usingMappingTransformer;
+      $scope.validInboundNames = function() {
+        var inboundNames = {};
+        var delNames = {};
+        var allColumns = $scope.schema.Columns.slice().concat($scope.additions.Columns);
+        angular.forEach($scope.deletes.ColInds, function(colIndex) {
+          delNames[$scope.schema.Columns[colIndex].OutboundName] = true;
+        });
+        angular.forEach(allColumns, function(col){
+          if (!(col.OutboundName in delNames)) {
+            inboundNames[col.InboundName] = true;
+          }
+        });
+        return Object.keys(inboundNames);
+      };
       $scope.addColumnToSchema = function(column) {
         if (!ColumnMaker.validate(column)) {
           store.setError("New column is invalid", undefined);
@@ -177,6 +202,13 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             column.ColumnCreationOptions = '(' + parseInt(column.size) + ')';
           } else {
             store.setError("New column is invalid (needs nonempty value)", undefined);
+            return false;
+          }
+        } else if (ColumnMaker.usingMappingTransformer(column)) {
+          if (column.mappingColumn) {
+            column.SupportingColumns = column.mappingColumn;
+          } else {
+            store.setError("New column is invalid (needs nonempty mapping column)", undefined);
             return false;
           }
         }
@@ -241,10 +273,25 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         var additions = $scope.additions;
         var deletes = [];
         var delNames = {};
+        var inboundNames = $scope.validInboundNames();
         angular.forEach($scope.deletes.ColInds, function(colIndex) {
           deletes.push($scope.schema.Columns[colIndex].OutboundName);
           delNames[$scope.schema.Columns[colIndex].OutboundName] = true;
         });
+
+        // Check that columns which are not going to be deleted still have valid supporting columns
+        if (!$scope.schema.Columns.every(function (col) {
+          if (!(col.OutboundName in delNames) && col.SupportingColumns && inboundNames.indexOf(col.SupportingColumns) == -1) {
+            store.setError("Can't have a column using a mapping that is going to be deleted. Offending name: " + col.OutboundName);
+            return false;
+          }
+          return true;
+        })) {
+          return false;
+        }
+
+        // For columns which are not going to be deleted, check that there are no duplicates in new
+        // outbound names of columns
         var newNames = {};
         var oldNames = {};
         if (!Object.keys($scope.nameMap).every(function (oldName) {
@@ -262,6 +309,9 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         })) {
           return false;
         }
+
+        // Check that we're not adding a column with a duplicate outbound name and is using a
+        // valid supporting column
         if (!$scope.additions.Columns.every(function (col) {
           if (col.OutboundName in newNames) {
             store.setError("Duplicate name. Offending name: " + col.OutboundName);
@@ -272,21 +322,17 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             store.setError("Can't add a column while renaming away from it. Offending name: " + col.OutboundName);
             return false;
           }
-          return true;
-        })) {
-          return false;
-        }
-        var seenNames = {};
-        if (!Object.keys(newNames).every(function(newName) {
-          if (newName in seenNames) {
-            store.setError("Duplicate name. Offending name: " + newName);
+          if (col.SupportingColumns && inboundNames.indexOf(col.SupportingColumns) == -1) {
+            store.setError("Can't add a column using a mapping that was or is going to be deleted. Offending name: " + col.OutboundName);
             return false;
           }
-          seenNames[newName] = true;
           return true;
         })) {
           return false;
         }
+
+        // Check that none of the renamed columns have a conflict with a new or old outbound name
+        // of columns which are already in the schema
         var renames = {};
         var nameSet = {};
         if (!Object.keys($scope.nameMap).every(function(originalName) {
@@ -312,15 +358,20 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         })) {
           return false;
         }
+
+        // If the user is in the middle of adding a column, stop here to force a conclusion there
         if ($scope.newCol.InboundName || $scope.newCol.OutboundName) {
           store.setError("Column addition not finished. Hit \"Add!\" or clear the inbound and outbound name.");
           return false;
         }
 
-        if (additions.Columns.length + deletes.length + renames.length < 1) {
+        // Nothing was modified, so stop here
+        if (additions.Columns.length + deletes.length + Object.keys(renames).length < 1) {
           store.setError("No change to columns, so no action taken.", undefined);
           return false;
         }
+
+        // We verified that we have valid things to do, so proceed with update!
         Schema.update(
           {event: schema.EventName},
           {additions: additions.Columns, deletes: deletes, renames: renames},
@@ -436,11 +487,13 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         {"Name": "app_version", "Change": [["size", 32]]},
         {"Name": "browser", "Change": [["size", 255]]},
         {"Name": "channel", "Change": [["size", 25]]},
+        {"Name": "channel_id", "Change": [["Transformer", "userIDWithMapping"], ["SupportingColumns", "channel"]]},
         {"Name": "content_mode", "Change": [["size", 32]]},
         {"Name": "device_id", "Change": [["size", 32]]},
         {"Name": "domain", "Change": [["size", 255]]},
         {"Name": "game", "Change": [["size", 64]]},
         {"Name": "host_channel", "Change": [["size", 25]]},
+        {"Name": "host_channel_id", "Change": [["Transformer", "userIDWithMapping"], ["SupportingColumns", "host_channel"]]},
         {"Name": "language", "Change": [["size", 8]]},
         {"Name": "login", "Change": [["size", 25]]},
         {"Name": "platform", "Change": [["size", 40]]},
@@ -451,6 +504,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         {"Name": "referrer_url", "Change": [["size", 255]]},
         {"Name": "url", "Change": [["size", 255]]},
         {"Name": "user_agent", "Change": [["size", 255]]},
+        {"Name": "user_id", "Change": [["Transformer", "userIDWithMapping"], ["SupportingColumns", "login"]]},
         {"Name": "vod_id", "Change": [["size", 16]]},
       ];
 
@@ -484,33 +538,39 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
           InboundName: 'time',
           OutboundName: 'time',
           Transformer: 'f@timestamp@unix',
-          ColumnCreationOptions: ' sortkey'
+          ColumnCreationOptions: ' sortkey',
+          SupportingColumns: ''
         },{
           InboundName: 'ip',
           OutboundName: 'ip',
           Transformer: 'varchar',
           size: 15,
-          ColumnCreationOptions: ''
+          ColumnCreationOptions: '',
+          SupportingColumns: ''
         },{
           InboundName: 'ip',
           OutboundName: 'city',
           Transformer: 'ipCity',
-          ColumnCreationOptions: ''
+          ColumnCreationOptions: '',
+          SupportingColumns: ''
         },{
           InboundName: 'ip',
           OutboundName: 'country',
           Transformer: 'ipCountry',
-          ColumnCreationOptions: ''
+          ColumnCreationOptions: '',
+          SupportingColumns: ''
         },{
           InboundName: 'ip',
           OutboundName: 'region',
           Transformer: 'ipRegion',
-          ColumnCreationOptions: ''
+          ColumnCreationOptions: '',
+          SupportingColumns: ''
         },{
           InboundName: 'ip',
           OutboundName: 'asn_id',
           Transformer: 'ipAsnInteger',
-          ColumnCreationOptions: ''
+          ColumnCreationOptions: '',
+          SupportingColumns: ''
         }];
       // this is icky, it is tightly coupled to what spade is
       // looking for. It would be good to have an intermediate
@@ -550,6 +610,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       $scope.event = event;
       $scope.types = types;
       $scope.newCol = ColumnMaker.make();
+      $scope.usingMappingTransformer = ColumnMaker.usingMappingTransformer;
       $scope.addColumnToSchema = function(column) {
         if (!ColumnMaker.validate(column)) {
           store.setError("New column is invalid", undefined);
@@ -578,6 +639,19 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             store.setError("At least one column is invalid; look at '" + item.InboundName + "'", undefined);
             return false;
           }
+
+          if (ColumnMaker.usingMappingTransformer(item)) {
+            if (!item.mappingColumn) {
+              store.setError("Column '" + item.OutboundName + "' is invalid (needs nonempty mapping column)");
+              return false;
+            }
+            if (item.mappingColumn === item.InboundName) {
+              store.setError("Cannot use a column for its own mapping. Column with problem: " + item.OutboundName);
+              return false;
+            }
+            item.SupportingColumns = item.mappingColumn;
+          }
+
           if (!item.ColumnCreationOptions) {
             item.ColumnCreationOptions = '';
           }
@@ -591,6 +665,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             item.Transformer = 'bigint';
           }
         });
+
         if (store.getError()) {
           return;
         }

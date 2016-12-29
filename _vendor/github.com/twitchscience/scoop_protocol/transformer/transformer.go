@@ -15,5 +15,6 @@ var (
 		"varchar",
 		"f@timestamp@unix",
 		"f@timestamp@unix-utc",
+		"userIDWithMapping",
 	}
 )

@@ -15,6 +15,7 @@ type ColumnDefinition struct {
 	OutboundName          string
 	Transformer           string // this should match one of the types in redshift types
 	ColumnCreationOptions string
+	SupportingColumns     string // comma separated list used by mapping transformers
 }
 
 type Config struct {
@@ -41,14 +42,15 @@ type Operation struct {
 	ActionMetadata map[string]string
 }
 
-func NewAddOperation(outbound, inbound, type_, options string) Operation {
+func NewAddOperation(outbound, inbound, type_, options, columns string) Operation {
 	return Operation{
 		Action: ADD,
 		Name:   outbound,
 		ActionMetadata: map[string]string{
-			"inbound":        inbound,
-			"column_type":    type_,
-			"column_options": options,
+			"inbound":            inbound,
+			"column_type":        type_,
+			"column_options":     options,
+			"supporting_columns": columns,
 		},
 	}
 }
