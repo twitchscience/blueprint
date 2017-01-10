@@ -42,7 +42,7 @@
           </td>
           <td class="text-center">
             <select ng-if="usingMappingTransformer(p)"
-                    ng-options="c.InboundName as c.InboundName for c in event.Columns"
+                    ng-options="name as name for name in validInboundNames()"
                     ng-model="p.mappingColumn"
                     ng-disabled="!loginName"
                     required/>
@@ -92,7 +92,7 @@
           </td>
           <td class="text-center">
             <select ng-if="usingMappingTransformer(newCol)"
-                    ng-options="c.InboundName as c.InboundName for c in event.Columns"
+                    ng-options="name as name for name in validInboundNames()"
                     ng-model="newCol.mappingColumn"
                     required/>
           </td>

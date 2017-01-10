@@ -611,6 +611,13 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       $scope.types = types;
       $scope.newCol = ColumnMaker.make();
       $scope.usingMappingTransformer = ColumnMaker.usingMappingTransformer;
+      $scope.validInboundNames = function() {
+        var inboundNames = {};
+        angular.forEach($scope.event.Columns, function(col){
+          inboundNames[col.InboundName] = true;
+        });
+        return Object.keys(inboundNames);
+      };
       $scope.addColumnToSchema = function(column) {
         if (!ColumnMaker.validate(column)) {
           store.setError("New column is invalid", undefined);
@@ -628,6 +635,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
         store.clearError();
         var setDistKey = $scope.event.distkey;
         var nameSet = {};
+        var inboundNames = $scope.validInboundNames();
         angular.forEach($scope.event.Columns, function(item) {
           if(item.OutboundName in nameSet){
             store.setError("Cannot repeat column name. Repeated '"+item.OutboundName+"'");
@@ -647,6 +655,10 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
             }
             if (item.mappingColumn === item.InboundName) {
               store.setError("Cannot use a column for its own mapping. Column with problem: " + item.OutboundName);
+              return false;
+            }
+            if (inboundNames.indexOf(item.mappingColumn) == -1) {
+              store.setError("Can't add a column using a mapping that is not in the schema. Offending name: " + item.OutboundName);
               return false;
             }
             item.SupportingColumns = item.mappingColumn;
