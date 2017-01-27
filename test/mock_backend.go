@@ -9,29 +9,32 @@ import (
 )
 
 // MockBpdb is a mock for the bpdb/Bpdb interface which tracks how many times AllSchemas has been
-// called.
+// called and whether the DB is in maintenance mode.
 type MockBpdb struct {
 	allSchemasCalls int32
-	mutex           *sync.RWMutex
+	allSchemasMutex *sync.RWMutex
+
+	maintenanceMode  bool
+	maintenanceMutex *sync.RWMutex
 }
 
 // NewMockBpdb creates a new mock backend.
 func NewMockBpdb() *MockBpdb {
-	return &MockBpdb{0, &sync.RWMutex{}}
+	return &MockBpdb{0, &sync.RWMutex{}, false, &sync.RWMutex{}}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.
 func (m *MockBpdb) GetAllSchemasCalls() int32 {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.allSchemasMutex.RLock()
+	defer m.allSchemasMutex.RUnlock()
 	return m.allSchemasCalls
 }
 
 // AllSchemas increments the number of AllSchemas calls and return nils.
 func (m *MockBpdb) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
-	m.mutex.Lock()
+	m.allSchemasMutex.Lock()
 	m.allSchemasCalls++
-	m.mutex.Unlock()
+	m.allSchemasMutex.Unlock()
 	return make([]bpdb.AnnotatedSchema, 0), nil
 }
 
@@ -57,5 +60,20 @@ func (m *MockBpdb) Migration(table string, to int) ([]*scoop_protocol.Operation,
 
 // DropSchema return nil.
 func (m *MockBpdb) DropSchema(schema *bpdb.AnnotatedSchema, reason string, exists bool, user string) error {
+	return nil
+}
+
+// IsInMaintenanceMode returns current value (starts as false, can be set by SetMaintenanceMode).
+func (m *MockBpdb) IsInMaintenanceMode() bool {
+	m.maintenanceMutex.RLock()
+	defer m.maintenanceMutex.RUnlock()
+	return m.maintenanceMode
+}
+
+// SetMaintenanceMode sets the maintenance mode in memory and returns nil.
+func (m *MockBpdb) SetMaintenanceMode(switchingOn bool, reason string) error {
+	m.maintenanceMutex.Lock()
+	m.maintenanceMode = switchingOn
+	m.maintenanceMutex.Unlock()
 	return nil
 }

@@ -21,6 +21,7 @@ exec ./blueprint "$@"                                        \
   -clientSecret=${CLIENT_SECRET}                             \
   -githubServer=${GITHUB_SERVER}                             \
   -requiredOrg=${REQUIRED_ORG}                               \
+  -adminTeam=${ADMIN_TEAM}                                   \
   -staticfiles="${SCIENCE_DIR}/nginx/html"                   \
   -ingesterURL="${INGESTER_URL}"                             \
   -rollbarToken="${ROLLBAR_TOKEN}"                           \

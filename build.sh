@@ -20,7 +20,7 @@ export GOBIN="/tmp/${PROJECT}_build_$$"
 go test -v ./...
 go install -v ./...
 
-gometalinter ./... --disable=gocyclo  --disable=dupl --disable=gas --deadline 90s
+gometalinter ./... --disable=gocyclo  --disable=dupl --disable=gas --disable=aligncheck --deadline 90s
 
 packer                                         \
     -machine-readable build                    \

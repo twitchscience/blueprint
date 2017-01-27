@@ -151,6 +151,10 @@
 			"Rev": "193d1ecb466bf97aae8b454a5cfc192941c64809"
 		},
 		{
+			"ImportPath": "github.com/goji/param",
+			"Rev": "0b4aa9fcd96f890c0ae685fc425d85b80a7bed52"
+		},
+		{
 			"ImportPath": "github.com/gorilla/context",
 			"Rev": "1c83b3eabd45b6d76072b66b746c20815fb2872d"
 		},

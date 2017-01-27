@@ -1,39 +1,58 @@
 package bpdb
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
+func column(name, transformer, options, columns string) scoop_protocol.ColumnDefinition {
+	return scoop_protocol.ColumnDefinition{
+		InboundName:           name,
+		OutboundName:          name,
+		Transformer:           transformer,
+		ColumnCreationOptions: options,
+		SupportingColumns:     columns,
+	}
+}
+
+func bigintColumn(name string) scoop_protocol.ColumnDefinition {
+	return column(name, "bigint", "", "")
+}
+
+func varcharColumn(name string, length int, columns string) scoop_protocol.ColumnDefinition {
+	return column(name, "varchar", fmt.Sprintf("(%d)", length), columns)
+}
+
 func TestApplyOperationAddColumns(t *testing.T) {
 	base := AnnotatedSchema{
 		EventName: "video_ad_request_error",
 		Columns: []scoop_protocol.ColumnDefinition{
-			{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)", SupportingColumns: ""},
-			{InboundName: "content_mode", OutboundName: "content_mode", Transformer: "varchar", ColumnCreationOptions: "(32)", SupportingColumns: ""},
-			{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)", SupportingColumns: ""},
+			varcharColumn("backend", 32, ""),
+			varcharColumn("content_mode", 32, ""),
+			varcharColumn("quality", 16, ""),
 		},
 	}
 	ops := []scoop_protocol.Operation{
-		{"add", "minutes_logged", map[string]string{"inbound": "minutes_logged", "column_type": "bigint", "column_options": "", "supporting_columns": ""}},
-		{"delete", "backend", map[string]string{}},
-		{"add", "os", map[string]string{"inbound": "os", "column_type": "varchar", "column_options": "(16)", "supporting_columns": ""}},
-		{"add", "id", map[string]string{"inbound": "id", "column_type": "idVarchar", "column_options": "(32)", "supporting_columns": "os"}},
+		scoop_protocol.NewAddOperation("minutes_logged", "minutes_logged", "bigint", "", ""),
+		scoop_protocol.NewDeleteOperation("backend"),
+		scoop_protocol.NewAddOperation("os", "os", "varchar", "(16)", ""),
+		scoop_protocol.NewAddOperation("id", "id", "idVarchar", "(32)", "os"),
 	}
 	expected := AnnotatedSchema{
 		EventName: "video_ad_request_error",
 		Columns: []scoop_protocol.ColumnDefinition{
-			{InboundName: "content_mode", OutboundName: "content_mode", Transformer: "varchar", ColumnCreationOptions: "(32)", SupportingColumns: ""},
-			{InboundName: "quality", OutboundName: "quality", Transformer: "varchar", ColumnCreationOptions: "(16)", SupportingColumns: ""},
-			{InboundName: "minutes_logged", OutboundName: "minutes_logged", Transformer: "bigint", ColumnCreationOptions: "", SupportingColumns: ""},
-			{InboundName: "os", OutboundName: "os", Transformer: "varchar", ColumnCreationOptions: "(16)", SupportingColumns: ""},
-			{InboundName: "id", OutboundName: "id", Transformer: "idVarchar", ColumnCreationOptions: "(32)", SupportingColumns: "os"},
+			varcharColumn("content_mode", 32, ""),
+			varcharColumn("quality", 16, ""),
+			bigintColumn("minutes_logged"),
+			varcharColumn("os", 16, ""),
+			column("id", "idVarchar", "(32)", "os"),
 		},
 	}
-	err := ApplyOperations(&base, ops)
-	if err != nil || !reflect.DeepEqual(expected, base) {
+
+	if err := ApplyOperations(&base, ops); err != nil || !reflect.DeepEqual(expected, base) {
 		t.Errorf("Results schema differs from expected:\n%v\nvs\n%v.", base, expected)
 	}
 }
@@ -41,16 +60,13 @@ func TestApplyOperationAddColumns(t *testing.T) {
 func TestApplyOperationAddDupeColumns(t *testing.T) {
 	base := AnnotatedSchema{
 		EventName: "video_ad_request_error",
-		Columns: []scoop_protocol.ColumnDefinition{
-			{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)", SupportingColumns: ""},
-		},
+		Columns:   []scoop_protocol.ColumnDefinition{varcharColumn("backend", 32, "")},
 	}
 	ops := []scoop_protocol.Operation{
-		{"add", "minutes_logged", map[string]string{"inbound": "minutes_logged", "column_type": "bigint", "column_options": "", "supporting_columns": ""}},
-		{"add", "backend", map[string]string{"inbound": "ip", "column_type": "varchar", "column_options": "(32)", "supporting_columns": ""}},
+		scoop_protocol.NewAddOperation("minutes_logged", "minutes_logged", "bigint", "", ""),
+		scoop_protocol.NewAddOperation("backend", "ip", "varchar", "(32)", ""),
 	}
-	err := ApplyOperations(&base, ops)
-	if err == nil {
+	if err := ApplyOperations(&base, ops); err == nil {
 		t.Error("Expected error on adding existing row.")
 	}
 }
@@ -58,15 +74,11 @@ func TestApplyOperationAddDupeColumns(t *testing.T) {
 func TestApplyOperationDeleteNonExistentColumns(t *testing.T) {
 	base := AnnotatedSchema{
 		EventName: "video_ad_request_error",
-		Columns: []scoop_protocol.ColumnDefinition{
-			{InboundName: "backend", OutboundName: "backend", Transformer: "varchar", ColumnCreationOptions: "(32)"},
-		},
+		Columns:   []scoop_protocol.ColumnDefinition{varcharColumn("backend", 32, "")},
 	}
-	ops := []scoop_protocol.Operation{
-		{"delete", "minutes_logged", map[string]string{}}, // delete non-existent column
-	}
-	err := ApplyOperations(&base, ops)
-	if err == nil {
+	ops := []scoop_protocol.Operation{scoop_protocol.NewDeleteOperation("minutes_logged")}
+
+	if err := ApplyOperations(&base, ops); err == nil {
 		t.Error("Expected error on adding existing row.")
 	}
 }

@@ -7,6 +7,8 @@ import (
 
 	"encoding/json"
 
+	"sync"
+
 	_ "github.com/lib/pq" // to include the 'postgres' driver
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
@@ -43,10 +45,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 FROM operation
 WHERE event = $1
 GROUP BY event`
+
+	getMaintenanceModeQuery = `SELECT is_maintenance FROM maintenance ORDER BY ts DESC LIMIT 1`
+
+	setMaintenanceModeQuery = `INSERT INTO maintenance (is_maintenance, reason) VALUES ($1, $2)`
 )
 
 type postgresBackend struct {
-	db *sql.DB
+	db                *sql.DB
+	inMaintenanceMode bool
+	maintenanceMutex  *sync.RWMutex
 }
 
 type operationRow struct {
@@ -65,14 +73,17 @@ type operationRow struct {
 func NewPostgresBackend(dbConnection string) (Bpdb, error) {
 	db, err := sql.Open("postgres", dbConnection)
 	if err != nil {
-		return nil, fmt.Errorf("Got err %v while connecting to db.", err)
+		return nil, fmt.Errorf("connecting to db: %v", err)
 	}
-	err = db.Ping()
-	if err != nil {
-		return nil, fmt.Errorf("Got err %v trying to ping the db.", err)
+
+	p := &postgresBackend{db: db, maintenanceMutex: &sync.RWMutex{}}
+	logger.Info("Querying DB for maintenance mode")
+	if err = p.readMaintenanceMode(); err != nil {
+		return nil, fmt.Errorf("querying maintenance status: %v", err)
 	}
-	b := &postgresBackend{db: db}
-	return b, nil
+	logger.WithField("is_maintenance", p.IsInMaintenanceMode()).Info("Got maintenance mode from DB")
+
+	return p, nil
 }
 
 // Migration returns the operations necessary to migration `table` from version `to -1` to version `to`
@@ -309,6 +320,30 @@ func (p *postgresBackend) AllSchemas() ([]AnnotatedSchema, error) {
 		return nil, err
 	}
 	return generateSchemas(ops)
+}
+
+func (p *postgresBackend) readMaintenanceMode() error {
+	p.maintenanceMutex.Lock()
+	defer p.maintenanceMutex.Unlock()
+	return p.db.QueryRow(getMaintenanceModeQuery).Scan(&p.inMaintenanceMode)
+}
+
+func (p *postgresBackend) IsInMaintenanceMode() bool {
+	p.maintenanceMutex.RLock()
+	defer p.maintenanceMutex.RUnlock()
+	return p.inMaintenanceMode
+}
+
+func (p *postgresBackend) SetMaintenanceMode(switchingOn bool, reason string) error {
+	p.maintenanceMutex.Lock()
+	defer p.maintenanceMutex.Unlock()
+
+	if _, err := p.db.Exec(setMaintenanceModeQuery, switchingOn, reason); err != nil {
+		return fmt.Errorf("setting maintenance mode: %v", err)
+	}
+
+	p.inMaintenanceMode = switchingOn
+	return nil
 }
 
 // generateSchemas creates schemas from a list of operations

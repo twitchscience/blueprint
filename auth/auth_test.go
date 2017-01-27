@@ -20,6 +20,7 @@ var (
 	clientSecret  string
 	githubServer  string
 	requiredOrg   string
+	adminTeam     string
 	authenticator auth.Auth
 )
 
@@ -53,6 +54,7 @@ func init() {
 	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
 	flag.StringVar(&githubServer, "githubServer", "http://github.com", "Github server to use for auth")
 	flag.StringVar(&requiredOrg, "requiredOrg", "", "Org user need to belong to to use auth")
+	flag.StringVar(&adminTeam, "adminTeam", "", "Team with admin privileges")
 	flag.Parse()
 }
 
@@ -80,6 +82,7 @@ func TestIntegrationGoogle(t *testing.T) {
 		clientSecret,
 		cookieSecret,
 		requiredOrg,
+		adminTeam,
 		"/login")
 
 	goji.Get("/login", authenticator.LoginHandler)

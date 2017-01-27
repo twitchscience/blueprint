@@ -48,6 +48,7 @@ var (
 	clientSecret       string
 	githubServer       string
 	requiredOrg        string
+	adminTeam          string
 )
 
 func init() {
@@ -58,6 +59,7 @@ func init() {
 	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
 	flag.StringVar(&githubServer, "githubServer", "http://github.com", "Github server to use for auth")
 	flag.StringVar(&requiredOrg, "requiredOrg", "", "Org user need to belong to to use auth")
+	flag.StringVar(&adminTeam, "adminTeam", "", "Team with admin privileges")
 }
 
 // New returns an API process.
@@ -83,72 +85,113 @@ func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont i
 	return s
 }
 
-// Setup route handlers.
-func (s *server) Setup() error {
-	healthcheck := web.New()
-	healthcheck.Get("/health", s.healthCheck)
+// Create a simple health check API which needs no special setup.
+func (s *server) setupHealthcheckAPI() {
+	healthcheckAPI := web.New()
+	healthcheckAPI.Get("/health", s.healthCheck)
+	goji.Get("/health", healthcheckAPI)
+}
 
+// Create the read-only API, available to all users.
+func (s *server) setupReadonlyAPI() {
 	roAPI := web.New()
 	roAPI.Use(jsonResponse)
 	roAPI.Use(gzip.GzipHandler)
+
 	roAPI.Get("/schemas", s.allSchemas)
 	roAPI.Get("/schema/:id", s.schema)
 	roAPI.Get("/droppable/schema/:id", s.droppableSchema)
+	roAPI.Get("/maintenance", s.getMaintenanceMode)
 	roAPI.Get("/migration/:schema", s.migration)
 	roAPI.Get("/types", s.types)
 	roAPI.Get("/suggestions", s.listSuggestions)
 	roAPI.Get("/suggestion/:id", s.suggestion)
 
-	goji.Get("/health", healthcheck)
 	goji.Get("/schemas", roAPI)
 	goji.Get("/schema/*", roAPI)
 	goji.Get("/droppable/schema/*", roAPI)
+	goji.Get("/maintenance", roAPI)
 	goji.Get("/migration/*", roAPI)
+	goji.Get("/types", roAPI)
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
-	goji.Get("/types", roAPI)
+}
 
-	if !readonly {
-		api := web.New()
-		api.Use(context.ClearHandler)
+// Create the write API available only to authenticated users, which includes creating and
+// adding rows to schemata, requesting deletion, and starting a forced ingest.  Because it
+// involves changes to the Blueprint DB, all of it is locked down during maintenance mode.
+func (s *server) authWriteAPI() *web.Mux {
+	authWriteAPI := web.New()
+	authWriteAPI.Use(context.ClearHandler)
+	authWriteAPI.Use(s.maintenanceHandler)
 
-		api.Post("/ingest", s.ingest)
-		api.Put("/schema", s.createSchema)
-		api.Post("/schema/:id", s.updateSchema)
-		api.Post("/drop/schema", s.dropSchema)
-		api.Post("/removesuggestion/:id", s.removeSuggestion)
+	authWriteAPI.Post("/ingest", s.ingest)
+	authWriteAPI.Put("/schema", s.createSchema)
+	authWriteAPI.Post("/schema/:id", s.updateSchema)
+	authWriteAPI.Post("/drop/schema", s.dropSchema)
+	authWriteAPI.Post("/removesuggestion/:id", s.removeSuggestion)
 
-		goji.Post("/ingest", api)
-		goji.Put("/schema", api)
-		goji.Post("/schema/*", api)
-		goji.Post("/drop/schema", api)
-		goji.Post("/removesuggestion/*", api)
+	goji.Post("/ingest", authWriteAPI)
+	goji.Put("/schema", authWriteAPI)
+	goji.Post("/schema/*", authWriteAPI)
+	goji.Post("/drop/schema", authWriteAPI)
+	goji.Post("/removesuggestion/*", authWriteAPI)
 
-		files := web.New()
-		files.Use(context.ClearHandler)
+	return authWriteAPI
+}
 
+// Create the write API available only to admins.  Currently limited to toggling maintenance mode.
+func (s *server) authAdminAPI() *web.Mux {
+	adminAPI := web.New()
+	adminAPI.Use(context.ClearHandler)
+
+	adminAPI.Post("/maintenance", s.setMaintenanceMode)
+	goji.Post("/maintenance", adminAPI)
+
+	return adminAPI
+}
+
+// Set up the authenticated portion of the API.
+func (s *server) setupAuthAPI() {
+	authWriteAPI := s.authWriteAPI()
+	adminAPI := s.authAdminAPI()
+
+	files := web.New()
+	files.Use(context.ClearHandler)
+
+	if enableAuth {
 		a := auth.New(githubServer,
 			clientID,
 			clientSecret,
 			cookieSecret,
 			requiredOrg,
+			adminTeam,
 			loginURL)
 
-		if enableAuth {
-			api.Use(a.AuthorizeOrForbid)
+		authWriteAPI.Use(a.AuthorizeOrForbid)
+		adminAPI.Use(a.AuthorizeOrForbidAdmin)
+		goji.Handle(loginURL, a.LoginHandler)
+		goji.Handle(logoutURL, a.LogoutHandler)
+		goji.Handle(authCallbackURL, a.AuthCallbackHandler)
+		files.Use(a.ExpireDisplayName)
+	} else {
+		authWriteAPI.Use(auth.DummyAuth)
+		adminAPI.Use(auth.DummyAuth)
+		goji.Handle(loginURL, auth.DummyLoginHandler)
+		goji.Handle(logoutURL, auth.DummyLogoutHandler)
+	}
 
-			goji.Handle(loginURL, a.LoginHandler)
-			goji.Handle(logoutURL, a.LogoutHandler)
-			goji.Handle(authCallbackURL, a.AuthCallbackHandler)
-			files.Use(a.ExpireDisplayName)
-		} else {
-			api.Use(auth.DummyAuth)
-			goji.Handle(loginURL, auth.DummyLoginHandler)
-			goji.Handle(logoutURL, auth.DummyLogoutHandler)
-		}
+	goji.Handle("/*", files)
+	files.Get("/*", s.fileHandler)
+}
 
-		goji.Handle("/*", files)
-		files.Get("/*", s.fileHandler)
+// Setup route handlers.
+func (s *server) Setup() error {
+	s.setupHealthcheckAPI()
+	s.setupReadonlyAPI()
+
+	if !readonly {
+		s.setupAuthAPI()
 	}
 	goji.NotFound(fourOhFour)
 

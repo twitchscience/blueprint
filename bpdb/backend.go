@@ -37,6 +37,9 @@ type Bpdb interface {
 	CreateSchema(schema *scoop_protocol.Config, user string) error
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
+
+	IsInMaintenanceMode() bool
+	SetMaintenanceMode(switchingOn bool, reason string) error
 }
 
 func validateType(t string) error {

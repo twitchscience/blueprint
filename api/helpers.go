@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goji/param"
 	"github.com/twitchscience/aws_utils/logger"
 )
 
@@ -18,6 +19,11 @@ import (
 type SchemaSuggestion struct {
 	EventName string
 	Occurred  int
+}
+
+type maintenanceMode struct {
+	IsMaintenance bool   `param:"is_maintenance"`
+	Reason        string `param:"reason"`
 }
 
 func staticPath(root, file string) string {
@@ -133,4 +139,23 @@ func (s *server) requestTableDeletion(schemaName string, reason string, username
 		return fmt.Errorf("error in slackbot (code %d): %s", resp.StatusCode, body)
 	}
 	return nil
+}
+
+func (s *server) setMaintenanceModeParameters(r *http.Request) (*maintenanceMode, error) {
+	var mm maintenanceMode
+	var err error
+
+	if err = r.ParseForm(); err != nil {
+		return nil, err
+	}
+	for _, key := range []string{"is_maintenance", "reason"} {
+		if _, ok := r.Form[key]; !ok {
+			return nil, fmt.Errorf("missing parameter %s", key)
+		}
+	}
+	if err = param.Parse(r.Form, &mm); err != nil {
+		return nil, err
+	}
+
+	return &mm, nil
 }

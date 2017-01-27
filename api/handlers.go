@@ -76,6 +76,28 @@ func respondWithJSONError(w http.ResponseWriter, text string, responseCode int) 
 	}
 }
 
+// maintenanceHandler sends an error if Blueprint is in maintenance mode and otherwise yields to
+// the given http.Handler.
+func (s *server) maintenanceHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.WithFields(map[string]interface{}{
+			"http_method": r.Method,
+			"url":         r.URL,
+		}).Info("Maintenance middleware invoked")
+		isInMaintenanceMode := s.bpdbBackend.IsInMaintenanceMode()
+		logger.WithField("is_maintenance", isInMaintenanceMode).Info("Checked maintenance mode")
+		if isInMaintenanceMode {
+			respondWithJSONError(
+				w,
+				"Blueprint is in maintenance mode; no modifications are allowed",
+				http.StatusServiceUnavailable)
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
+}
+
 // ingest proxies the request through to the ingester /control/ingest
 func (s *server) ingest(c web.C, w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
@@ -483,6 +505,29 @@ func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Reques
 		fourOhFour(w, r)
 		return
 	}
+}
+
+func (s *server) getMaintenanceMode(w http.ResponseWriter, r *http.Request) {
+	isInMaintenanceMode := s.bpdbBackend.IsInMaintenanceMode()
+	logger.WithField("is_maintenance", isInMaintenanceMode).Info("Serving GetMaintenanceMode request")
+	respondWithJSONBool(w, "is_maintenance", isInMaintenanceMode)
+}
+
+func (s *server) setMaintenanceMode(w http.ResponseWriter, r *http.Request) {
+	mm, err := s.setMaintenanceModeParameters(r)
+	if err != nil {
+		logger.WithError(err).Warning("Bad parameters to set maintenance mode")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err = s.bpdbBackend.SetMaintenanceMode(mm.IsMaintenance, mm.Reason); err != nil {
+		logger.WithError(err).Error("Failed to set maintenance mode")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	logger.WithField("is_maintenance", mm.IsMaintenance).WithField("reason", mm.Reason).Info("Maintenance mode set")
 }
 
 func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {
