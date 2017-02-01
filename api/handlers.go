@@ -28,6 +28,11 @@ type config struct {
 	Blacklist        []string
 }
 
+type maintenanceMode struct {
+	IsMaintenance bool   `json:"is_maintenance"`
+	Reason        string `json:"reason"`
+}
+
 func (s *server) loadConfig() error {
 	configJSON, err := ioutil.ReadFile(s.configFilename)
 	if err != nil {
@@ -514,9 +519,17 @@ func (s *server) getMaintenanceMode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) setMaintenanceMode(w http.ResponseWriter, r *http.Request) {
-	mm, err := s.setMaintenanceModeParameters(r)
+	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		logger.WithError(err).Warning("Bad parameters to set maintenance mode")
+		logger.WithError(err).Error("Failed to read body of request")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var mm maintenanceMode
+	err = json.Unmarshal(b, &mm)
+	if err != nil {
+		logger.WithError(err).Error("Failed to marshal form data")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

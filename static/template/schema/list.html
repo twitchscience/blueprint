@@ -1,6 +1,28 @@
 <h1>Published Schemas</h1>
-<a href="#/schema" ng-if="loginName"><button type="button" class="btn
-                                                btn-success">Create</button></a>
+<a href="#/schema" ng-if="isEditable">
+  <button type="button" class="btn btn-success">Create</button>
+</a>
+<button ng-show="isAdmin" ng-click="showMaintenance = !showMaintenance" type="button" class="btn btn-danger">
+  {{ showMaintenance ? "Cancel" : "Switch" }} maintenance mode {{ maintenanceDirection }}
+</button>
+<form ng-show="loginName && isAdmin && showMaintenance" ng-submit="toggleMaintenanceMode()">
+<div class="row form-group" style="margin-top: 35px">
+  <div class="col-xs-3">
+    <label for="reason">Reason for toggling maintenance mode: </label>
+  </div>
+  <div class="col-xs-6">
+    <textarea name="reason" ng-model="toggleMaintenanceModeReason" class="form-control"></textarea>
+  </div>
+  <div class="col-xs-2">
+    <button type="submit" class="btn btn-danger" ng-disabled="togglingMaintenanceMode">
+      Turn maintenance mode {{ maintenanceDirection }}
+    </button>
+  </div>
+  <div class="col-xs-1">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px" ng-show="togglingMaintenanceMode"></i>
+  </div>
+</div>
+</form>
 
 <div class="row">
   <div class="col-md-4 col-md-offset-8">

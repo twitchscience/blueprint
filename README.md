@@ -51,6 +51,14 @@ Set the `use_private_ip` to convey to packer whether to SSH to the
 public IP address of the intermediate machine or the private one.
 Either way your security group needs to allow access to port 22.
 
+## Maintenance mode
+Members of the admin team on GitHub (number specified by the command-line flag
+`-adminTeam`) can take Blueprint in and out of maintenance mode, during which
+no modifications to the database are possible.
+
+Caveat: After toggling maintenance mode, you will have to reload to see the
+relevant UI changes, but the backend is locked down regardless.
+
 ## Improvements
 
  * Improve these docs!

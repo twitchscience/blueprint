@@ -3,10 +3,12 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
@@ -80,21 +82,29 @@ func responseBodyToMap(r *http.Response) (map[string]interface{}, error) {
 
 // AuthCallbackHandler receives the callback portion of the auth flow
 func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Debug("AuthCallbackHandler")
-	session, _ := a.CookieStore.Get(r, cookieName)
-
-	err := r.ParseForm()
+	redirectTarget, err := a.authCallbackHelper(w, r)
 	if err != nil {
-		logger.WithError(err).Error("Failed to parse form")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		logger.WithError(err).Error("Failed to authorize user")
+		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
 		return
+	}
+
+	http.Redirect(w, r, "/"+redirectTarget, http.StatusFound)
+}
+
+func (a *GithubAuth) authCallbackHelper(w http.ResponseWriter, r *http.Request) (string, error) {
+	session, err := a.CookieStore.Get(r, cookieName)
+	if err != nil {
+		return "", fmt.Errorf("getting cookie: %v", err)
+	}
+
+	if err = r.ParseForm(); err != nil {
+		return "", fmt.Errorf("parsing form: %v", err)
 	}
 
 	expectedState := session.Values["auth-state"]
 	if expectedState == nil {
-		logger.Error("No auth state variable found in cookie")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
+		return "", errors.New("no auth state found in cookie")
 	}
 
 	receivedState := r.FormValue("state")
@@ -103,69 +113,66 @@ func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request)
 			"expected_state": expectedState,
 			"received_state": receivedState,
 		}).Error("Invalid oauth state")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
+		return "", errors.New("invalid oauth state")
 	}
 
 	token, err := a.exchangeToken(r.FormValue("code"), receivedState)
 	if err != nil {
-		logger.WithError(err).Error("Failed to exchange token")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
+		return "", fmt.Errorf("exchanging token: %v", err)
 	}
 
-	client := a.OauthConfig.Client(oauth2.NoContext, token)
-	resp, err := client.Get(a.GithubServer + "/api/v3/user")
+	resp, err := a.OauthConfig.Client(oauth2.NoContext, token).Get(a.GithubServer + "/api/v3/user")
 	if err != nil {
-		logger.WithError(err).Error("Failed to get user info")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
+		return "", fmt.Errorf("getting user infor from GitHub API: %v", err)
 	}
 
 	userInfo, err := responseBodyToMap(resp)
 	if err != nil {
-		logger.WithError(err).Error("Failed to create map from response body")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
-	}
-
-	if userInfo["login"] == nil {
-		logger.Error("User login not found in user info")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
+		return "", fmt.Errorf("creating map from response body: %v", err)
+	} else if userInfo["login"] == nil {
+		return "", errors.New("login not found in user info")
 	}
 
 	bytes, err := json.Marshal(token)
 	if err != nil {
-		logger.WithError(err).Error("Failed to marshal oauth token")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
+		return "", fmt.Errorf("marshaling OAuth token: %v", err)
 	}
 
-	if loginName, ok := userInfo["login"].(string); ok {
-		http.SetCookie(w, &http.Cookie{Name: "displayName", Value: loginName,
-			Secure: true, MaxAge: int(a.LoginTTL.Seconds())})
-	} else {
-		logger.Error("User login in user info is not a string")
-		http.Error(w, "Error handling authentication response", http.StatusInternalServerError)
-		return
+	loginName, ok := userInfo["login"].(string)
+	if !ok {
+		return "", errors.New("login in user info not a string")
 	}
+	http.SetCookie(w, &http.Cookie{
+		Name:   "displayName",
+		Value:  loginName,
+		Secure: true,
+		MaxAge: int(a.LoginTTL.Seconds()),
+	})
 
 	session.Values["auth-token"] = bytes
 	session.Values["login-time"] = time.Now().Unix()
 	session.Values["login-name"] = userInfo["login"]
 
+	isAdmin, err := a.userIsAdmin(token, session)
+	if err != nil {
+		return "", fmt.Errorf("getting admin status: %v", err)
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:   "isAdmin",
+		Value:  strconv.FormatBool(isAdmin),
+		Secure: true,
+		MaxAge: int(a.LoginTTL.Seconds()),
+	})
+
 	redirectTarget := session.Values["auth-redirect-to"].(string)
 	delete(session.Values, "auth-redirect-to")
 	delete(session.Values, "auth-state")
-	err = session.Save(r, w)
-	if err != nil {
-		logger.WithError(err).Error("Failed to save auth info to cookie")
-		http.Error(w, "Error saving auth.", http.StatusInternalServerError)
-		return
+
+	if err = session.Save(r, w); err != nil {
+		return "", fmt.Errorf("saving auth info to cookie: %v", err)
 	}
 
-	http.Redirect(w, r, "/"+redirectTarget, http.StatusFound)
+	return redirectTarget, nil
 }
 
 // LoginHandler handles the login portion of the auth flow
@@ -200,7 +207,7 @@ func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := a.CookieStore.Get(r, cookieName)
 
-	http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+	clearCookies(w)
 	delete(session.Values, "login-time")
 	delete(session.Values, "login-name")
 	delete(session.Values, "auth-state")
@@ -219,11 +226,12 @@ func (a *GithubAuth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 // DummyLoginHandler logs the unknown user in automatically.
 func DummyLoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: "displayName", Value: "unknown"})
+	http.SetCookie(w, &http.Cookie{Name: "isAdmin", Value: "true"})
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
 // DummyLogoutHandler logs the unknown user out.
 func DummyLogoutHandler(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+	clearCookies(w)
 	http.Redirect(w, r, "/", http.StatusFound)
 }

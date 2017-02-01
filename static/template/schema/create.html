@@ -11,9 +11,9 @@
           <th>Column Type</th>
           <th class="text-center">Column Size</th>
           <th class="text-center">Mapping Column</th>
-          <th class="text-center" ng-if="loginName">Distribution Key</th>
+          <th class="text-center" ng-if="isEditable">Distribution Key</th>
           <th class="text-center">Occurrence Rate</th>
-          <th ng-if="loginName">&nbsp;</th>
+          <th ng-if="isEditable">&nbsp;</th>
         </tr>
       </thead>
       <tbody>
@@ -21,33 +21,33 @@
           <td><input type="text"
                      value="{{p.InboundName}}"
                      ng-model="p.InboundName"
-                     ng-disabled="!loginName"
+                     ng-disabled="!isEditable"
                      required/></td>
           <td><input type="text"
                      value="{{p.OutboundName}}"
                      ng-model="p.OutboundName"
-                     ng-disabled="!loginName"
+                     ng-disabled="!isEditable"
                      required/></td>
           <td>
             <select ng-options="type for type in types"
-                    ng-disabled="!loginName"
+                    ng-disabled="!isEditable"
                     ng-model="p.Transformer"/>
           </td>
           <td class="text-center">
             <input ng-if="p.Transformer == 'varchar'"
                    value="{{p.size}}"
                    ng-model="p.size"
-                   ng-disabled="!loginName"
+                   ng-disabled="!isEditable"
                    required/>
           </td>
           <td class="text-center">
             <select ng-if="usingMappingTransformer(p)"
                     ng-options="name as name for name in validInboundNames()"
                     ng-model="p.mappingColumn"
-                    ng-disabled="!loginName"
+                    ng-disabled="!isEditable"
                     required/>
           </td>
-          <td class="text-center" ng-if="loginName">
+          <td class="text-center" ng-if="isEditable">
             <input type="radio"
                    ng-model="event.distkey"
                    value="{{p.OutboundName}}"
@@ -56,7 +56,7 @@
           <td class="text-center">
             {{p.OccurrenceProbability | number : 4}}
           </td>
-          <td ng-if="p.InboundName !== 'time' && loginName">
+          <td ng-if="p.InboundName !== 'time' && isEditable">
             <button ng-click="dropColumnFromSchema($index)"
                     type="button"
                     class="btn btn-warning">
@@ -66,7 +66,7 @@
         </tr>
       </tbody>
       <tfoot>
-        <tr ng-if="loginName">
+        <tr ng-if="isEditable">
           <td>
             <input type="text"
                    id="newInboundName"
@@ -103,7 +103,7 @@
                     class="btn btn-primary">Add!</button>
           </td>
         </tr>
-        <tr ng-if="loginName">
+        <tr ng-if="isEditable">
           <td colspan="7"></td>
           <td class="text-center">
             <input type="hidden"

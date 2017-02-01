@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -96,7 +97,7 @@ func (a *GithubAuth) AuthorizeOrForbid(c *web.C, h http.Handler) http.Handler {
 		user := a.User(r)
 		if user == nil || !user.IsMemberOfOrg {
 			http.Error(w, "Please authenticate", http.StatusForbidden)
-			http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+			clearCookies(w)
 			return
 		}
 		c.Env["username"] = user.Name
@@ -113,13 +114,13 @@ func (a *GithubAuth) AuthorizeOrForbidAdmin(c *web.C, h http.Handler) http.Handl
 		user := a.User(r)
 		if user == nil {
 			http.Error(w, "Please authenticate", http.StatusForbidden)
-			http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+			clearCookies(w)
 			return
 		}
 
 		if !user.IsAdmin {
 			http.Error(w, "You do not have the necessary privileges", http.StatusForbidden)
-			http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+			clearCookies(w)
 			return
 		}
 
@@ -133,12 +134,17 @@ func (a *GithubAuth) ExpireDisplayName(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
 		if user == nil || !user.IsMemberOfOrg {
-			http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+			clearCookies(w)
 		}
 
 		h.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
+}
+
+func clearCookies(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{Name: "displayName", MaxAge: 0})
+	http.SetCookie(w, &http.Cookie{Name: "isAdmin", MaxAge: 0})
 }
 
 func (a *GithubAuth) getGroupMembership(
@@ -153,7 +159,7 @@ func (a *GithubAuth) getGroupMembership(
 	}
 
 	client := a.OauthConfig.Client(oauth2.NoContext, token)
-	checkURL := fmt.Sprintf(fmtString, a.GithubServer, groupName, session.Values["login-name"])
+	checkURL := fmt.Sprintf(fmtString, a.GithubServer, url.QueryEscape(groupName), session.Values["login-name"])
 	resp, err := client.Get(checkURL)
 	if err != nil {
 		return false, fmt.Errorf("checking URL: %v", err)

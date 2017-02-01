@@ -2,11 +2,11 @@
 </h1>
 <div class="row">
   <div class="col-md-5">
-    <button id="button-{{schema.EventName}}" ng-click="ingestTable(schema)" ng-if="loginName && !schema.DropRequested" class="btn btn-primary"
+    <button id="button-{{schema.EventName}}" ng-click="ingestTable(schema)" ng-if="isEditable && !schema.DropRequested" class="btn btn-primary"
       >Force Load</button>
     <button ng-click="showDropTable = !showDropTable"
             type="button" class="btn" ng-class="{'btn-danger': !showDropTable, 'btn-success': showDropTable}"
-            ng-show="loginName && dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
+            ng-show="isEditable && dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
   </div>
   <div class="col-md-6 col-md-offset-1">
     <span class="pull-right">
@@ -22,7 +22,7 @@
     <i class="fa fa-spinner fa-spin" style="font-size:24px; margin-top: 30px"></i>
   </div>
 </div>
-<form ng-show="loginName && showDropTable && dropMessage && !loading" ng-submit="dropTable()">
+<form ng-show="isEditable && showDropTable && dropMessage && !loading" ng-submit="dropTable()">
 <div class="row form-group" style="margin-top: 35px">
   <div class="col-xs-3">
     <label for="reason">Reason for dropping: </label>
@@ -40,7 +40,7 @@
 </form>
 
 <form ng-show="!loading && (!showDropTable || !dropMessage)" name="updateSchemaForm" ng-submit="updateSchema()">
-<span ng-show="loginName">Note: any changes will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.</span>
+<span ng-show="isEditable">Note: any changes will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.</span>
 <table class="table table-hover">
   <thead>
     <tr>
@@ -49,20 +49,20 @@
       <th>Column Type</th>
       <th class="text-center">Column Options</th>
       <th class="text-center">Mapping Column</th>
-      <th ng-if="loginName">&nbsp;</th>
+      <th ng-if="isEditable">&nbsp;</th>
     </tr>
   </thead>
   <tbody>
     <tr ng-repeat="c in schema.Columns">
       <td>{{c.InboundName}}</td>
       <td ng-class="outboundColumnStyle(c.OutboundName)">
-        <input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)" ng-if="loginName">
-        <span ng-if="!loginName">{{nameMap[c.OutboundName]}}</span>
+        <input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)" ng-if="isEditable">
+        <span ng-if="!isEditable">{{nameMap[c.OutboundName]}}</span>
       </td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
       <td class="text-center">{{c.SupportingColumns}}</td>
-      <td class="text-center" ng-if="loginName">
+      <td class="text-center" ng-if="isEditable">
         <button
           ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index) && !outboundColumnEdited(c.OutboundName)"
           ng-click="deleteColumnFromSchema($index)"
@@ -80,7 +80,7 @@
         class="btn btn-info">Undo Rename</button>
       </td>
     </tr>
-    <tr ng-repeat="c in additions.Columns" ng-if="loginName">
+    <tr ng-repeat="c in additions.Columns" ng-if="isEditable">
       <td>{{c.InboundName}}</td>
       <td>{{c.OutboundName}}</td>
       <td>{{c.Transformer}}</td>
@@ -93,7 +93,7 @@
       </td>
     </tr>
   </tbody>
-  <tfoot ng-if="loginName">
+  <tfoot ng-if="isEditable">
     <tr>
       <td>
         <input type="text"

@@ -40,6 +40,9 @@
             </button>
             {{ getMessage() }}
           </div>
+          <div class="alert alert-info" role="alert" ng-if="loginName && !isEditable">
+            Blueprint is currently in maintenance mode; no modifications are possible.
+          </div>
         </div>
         <div class="col-md-9 col-md-offset-1" ng-view></div>
       </div>

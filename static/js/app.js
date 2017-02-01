@@ -37,6 +37,14 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
        }
     );
   })
+  .factory('Maintenance', function($resource) {
+      return $resource(
+          '/maintenance', null,
+          {get: {url: '/maintenance', method:'GET'},
+           post: {url: '/maintenance', method:'POST'},
+          }
+      );
+  })
   .factory('ColumnMaker', function() {
     // Design Note:
     // Hard-coding this should be good enough for now, but we could instead augment the Types
@@ -93,6 +101,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     $scope.clearMessage = store.clearMessage;
     $scope.loginName = auth.getLoginName();
     $scope.loc = $location;
+    auth.isEditable($scope);
   })
   .controller('SchemaShowCtrl', function ($scope, $http, $location, $routeParams, $q, store, Schema, Types, Droppable, ColumnMaker, auth) {
     var types, schema, dropMessage, cancelDropMessage;
@@ -107,6 +116,7 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
     $scope.loginName = auth.getLoginName();
+    auth.isEditable($scope);
 
     $scope.ingestTable = function(schema){
       $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
@@ -425,11 +435,22 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       };
     });
   })
-  .controller('SchemaListCtrl', function($scope, $location, Schema, Suggestions, store, auth) {
+  .controller('SchemaListCtrl', function($scope, $location, Schema, Suggestions, Maintenance, store, auth) {
     $scope.loginName = auth.getLoginName();
+    $scope.isAdmin = auth.isAdmin();
+    $scope.isEditable = false;
+    auth.isEditableContinuation(function(isEditable) {
+      $scope.isEditable = isEditable;
+      if (isEditable) {
+        $scope.maintenanceDirection = "on";
+      } else {
+        $scope.maintenanceDirection = "off";
+      }
+    });
     $scope.loading = true;
     $scope.ready = false;
     Schema.all(function(data) {
+      $scope.showMaintenance = false;
       $scope.loading = false;
       $scope.schemas = data;
       var existingSchemas = {};
@@ -457,9 +478,33 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       }
       store.setError(msg);
     });
+    $scope.toggleMaintenanceMode = function() {
+      if (!$scope.toggleMaintenanceModeReason) {
+        store.setError("Please enter a reason for turning maintenance mode " + $scope.maintenanceDirection);
+        return
+      }
+      $scope.togglingMaintenanceMode = true;
+      Maintenance.post(
+        {is_maintenance: $scope.isEditable,
+         reason: $scope.toggleMaintenanceModeReason},
+        function() {
+          store.setMessage("Maintenance mode turned " + $scope.maintenanceDirection);
+          $location.path('/schemas');
+          $scope.isEditable = !$scope.isEditable;
+          $scope.maintenanceDirection = $scope.isEditable ? "on" : "off";
+          $scope.showMaintenance = false;
+          $scope.togglingMaintenanceMode = false;
+        },
+        function(err) {
+          store.setError(err, undefined);
+          $scope.showMaintenance = false;
+          $scope.togglingMaintenanceMode = false;
+        });
+    };
   })
   .controller('SchemaCreateCtrl', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, ColumnMaker, auth) {
     $scope.loginName = auth.getLoginName();
+    auth.isEditable($scope);
     var types, suggestions, suggestionData;
     var typeData = Types.get(function(data) {
       if (data) {
@@ -698,12 +743,34 @@ angular.module('blueprint', ['ngResource', 'ngRoute', 'ngCookies'])
       };
     });
   })
-  .service('auth', function($cookies) {
+  .service('auth', function($cookies, Maintenance) {
     var loginName = $cookies.get('displayName');
+    var isAdmin = ($cookies.get('isAdmin') === "true");
     return {
       getLoginName: function() {
         return loginName;
       },
+      isAdmin: function() {
+        return isAdmin;
+      },
+      isEditableContinuation: function(f) {
+        if (!loginName) {
+          f(false);
+          return;
+        }
+        Maintenance.get(function(data) {
+          f(!data.is_maintenance);
+        }, function(err) {
+          store.setError('Error loading maintenance mode: ' + err);
+          f(false);
+        });
+      },
+      isEditable: function(scope) {
+        scope.isEditable = false;
+        this.isEditableContinuation(function(isEditable) {
+          scope.isEditable = isEditable;
+        });
+      }
     };
   })
   .service('store', function($location) {
