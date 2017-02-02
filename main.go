@@ -6,6 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/api"
 	"github.com/twitchscience/blueprint/bpdb"
@@ -30,6 +33,10 @@ func main() {
 	logger.CaptureDefault()
 	logger.Info("Starting!")
 	defer logger.LogPanic()
+
+	logger.Go(func() {
+		logger.WithError(http.ListenAndServe(":7766", nil)).Error("Serving pprof failed")
+	})
 
 	bpdbBackend, err := bpdb.NewPostgresBackend(*bpdbConnection)
 	if err != nil {
