@@ -20,7 +20,7 @@ func TestMigrationNegativeTo(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, configFile.Name(), nil, "").(*server)
+	s := New("", nil, configFile.Name(), nil, "", false).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)
@@ -38,7 +38,7 @@ func TestAllSchemasCache(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", backend, configFile.Name(), nil, "").(*server)
+	s := New("", backend, configFile.Name(), nil, "", false).(*server)
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}

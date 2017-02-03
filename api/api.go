@@ -34,6 +34,7 @@ type server struct {
 	cachedVersion      int
 	cacheTimeout       time.Duration
 	blacklistRe        []*regexp.Regexp
+	readonly           bool
 }
 
 var (
@@ -53,7 +54,6 @@ var (
 
 func init() {
 	flag.BoolVar(&enableAuth, "enableAuth", true, "enable authentication when not in readonly mode")
-	flag.BoolVar(&readonly, "readonly", false, "run in readonly mode and disable auth")
 	flag.StringVar(&cookieSecret, "cookieSecret", "", "32 character secret for signing cookies")
 	flag.StringVar(&clientID, "clientID", "", "Google API client id")
 	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
@@ -63,7 +63,7 @@ func init() {
 }
 
 // New returns an API process.
-func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller, slackbotURL string) core.Subprocess {
+func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller, slackbotURL string, readonly bool) core.Subprocess {
 	s := &server{
 		docRoot:            docRoot,
 		bpdbBackend:        bpdbBackend,
@@ -73,6 +73,7 @@ func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont i
 		cacheSynchronizer:  make(chan func()),
 		cachedResult:       nil,
 		cachedVersion:      0,
+		readonly:           readonly,
 	}
 	if err := s.loadConfig(); err != nil {
 		logger.WithError(err).Fatal("failed to load config")
@@ -190,7 +191,7 @@ func (s *server) Setup() error {
 	s.setupHealthcheckAPI()
 	s.setupReadonlyAPI()
 
-	if !readonly {
+	if !s.readonly {
 		s.setupAuthAPI()
 	}
 	goji.NotFound(fourOhFour)

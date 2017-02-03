@@ -22,6 +22,7 @@ var (
 	configFilename     = flag.String("config", "conf.json", "Blueprint config file")
 	ingesterURL        = flag.String("ingesterURL", "", "URL to the ingester")
 	slackbotURL        = flag.String("slackbotURL", "", "URL for the slackbot")
+	readonly           = flag.Bool("readonly", false, "run in readonly mode and disable auth")
 	rollbarToken       = flag.String("rollbarToken", "", "Rollbar post_server_item token")
 	rollbarEnvironment = flag.String("rollbarEnvironment", "", "Rollbar environment")
 )
@@ -35,7 +36,11 @@ func main() {
 	defer logger.LogPanic()
 
 	logger.Go(func() {
-		logger.WithError(http.ListenAndServe(":7766", nil)).Error("Serving pprof failed")
+		port := ":7766"
+		if *readonly {
+			port = ":7767"
+		}
+		logger.WithError(http.ListenAndServe(port, nil)).Error("Serving pprof failed")
 	})
 
 	bpdbBackend, err := bpdb.NewPostgresBackend(*bpdbConnection)
@@ -45,7 +50,7 @@ func main() {
 
 	ingCont := ingester.NewController(*ingesterURL)
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename, ingCont, *slackbotURL)
+	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename, ingCont, *slackbotURL, *readonly)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,
