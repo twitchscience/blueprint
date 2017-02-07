@@ -90,13 +90,13 @@ func NewPostgresBackend(dbConnection string) (Bpdb, error) {
 func (p *postgresBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
 	rows, err := p.db.Query(migrationQuery, to, table)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying for migration (%s) to v%v: %v.", table, to, err)
+		return nil, fmt.Errorf("querying for migration (%s) to v%v: %v", table, to, err)
 	}
 	ops := []*scoop_protocol.Operation{}
 	defer func() {
 		err := rows.Close()
 		if err != nil {
-			logger.WithError(err).Error("Error closing rows in postgres backend Migration")
+			logger.WithError(err).Error("closing rows in postgres backend Migration")
 		}
 	}()
 	for rows.Next() {
@@ -105,13 +105,13 @@ func (p *postgresBackend) Migration(table string, to int) ([]*scoop_protocol.Ope
 		var s string
 		err := rows.Scan(&s, &op.Name, &b)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing row into Operation: %v.", err)
+			return nil, fmt.Errorf("parsing row into Operation: %v", err)
 		}
 
 		op.Action = scoop_protocol.Action(s)
 		err = json.Unmarshal(b, &op.ActionMetadata)
 		if err != nil {
-			return nil, fmt.Errorf("Error unmarshalling action_metadata: %v.", err)
+			return nil, fmt.Errorf("unmarshalling action_metadata: %v", err)
 		}
 		ops = append(ops, &op)
 	}
@@ -128,7 +128,7 @@ func (p *postgresBackend) execFnInTransaction(work func(*sql.Tx) error) error {
 	if err != nil {
 		rollbackErr := tx.Rollback()
 		if rollbackErr != nil {
-			return fmt.Errorf("Could not rollback successfully after error (%v), reason: %v", err, rollbackErr)
+			return fmt.Errorf("could not rollback successfully after error (%v), reason: %v", err, rollbackErr)
 		}
 		return err
 	}
@@ -141,7 +141,7 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 		var b []byte
 		b, err := json.Marshal(op.ActionMetadata)
 		if err != nil {
-			return fmt.Errorf("Error marshalling %s column metadata json: %v", op.Action, err)
+			return fmt.Errorf("marshalling %s column metadata json: %v", op.Action, err)
 		}
 		_, err = tx.Exec(insertOperationsQuery,
 			eventName,
@@ -155,9 +155,9 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 		if err != nil {
 			rollErr := tx.Rollback()
 			if rollErr != nil {
-				return fmt.Errorf("Error rolling back commit: %v.", rollErr)
+				return fmt.Errorf("rolling back commit: %v", rollErr)
 			}
-			return fmt.Errorf("Error INSERTing operation row on %s: %v", eventName, err)
+			return fmt.Errorf("INSERTing operation row on %s: %v", eventName, err)
 		}
 	}
 	return nil
@@ -168,14 +168,14 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) error {
 	exists, err := p.SchemaExists(req.EventName)
 	if err != nil {
-		return fmt.Errorf("Error checking for schema existence: %v", err)
+		return fmt.Errorf("checking for schema existence: %v", err)
 	}
 	if exists {
-		return fmt.Errorf("Invalid schema name: %s already exists", req.EventName)
+		return fmt.Errorf("invalid schema name: %s already exists", req.EventName)
 	}
 	err = preValidateSchema(req)
 	if err != nil {
-		return fmt.Errorf("Invalid schema creation request: %v", err)
+		return fmt.Errorf("invalid schema creation request: %v", err)
 	}
 
 	ops := schemaCreateRequestToOps(req)
@@ -187,7 +187,7 @@ func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) 
 		case err == sql.ErrNoRows:
 			newVersion = 0
 		case err != nil:
-			return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
+			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
 		return insertOperations(tx, ops, newVersion, req.EventName, user)
 	})
@@ -219,7 +219,7 @@ func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user
 		var newVersion int
 		err := row.Scan(&newVersion)
 		if err != nil {
-			return fmt.Errorf("Error parsing response for version number for %s: %v.", req.EventName, err)
+			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
 		return insertOperations(tx, ops, newVersion, req.EventName, user)
 	})
@@ -232,7 +232,7 @@ func (p *postgresBackend) DropSchema(schema *AnnotatedSchema, reason string, exi
 		row := tx.QueryRow(nextVersionQuery, schema.EventName)
 		err := row.Scan(&newVersion)
 		if err != nil {
-			return fmt.Errorf("error parsing response for version number for %s: %v", schema.EventName, err)
+			return fmt.Errorf("parsing response for version number for %s: %v", schema.EventName, err)
 		}
 		var op scoop_protocol.Operation
 		if exists {
@@ -248,12 +248,12 @@ func (p *postgresBackend) DropSchema(schema *AnnotatedSchema, reason string, exi
 func (p *postgresBackend) SchemaExists(eventName string) (bool, error) {
 	rows, err := p.db.Query(schemaExistsQuery, eventName)
 	if err != nil {
-		return false, fmt.Errorf("Error querying existence of schema  %s: %v.", eventName, err)
+		return false, fmt.Errorf("querying existence of schema  %s: %v", eventName, err)
 	}
 	defer func() {
 		err := rows.Close()
 		if err != nil {
-			logger.WithError(err).Error("Error closing rows in postgres backend SchemaExists")
+			logger.WithError(err).Error("closing rows in postgres backend SchemaExists")
 		}
 	}()
 
@@ -266,7 +266,7 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	defer func() {
 		err := rows.Close()
 		if err != nil {
-			logger.WithError(err).Error("Error closing rows in postgres backend scanOperationRows")
+			logger.WithError(err).Error("closing rows in postgres backend scanOperationRows")
 		}
 	}()
 	for rows.Next() {
@@ -274,11 +274,11 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 		var b []byte
 		err := rows.Scan(&op.event, &op.action, &op.name, &op.version, &op.ordering, &b, &op.ts, &op.userName)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing operation row: %v.", err)
+			return nil, fmt.Errorf("parsing operation row: %v", err)
 		}
 		err = json.Unmarshal(b, &op.actionMetadata)
 		if err != nil {
-			return nil, fmt.Errorf("Error unmarshalling action_metadata: %v.", err)
+			return nil, fmt.Errorf("unmarshalling action_metadata: %v", err)
 		}
 		ops = append(ops, op)
 	}
@@ -289,7 +289,7 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 func (p *postgresBackend) Schema(name string) (*AnnotatedSchema, error) {
 	rows, err := p.db.Query(schemaQuery, name)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying for schema %s: %v.", name, err)
+		return nil, fmt.Errorf("querying for schema %s: %v", name, err)
 	}
 	ops, err := scanOperationRows(rows)
 	if err != nil {
@@ -298,10 +298,10 @@ func (p *postgresBackend) Schema(name string) (*AnnotatedSchema, error) {
 
 	schemas, err := generateSchemas(ops)
 	if err != nil {
-		return nil, fmt.Errorf("Internal state bad - Error generating schemas from operations: %v", err)
+		return nil, fmt.Errorf("generating schemas from operations: %v", err)
 	}
 	if len(schemas) > 1 {
-		return nil, fmt.Errorf("Expected only one schema, received %v.", len(schemas))
+		return nil, fmt.Errorf("expected only one schema, received %v", len(schemas))
 	}
 	if len(schemas) == 0 {
 		return nil, nil
@@ -313,7 +313,7 @@ func (p *postgresBackend) Schema(name string) (*AnnotatedSchema, error) {
 func (p *postgresBackend) AllSchemas() ([]AnnotatedSchema, error) {
 	rows, err := p.db.Query(allSchemasQuery)
 	if err != nil {
-		return nil, fmt.Errorf("Error querying for all schemas: %v.", err)
+		return nil, fmt.Errorf("querying for all schemas: %v", err)
 	}
 	ops, err := scanOperationRows(rows)
 	if err != nil {
@@ -361,7 +361,7 @@ func generateSchemas(ops []operationRow) ([]AnnotatedSchema, error) {
 			Name:           op.name,
 		})
 		if err != nil {
-			return []AnnotatedSchema{}, fmt.Errorf("Error applying operation to schema: %v", err)
+			return []AnnotatedSchema{}, fmt.Errorf("applying operation to schema: %v", err)
 		}
 		if op.version >= schemas[op.event].Version {
 			schemas[op.event].Version = op.version

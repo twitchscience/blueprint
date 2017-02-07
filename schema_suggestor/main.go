@@ -53,12 +53,12 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 
 	err := json.Unmarshal([]byte(aws.StringValue(msg.Body)), &rotatedMessage)
 	if err != nil {
-		return fmt.Errorf("Could not decode %s\n", aws.StringValue(msg.Body))
+		return fmt.Errorf("could not decode %s", aws.StringValue(msg.Body))
 	}
 
 	tmpFile, err := ioutil.TempFile("", "schema_suggestor")
 	if err != nil {
-		return fmt.Errorf("Failed to create a tempfile to download %s: %v", rotatedMessage.Keyname, err)
+		return fmt.Errorf("failed to create a tempfile to download %s: %v", rotatedMessage.Keyname, err)
 	}
 	defer func() {
 		err = os.Remove(tmpFile.Name())
@@ -78,7 +78,7 @@ func (handler *BPHandler) Handle(msg *sqs.Message) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("Error downloading %s into %s: %v", rotatedMessage.Keyname, tmpFile.Name(), err)
+		return fmt.Errorf("error downloading %s into %s: %v", rotatedMessage.Keyname, tmpFile.Name(), err)
 	}
 	logger.WithField("size_bytes", n).Debug("Downloaded")
 

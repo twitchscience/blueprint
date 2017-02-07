@@ -25,7 +25,7 @@ func ApplyOperation(s *AnnotatedSchema, op scoop_protocol.Operation) error {
 	case scoop_protocol.ADD:
 		for _, existingCol := range s.Columns {
 			if existingCol.OutboundName == op.Name {
-				return fmt.Errorf("Outbound column '%s' already exists in schema, cannot add again.", op.Name)
+				return fmt.Errorf("outbound column '%s' already exists in schema, cannot add again", op.Name)
 			}
 		}
 		s.Columns = append(s.Columns, scoop_protocol.ColumnDefinition{
@@ -46,7 +46,7 @@ func ApplyOperation(s *AnnotatedSchema, op scoop_protocol.Operation) error {
 				return nil
 			}
 		}
-		return fmt.Errorf("Outbound column '%s' does not exists in schema, cannot drop non-existing column.", op.Name)
+		return fmt.Errorf("outbound column '%s' does not exists in schema, cannot drop non-existing column", op.Name)
 	case scoop_protocol.RENAME:
 		for i, existingCol := range s.Columns {
 			if existingCol.OutboundName == op.Name {
@@ -54,7 +54,7 @@ func ApplyOperation(s *AnnotatedSchema, op scoop_protocol.Operation) error {
 				return nil
 			}
 		}
-		return fmt.Errorf("Outbound column '%s' does not exists in schema, cannot rename non-existent column.", op.Name)
+		return fmt.Errorf("outbound column '%s' does not exists in schema, cannot rename non-existent column", op.Name)
 	case scoop_protocol.REQUEST_DROP_EVENT:
 		s.DropRequested = true
 		s.Reason = op.ActionMetadata["reason"]
@@ -69,7 +69,7 @@ func ApplyOperation(s *AnnotatedSchema, op scoop_protocol.Operation) error {
 		s.DropRequested = false
 		s.Reason = ""
 	default:
-		return fmt.Errorf("Error, unsupported operation action %s.", op.Action)
+		return fmt.Errorf("unsupported operation action %s", op.Action)
 	}
 	return nil
 }
