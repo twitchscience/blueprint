@@ -11,16 +11,16 @@ import (
 // MockBpdb is a mock for the bpdb/Bpdb interface which tracks how many times AllSchemas has been
 // called and whether the DB is in maintenance mode.
 type MockBpdb struct {
-	allSchemasCalls int32
-	allSchemasMutex *sync.RWMutex
-
-	maintenanceMode  bool
+	allSchemasMutex  *sync.RWMutex
 	maintenanceMutex *sync.RWMutex
+
+	allSchemasCalls int32
+	maintenanceMode bool
 }
 
 // NewMockBpdb creates a new mock backend.
 func NewMockBpdb() *MockBpdb {
-	return &MockBpdb{0, &sync.RWMutex{}, false, &sync.RWMutex{}}
+	return &MockBpdb{&sync.RWMutex{}, &sync.RWMutex{}, 0, false}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.

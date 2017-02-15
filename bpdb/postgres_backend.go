@@ -39,8 +39,6 @@ ORDER BY ordering ASC
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
-	schemaExistsQuery = `SELECT 1 FROM operation WHERE event = $1`
-
 	nextVersionQuery = `SELECT max(version) + 1
 FROM operation
 WHERE event = $1
@@ -246,18 +244,11 @@ func (p *postgresBackend) DropSchema(schema *AnnotatedSchema, reason string, exi
 
 // SchemaExists checks if a schema name exists in blueprint already
 func (p *postgresBackend) SchemaExists(eventName string) (bool, error) {
-	rows, err := p.db.Query(schemaExistsQuery, eventName)
+	schema, err := p.Schema(eventName)
 	if err != nil {
 		return false, fmt.Errorf("querying existence of schema  %s: %v", eventName, err)
 	}
-	defer func() {
-		err := rows.Close()
-		if err != nil {
-			logger.WithError(err).Error("closing rows in postgres backend SchemaExists")
-		}
-	}()
-
-	return rows.Next(), nil
+	return schema != nil, nil
 }
 
 // scanOperationRows scans the rows into operationRow objects
