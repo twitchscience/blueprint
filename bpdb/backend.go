@@ -29,6 +29,19 @@ type AnnotatedSchema struct {
 	Reason        string
 }
 
+// ActiveUser is a count of the number of changes a user has made.
+type ActiveUser struct {
+	UserName string
+	Changes  int
+}
+
+// DailyChange is a count of changes by users on a day.
+type DailyChange struct {
+	Day     string
+	Changes int
+	Users   int
+}
+
 // Bpdb is the interface of the blueprint db backend that stores schema state
 type Bpdb interface {
 	AllSchemas() ([]AnnotatedSchema, error)
@@ -40,6 +53,8 @@ type Bpdb interface {
 
 	IsInMaintenanceMode() bool
 	SetMaintenanceMode(switchingOn bool, reason string) error
+	ActiveUsersLast30Days() ([]*ActiveUser, error)
+	DailyChangesLast30Days() ([]*DailyChange, error)
 }
 
 func validateType(t string) error {

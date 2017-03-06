@@ -43,4 +43,7 @@ angular.module('blueprint')
            post: {method:'POST'},
           }
       );
+  })
+  .factory('Stats', function($resource) {
+      return $resource('/stats', null, null);
   });

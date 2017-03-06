@@ -77,3 +77,13 @@ func (m *MockBpdb) SetMaintenanceMode(switchingOn bool, reason string) error {
 	m.maintenanceMutex.Unlock()
 	return nil
 }
+
+// ActiveUsersLast30Days returns nils.
+func (m *MockBpdb) ActiveUsersLast30Days() ([]*bpdb.ActiveUser, error) {
+	return nil, nil
+}
+
+// DailyChangesLast30Days returns nils.
+func (m *MockBpdb) DailyChangesLast30Days() ([]*bpdb.DailyChange, error) {
+	return nil, nil
+}

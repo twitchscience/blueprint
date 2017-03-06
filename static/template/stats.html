@@ -1,0 +1,49 @@
+<h1>Analytics</h1>
+
+<h3>Active Users Last 30 Days</h3>
+
+<div class="row" ng-if="loading">
+  <div class="col-md-1 col-md-offset-6">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px"></i>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th>User</th>
+      <th>Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr ng-repeat="activeUser in activeUsers">
+      <td>{{::activeUser.UserName}}</td>
+      <td>{{::activeUser.Changes}}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Daily Changes Last 30 Days</h3>
+
+<div class="row" ng-if="loading">
+  <div class="col-md-1 col-md-offset-6">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px"></i>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th>Day</th>
+      <th>Changes</th>
+      <th>Users</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr ng-repeat="dailyChange in dailyChanges">
+      <td>{{::dailyChange.Day | date:'yyyy-MM-dd'}}</td>
+      <td>{{::dailyChange.Changes}}</td>
+      <td>{{::dailyChange.Users}}</td>
+    </tr>
+  </tbody>
+</table>

@@ -550,3 +550,36 @@ func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
+
+func (s *server) stats(w http.ResponseWriter, r *http.Request) {
+	dailyChanges, err := s.bpdbBackend.DailyChangesLast30Days()
+	if err != nil {
+		logger.WithError(err).Error("Error getting daily changes from bpdb")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	activeUsers, err := s.bpdbBackend.ActiveUsersLast30Days()
+	if err != nil {
+		logger.WithError(err).Error("Error getting active users from bpdb")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b, err := json.Marshal(&struct {
+		DailyChanges []*bpdb.DailyChange
+		ActiveUsers  []*bpdb.ActiveUser
+	}{DailyChanges: dailyChanges, ActiveUsers: activeUsers})
+	if err != nil {
+		logger.WithError(err).Error("Error getting marshalling stats to json")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = w.Write(b)
+	if err != nil {
+		logger.WithError(err).Error("Failed to write to response")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}

@@ -13,6 +13,10 @@ angular.module('blueprint')
         controller: 'Show',
         templateUrl: 'template/schema/show.html'
       })
+      .when('/stats', {
+        controller: 'Analytics',
+        templateUrl: 'template/stats.html'
+      })
       .otherwise({
         redirectTo: '/schemas'
       });

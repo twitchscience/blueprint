@@ -107,6 +107,7 @@ func (s *server) setupReadonlyAPI() {
 	roAPI.Get("/types", s.types)
 	roAPI.Get("/suggestions", s.listSuggestions)
 	roAPI.Get("/suggestion/:id", s.suggestion)
+	roAPI.Get("/stats", s.stats)
 
 	goji.Get("/schemas", roAPI)
 	goji.Get("/schema/*", roAPI)
@@ -116,6 +117,7 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/types", roAPI)
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
+	goji.Get("/stats", roAPI)
 }
 
 // Create the write API available only to authenticated users, which includes creating and
