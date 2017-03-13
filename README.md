@@ -3,6 +3,8 @@
 The schema server for the
 [Twitch Science Data Pipeline](https://github.com/TwitchScience).
 
+See also the [Schema Suggestor](./schema_suggestor/README.md).
+
 ## What it does
 
 This permits you to create "schemas". A schema is essentially a
