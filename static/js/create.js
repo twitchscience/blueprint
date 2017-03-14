@@ -83,6 +83,12 @@ angular.module('blueprint')
           ColumnCreationOptions: ' sortkey',
           SupportingColumns: ''
         },{
+          InboundName: 'time',
+          OutboundName: 'time_utc',
+          Transformer: 'f@timestamp@unix-utc',
+          ColumnCreationOptions: '',
+          SupportingColumns: ''
+        },{
           InboundName: 'ip',
           OutboundName: 'ip',
           Transformer: 'varchar',
