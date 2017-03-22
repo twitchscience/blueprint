@@ -44,12 +44,12 @@ func (m *MockBpdb) Schema(name string) (*bpdb.AnnotatedSchema, error) {
 }
 
 // UpdateSchema returns nil.
-func (m *MockBpdb) UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) (string, error) {
-	return "", nil
+func (m *MockBpdb) UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError {
+	return nil
 }
 
 // CreateSchema returns nil.
-func (m *MockBpdb) CreateSchema(schema *scoop_protocol.Config, user string) error {
+func (m *MockBpdb) CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError {
 	return nil
 }
 

@@ -2,6 +2,7 @@ package bpdb
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -183,21 +184,21 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 
 // CreateSchema validates that the creation operation is valid and if so, stores
 // the schema as 'add' operations in bpdb
-func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) error {
+func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) *core.WebError {
 	exists, err := p.SchemaExists(req.EventName)
 	if err != nil {
-		return fmt.Errorf("checking for schema existence: %v", err)
+		return core.NewServerWebErrorf("checking for schema existence: %v", err)
 	}
 	if exists {
-		return fmt.Errorf("invalid schema name: %s already exists", req.EventName)
+		return core.NewUserWebErrorf("Table already exists")
 	}
 	err = preValidateSchema(req)
 	if err != nil {
-		return fmt.Errorf("invalid schema creation request: %v", err)
+		return core.NewUserWebError(err)
 	}
 
 	ops := schemaCreateRequestToOps(req)
-	return p.execFnInTransaction(func(tx *sql.Tx) error {
+	return core.NewServerWebError(p.execFnInTransaction(func(tx *sql.Tx) error {
 		row := tx.QueryRow(nextVersionQuery, req.EventName)
 		var newVersion int
 		err = row.Scan(&newVersion)
@@ -208,31 +209,31 @@ func (p *postgresBackend) CreateSchema(req *scoop_protocol.Config, user string) 
 			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
 		return insertOperations(tx, ops, newVersion, req.EventName, user)
-	})
+	}))
 }
 
 // UpdateSchema validates that the update operation is valid and if so, stores
 // the operations for this migration to the schema as operations in bpdb. It
 // applies the operations in order of delete, add, then renames.
-func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) (requestErr string, serverErr error) {
+func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) *core.WebError {
 	schema, err := p.Schema(req.EventName)
 	if err != nil {
-		return "", fmt.Errorf("error getting schema to validate schema update: %v", err)
+		return core.NewServerWebErrorf("error getting schema to validate schema update: %v", err)
 	}
 	if schema == nil {
-		return "Unknown schema", nil
+		return core.NewUserWebError(errors.New("Unknown schema"))
 	}
-	requestErr = preValidateUpdate(req, schema)
+	requestErr := preValidateUpdate(req, schema)
 	if requestErr != "" {
-		return requestErr, nil
+		return core.NewUserWebError(errors.New(requestErr))
 	}
 	ops := schemaUpdateRequestToOps(req)
 	err = ApplyOperations(schema, ops)
 	if err != nil {
-		return "", fmt.Errorf("error applying update operations: %v", err)
+		return core.NewServerWebErrorf("error applying update operations: %v", err)
 	}
 
-	return "", p.execFnInTransaction(func(tx *sql.Tx) error {
+	return core.NewServerWebError(p.execFnInTransaction(func(tx *sql.Tx) error {
 		row := tx.QueryRow(nextVersionQuery, req.EventName)
 		var newVersion int
 		err := row.Scan(&newVersion)
@@ -240,7 +241,7 @@ func (p *postgresBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user
 			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
 		return insertOperations(tx, ops, newVersion, req.EventName, user)
-	})
+	}))
 }
 
 // DropSchema drops or requests a drop for a schema, depending on whether it exists according to ingester.

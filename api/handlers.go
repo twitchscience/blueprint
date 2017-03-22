@@ -127,41 +127,41 @@ func (s *server) ingest(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
+func decodeBody(body io.ReadCloser, requestObj interface{}) error {
 	defer func() {
-		err := r.Body.Close()
+		err := body.Close()
 		if err != nil {
 			logger.WithError(err).Error("Failed to close request body")
 		}
 	}()
 
-	b, err := ioutil.ReadAll(r.Body)
+	err := json.NewDecoder(body).Decode(requestObj)
 	if err != nil {
-		logger.WithError(err).Error("Error reading body of request in createSchema")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("decoding json: %v", err)
 	}
+	return nil
+}
 
+func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
+	webErr := s.createSchemaHelper(c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error creating schema")
+	}
+}
+
+func (s *server) createSchemaHelper(username string, body io.ReadCloser) *core.WebError {
 	var cfg scoop_protocol.Config
-	err = json.Unmarshal(b, &cfg)
+	err := decodeBody(body, &cfg)
 	if err != nil {
-		logger.WithError(err).Error("Error getting marshalling config to json")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return core.NewServerWebError(err)
 	}
 
 	if s.isBlacklisted(cfg.EventName) {
-		http.Error(w, fmt.Sprintf("%v is blacklisted", cfg.EventName), http.StatusForbidden)
-		return
+		return core.NewUserWebErrorf("%s is blacklisted", cfg.EventName)
 	}
 
 	defer s.clearCache()
-	err = s.bpdbBackend.CreateSchema(&cfg, c.Env["username"].(string))
-	if err != nil {
-		logger.WithError(err).Error("Error creating schema.")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	return s.bpdbBackend.CreateSchema(&cfg, username)
 }
 
 // isBlacklisted check whether name matches any regex in the blacklist (case insensitive).
@@ -179,100 +179,69 @@ func (s *server) isBlacklisted(name string) bool {
 func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName := c.URLParams["id"]
 
-	defer func() {
-		err := r.Body.Close()
-		if err != nil {
-			logger.WithError(err).Error("Failed to close request body")
-		}
-	}()
-
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		logger.WithError(err).Error("Error reading request body in updateSchema")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	webErr := s.updateSchemaHelper(eventName, c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error updating schema")
 	}
+}
 
+func (s *server) updateSchemaHelper(eventName string, username string, body io.ReadCloser) *core.WebError {
 	var req core.ClientUpdateSchemaRequest
-	err = json.Unmarshal(b, &req)
+	err := decodeBody(body, &req)
 	if err != nil {
-		logger.WithError(err).Error("Error unmarshalling request body in updateSchema")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return core.NewServerWebError(err)
 	}
 	req.EventName = eventName
 
 	defer s.clearCache()
-	requestErr, serverErr := s.bpdbBackend.UpdateSchema(&req, c.Env["username"].(string))
-	if serverErr != nil {
-		logger.WithError(serverErr).Error("Error updating schema")
-		http.Error(w, serverErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	if requestErr != "" {
-		logger.WithField("requestErr", requestErr).Warn("Error in updateSchema request")
-		http.Error(w, requestErr, http.StatusBadRequest)
-		return
-	}
+	return s.bpdbBackend.UpdateSchema(&req, username)
 }
 
 func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		err := r.Body.Close()
-		if err != nil {
-			logger.WithError(err).Error("Failed to close request body")
-		}
-	}()
+	webErr := s.dropSchemaHelper(c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error dropping schema")
+	}
+}
 
+func (s *server) dropSchemaHelper(username string, body io.ReadCloser) *core.WebError {
 	var req core.ClientDropSchemaRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err := decodeBody(body, &req)
 	if err != nil {
-		logger.WithError(err).Warn("Error decoding request body in dropSchema")
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return core.NewServerWebError(err)
 	}
 
 	schema, err := s.bpdbBackend.Schema(req.EventName)
 	if err != nil {
-		logger.WithError(err).WithField("schema", req.EventName).Error("Error retrieving schema")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return core.NewServerWebErrorf("retrieving schema: %v", err)
 	}
 	if schema == nil {
-		http.Error(w, "Unknown schema", http.StatusBadRequest)
-		return
+		return core.NewUserWebErrorf("unknown schema")
 	}
 
 	exists, err := s.ingesterController.TableExists(schema.EventName)
 	if err != nil {
-		logger.WithError(err).Error("Error determining if schema exists")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return core.NewServerWebErrorf("determining if schema exists: %v", err)
 	}
 
 	if exists {
-		err = s.requestTableDeletion(schema.EventName, req.Reason, c.Env["username"].(string))
+		err = s.requestTableDeletion(schema.EventName, req.Reason, username)
 		if err != nil {
-			logger.WithError(err).Error("Error making slackbot deletion request")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return core.NewServerWebErrorf("making slackbot deletion request: %v", err)
 		}
 	} else {
 		err = s.ingesterController.IncrementVersion(schema.EventName)
 		if err != nil {
-			logger.WithError(err).Error("Error incrementing version in ingester")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return core.NewServerWebErrorf("incrementing version in ingester: %v", err)
 		}
 	}
 
 	defer s.clearCache()
-	err = s.bpdbBackend.DropSchema(schema, req.Reason, exists, c.Env["username"].(string))
+	err = s.bpdbBackend.DropSchema(schema, req.Reason, exists, username)
 	if err != nil {
-		logger.WithError(err).Error("Error dropping schema in operation")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return core.NewServerWebErrorf("dropping schema in operation table: %v", err)
 	}
+	return nil
 
 }
 
@@ -450,35 +419,37 @@ func (s *server) types(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listSuggestions(w http.ResponseWriter, r *http.Request) {
-	availableSuggestions, err := getAvailableSuggestions(s.docRoot)
+	err := s.listSuggestionsHelper(w)
 	if err != nil {
 		logger.WithError(err).Error("Error listing suggestions")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	}
+}
+
+func (s *server) listSuggestionsHelper(w io.Writer) error {
+	availableSuggestions, err := getAvailableSuggestions(s.docRoot)
+	if err != nil {
+		return fmt.Errorf("getting suggestions: %v", err)
 	}
 
 	if len(availableSuggestions) == 0 {
 		_, err = w.Write([]byte("[]"))
 		if err != nil {
-			logger.WithError(err).Error("Failed to write to response")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return fmt.Errorf("writing empty response: %v", err)
 		}
-		return
+		return nil
 	}
 
 	b, err := json.Marshal(availableSuggestions)
 	if err != nil {
-		logger.WithError(err).Error("Error getting marshalling suggestions to json")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("marshalling suggestions to json: %v", err)
 	}
 
 	_, err = w.Write(b)
 	if err != nil {
-		logger.WithError(err).Error("Failed to write to response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("writing response: %v", err)
 	}
+	return nil
 }
 
 func (s *server) suggestion(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -519,28 +490,25 @@ func (s *server) getMaintenanceMode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) setMaintenanceMode(w http.ResponseWriter, r *http.Request) {
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		logger.WithError(err).Error("Failed to read body of request")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	webErr := s.setMaintenanceModeHelper(r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error setting maintenance mode")
 	}
 
+}
+
+func (s *server) setMaintenanceModeHelper(body io.ReadCloser) *core.WebError {
 	var mm maintenanceMode
-	err = json.Unmarshal(b, &mm)
+	err := decodeBody(body, &mm)
 	if err != nil {
-		logger.WithError(err).Error("Failed to marshal form data")
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return core.NewServerWebError(err)
 	}
 
 	if err = s.bpdbBackend.SetMaintenanceMode(mm.IsMaintenance, mm.Reason); err != nil {
-		logger.WithError(err).Error("Failed to set maintenance mode")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return core.NewServerWebErrorf("setting maintenance mode: %v", err)
 	}
-
 	logger.WithField("is_maintenance", mm.IsMaintenance).WithField("reason", mm.Reason).Info("Maintenance mode set")
+	return nil
 }
 
 func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -552,18 +520,22 @@ func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) stats(w http.ResponseWriter, r *http.Request) {
+	err := s.statsHelper(w)
+	if err != nil {
+		logger.WithError(err).Error("Error getting stats")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *server) statsHelper(w io.Writer) error {
 	dailyChanges, err := s.bpdbBackend.DailyChangesLast30Days()
 	if err != nil {
-		logger.WithError(err).Error("Error getting daily changes from bpdb")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("getting daily changes from bpdb: %v", err)
 	}
 
 	activeUsers, err := s.bpdbBackend.ActiveUsersLast30Days()
 	if err != nil {
-		logger.WithError(err).Error("Error getting active users from bpdb")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("getting active users from bpdb: %v", err)
 	}
 
 	b, err := json.Marshal(&struct {
@@ -571,15 +543,12 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 		ActiveUsers  []*bpdb.ActiveUser
 	}{DailyChanges: dailyChanges, ActiveUsers: activeUsers})
 	if err != nil {
-		logger.WithError(err).Error("Error getting marshalling stats to json")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("marshalling stats to json: %v", err)
 	}
 
 	_, err = w.Write(b)
 	if err != nil {
-		logger.WithError(err).Error("Failed to write to response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("writing response: %v", err)
 	}
+	return nil
 }

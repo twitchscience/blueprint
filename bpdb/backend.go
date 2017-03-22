@@ -46,8 +46,8 @@ type DailyChange struct {
 type Bpdb interface {
 	AllSchemas() ([]AnnotatedSchema, error)
 	Schema(name string) (*AnnotatedSchema, error)
-	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) (string, error)
-	CreateSchema(schema *scoop_protocol.Config, user string) error
+	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError
+	CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
 

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/twitchscience/aws_utils/logger"
@@ -86,4 +88,47 @@ type ClientUpdateSchemaRequest struct {
 type ClientDropSchemaRequest struct {
 	EventName string
 	Reason    string
+}
+
+// WebError is either a server or user error.
+type WebError struct {
+	ServerError error
+	UserError   error
+}
+
+// ReportError reports the WebError's error and the given message to the ResponseWriter/logger.
+func (we WebError) ReportError(w http.ResponseWriter, message string) {
+	if we.ServerError != nil {
+		logger.WithError(we.ServerError).Error(message)
+		http.Error(w, "Internal error: "+message, http.StatusInternalServerError)
+	} else if we.UserError != nil {
+		logger.WithError(we.UserError).Info(message)
+		http.Error(w, message+": "+we.UserError.Error(), http.StatusBadRequest)
+	}
+}
+
+// NewServerWebError returns a WebError representing a server error.
+func NewServerWebError(err error) *WebError {
+	if err == nil {
+		return nil
+	}
+	return &WebError{ServerError: err}
+}
+
+// NewServerWebErrorf formats a WebError representing a server error.
+func NewServerWebErrorf(format string, a ...interface{}) *WebError {
+	return &WebError{ServerError: fmt.Errorf(format, a...)}
+}
+
+// NewUserWebError returns a WebError representing a user error.
+func NewUserWebError(err error) *WebError {
+	if err == nil {
+		return nil
+	}
+	return &WebError{UserError: err}
+}
+
+// NewUserWebErrorf formats a WebError representing a user error.
+func NewUserWebErrorf(format string, a ...interface{}) *WebError {
+	return &WebError{UserError: fmt.Errorf(format, a...)}
 }
