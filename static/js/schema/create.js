@@ -1,5 +1,5 @@
 angular.module('blueprint')
-  .controller('Create', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, Column, auth) {
+  .controller('CreateSchema', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, Column, auth) {
     $scope.loginName = auth.getLoginName();
     auth.isEditable($scope);
     var types, suggestions, suggestionData;

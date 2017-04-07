@@ -63,6 +63,31 @@ func (m *MockBpdb) DropSchema(schema *bpdb.AnnotatedSchema, reason string, exist
 	return nil
 }
 
+// AllKinesisConfigs returns nil
+func (m *MockBpdb) AllKinesisConfigs() ([]bpdb.AnnotatedKinesisConfig, error) {
+	return make([]bpdb.AnnotatedKinesisConfig, 0), nil
+}
+
+// KinesisConfig returns nil
+func (m *MockBpdb) KinesisConfig(account int64, streamType string, name string) (*bpdb.AnnotatedKinesisConfig, error) {
+	return nil, nil
+}
+
+// UpdateKinesisConfig returns nil
+func (m *MockBpdb) UpdateKinesisConfig(update *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
+	return nil
+}
+
+// CreateKinesisConfig returns nil
+func (m *MockBpdb) CreateKinesisConfig(config *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
+	return nil
+}
+
+// DropKinesisConfig returns nil
+func (m *MockBpdb) DropKinesisConfig(config *bpdb.AnnotatedKinesisConfig, reason string, user string) error {
+	return nil
+}
+
 // IsInMaintenanceMode returns current value (starts as false, can be set by SetMaintenanceMode).
 func (m *MockBpdb) IsInMaintenanceMode() bool {
 	m.maintenanceMutex.RLock()

@@ -1,12 +1,14 @@
 package bpdb
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
+	"github.com/twitchscience/spade/writer"
 )
 
 func TestPreValidateSchemaBadType(t *testing.T) {
@@ -240,4 +242,62 @@ func TestPreValidateUpdateRenameErrors(t *testing.T) {
 	req.Renames = core.Renames{"y": "x"}
 	requestErr = preValidateUpdate(&req, &schema)
 	require.Equal(requestErr, "Attempting to rename to duplicate column: x")
+}
+
+func TestValidateKinesisConfigInvalidStreamName(t *testing.T) {
+	require := require.New(t)
+	var config writer.KinesisWriterConfig
+	err := json.Unmarshal([]byte(`{"StreamName": "test", "StreamType": "firehose"}`), &config)
+	require.Nil(err, "Could not marshal JSON")
+	req := AnnotatedKinesisConfig{
+		StreamName:  "test",
+		StreamType:  "firehose",
+		SpadeConfig: config,
+	}
+
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Base valid name test failed")
+
+	req.StreamName = "a-name_with_va1id-symb0ls"
+	req.SpadeConfig.StreamName = "a-name_with_va1id-symb0ls"
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Valid name with numbers and symbols failed")
+
+	req.StreamName = "a bad name!"
+	req.SpadeConfig.StreamName = "a bad name!"
+	err = validateKinesisConfig(&req)
+	require.NotNil(err, "Invalid name with bad characters did not fail")
+
+	req.StreamName = "test1!"
+	req.SpadeConfig.StreamName = "test2"
+	err = validateKinesisConfig(&req)
+	require.NotNil(err, "Stream name mismatch did not fail")
+}
+
+func TestValidateKinesisConfigInvalidStreamType(t *testing.T) {
+	require := require.New(t)
+	var config writer.KinesisWriterConfig
+	err := json.Unmarshal([]byte(`{"StreamName": "test", "StreamType": "firehose"}`), &config)
+	require.Nil(err, "Could not marshal JSON")
+	req := AnnotatedKinesisConfig{
+		StreamName:  "test",
+		StreamType:  "firehose",
+		SpadeConfig: config,
+	}
+
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Base firehose test invalid")
+
+	req.StreamType = "badtype"
+	err = validateKinesisConfig(&req)
+	require.NotNil(err, "Bad type did not fail")
+
+	req.StreamType = "stream"
+	req.SpadeConfig.StreamType = "stream"
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Valid stream type deemed invalid")
+
+	req.SpadeConfig.StreamType = "firehose"
+	err = validateKinesisConfig(&req)
+	require.NotNil(err, "Type mismatch did not fail")
 }

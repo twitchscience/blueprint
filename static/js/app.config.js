@@ -2,16 +2,28 @@ angular.module('blueprint')
   .config(function($routeProvider) {
     $routeProvider
       .when('/schemas', {
-        controller: 'List',
+        controller: 'ListSchemas',
         templateUrl: 'template/schema/list.html'
       })
       .when('/schema', {
-        controller: 'Create',
+        controller: 'CreateSchema',
         templateUrl: 'template/schema/create.html'
       })
       .when('/schema/:scope', {
-        controller: 'Show',
+        controller: 'ShowSchema',
         templateUrl: 'template/schema/show.html'
+      })
+      .when('/kinesisconfigs', {
+        controller: 'ListKinesisConfigs',
+        templateUrl: 'template/kinesisconfig/list.html'
+      })
+      .when('/kinesisconfig', {
+        controller: 'CreateKinesisConfig',
+        templateUrl: 'template/kinesisconfig/create.html'
+      })
+      .when('/kinesisconfig/:account/:type/:name', {
+        controller: 'ShowKinesisConfig',
+        templateUrl: 'template/kinesisconfig/show.html'
       })
       .when('/stats', {
         controller: 'Analytics',

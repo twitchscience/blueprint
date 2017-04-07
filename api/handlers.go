@@ -552,3 +552,115 @@ func (s *server) statsHelper(w io.Writer) error {
 	}
 	return nil
 }
+
+func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
+	schemas, err := s.bpdbBackend.AllKinesisConfigs()
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve all KinesisConfigs")
+	}
+	writeEvent(w, schemas)
+}
+
+func (s *server) kinesisconfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	accountNumber, err := strconv.ParseInt(c.URLParams["account"], 10, 64)
+	if err != nil {
+		logger.WithError(err).WithField("account", c.URLParams["account"]).Error("Non-numeric account number supplied")
+	}
+	config, err := s.bpdbBackend.KinesisConfig(accountNumber, c.URLParams["type"], c.URLParams["name"])
+	logger.
+		WithError(err).
+		WithField("account", c.URLParams["account"]).
+		WithField("type", c.URLParams["type"]).
+		WithField("name", c.URLParams["name"]).
+		Error("Error retrieving Kinesis config")
+	if err != nil {
+		logger.
+			WithError(err).
+			WithField("account", c.URLParams["account"]).
+			WithField("type", c.URLParams["type"]).
+			WithField("name", c.URLParams["name"]).
+			Error("Error retrieving Kinesis config")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if config == nil {
+		fourOhFour(w, r)
+		return
+	}
+	writeEvent(w, config)
+}
+
+func (s *server) updateKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	accountNumber, err := strconv.ParseInt(c.URLParams["account"], 10, 64)
+	if err != nil {
+		logger.WithError(err).WithField("account", c.URLParams["account"]).Error("Non-numeric account number supplied")
+	}
+	streamType := c.URLParams["type"]
+	streamName := c.URLParams["name"]
+	webErr := s.updateKinesisConfigHelper(accountNumber, streamType, streamName, c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error updating Kinesis config")
+	}
+}
+
+func (s *server) updateKinesisConfigHelper(account int64, streamType string, streamName string, username string, body io.ReadCloser) *core.WebError {
+	var req struct {
+		Kinesisconfig bpdb.AnnotatedKinesisConfig
+	}
+	err := decodeBody(body, &req)
+	if err != nil {
+		return core.NewServerWebError(err)
+	}
+
+	return s.bpdbBackend.UpdateKinesisConfig(&req.Kinesisconfig, username)
+}
+
+func (s *server) createKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	webErr := s.createKinesisConfigHelper(c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error creating Kinesis config")
+	}
+}
+
+func (s *server) createKinesisConfigHelper(username string, body io.ReadCloser) *core.WebError {
+	var config bpdb.AnnotatedKinesisConfig
+	err := decodeBody(body, &config)
+	if err != nil {
+		return core.NewServerWebError(err)
+	}
+	return s.bpdbBackend.CreateKinesisConfig(&config, username)
+}
+
+func (s *server) dropKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	webErr := s.dropKinesisConfigHelper(c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error dropping schema")
+	}
+}
+
+func (s *server) dropKinesisConfigHelper(username string, body io.ReadCloser) *core.WebError {
+	var req struct {
+		StreamName string
+		StreamType string
+		AWSAccount int64
+		Reason     string
+	}
+	err := decodeBody(body, &req)
+	if err != nil {
+		return core.NewServerWebError(err)
+	}
+
+	current, err := s.bpdbBackend.KinesisConfig(req.AWSAccount, req.StreamType, req.StreamName)
+	if err != nil {
+		return core.NewServerWebErrorf("retrieving Kinesis config: %v", err)
+	}
+	if current == nil {
+		return core.NewUserWebErrorf("unknown Kinesis config to drop")
+	}
+
+	err = s.bpdbBackend.DropKinesisConfig(current, req.Reason, username)
+	if err != nil {
+		return core.NewServerWebErrorf("dropping Kinesis config in bpdb table: %v", err)
+	}
+	return nil
+}

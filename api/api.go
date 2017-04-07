@@ -118,6 +118,11 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
 	goji.Get("/stats", roAPI)
+
+	roAPI.Get("/kinesisconfigs", s.allKinesisConfigs)
+	roAPI.Get("/kinesisconfig/:account/:type/:name", s.kinesisconfig)
+	goji.Get("/kinesisconfigs", roAPI)
+	goji.Get("/kinesisconfig/*", roAPI)
 }
 
 // Create the write API available only to authenticated users, which includes creating and
@@ -143,13 +148,21 @@ func (s *server) authWriteAPI() *web.Mux {
 	return authWriteAPI
 }
 
-// Create the write API available only to admins.  Currently limited to toggling maintenance mode.
+// Create the write API available only to admins. Currently limited to toggling maintenance
+// mode and modifying Kinesis configs.
 func (s *server) authAdminAPI() *web.Mux {
 	adminAPI := web.New()
 	adminAPI.Use(context.ClearHandler)
 
 	adminAPI.Post("/maintenance", s.setMaintenanceMode)
 	goji.Post("/maintenance", adminAPI)
+
+	adminAPI.Put("/kinesisconfig", s.createKinesisConfig)
+	adminAPI.Post("/kinesisconfig/:account/:type/:name", s.updateKinesisConfig)
+	adminAPI.Post("/drop/kinesisconfig", s.dropKinesisConfig)
+	goji.Put("/kinesisconfig", adminAPI)
+	goji.Post("/kinesisconfig/*", adminAPI)
+	goji.Post("/drop/kinesisconfig", adminAPI)
 
 	return adminAPI
 }

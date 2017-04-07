@@ -9,6 +9,7 @@ import (
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 	"github.com/twitchscience/scoop_protocol/transformer"
+	"github.com/twitchscience/spade/writer"
 )
 
 var (
@@ -27,6 +28,23 @@ type AnnotatedSchema struct {
 	Dropped       bool
 	DropRequested bool
 	Reason        string
+}
+
+// AnnotatedKinesisConfig is a Kinesis configuration annotated with meta information.
+type AnnotatedKinesisConfig struct {
+	StreamName       string
+	StreamType       string
+	AWSAccount       int64
+	Team             string
+	Version          int
+	Contact          string
+	Usage            string
+	ConsumingLibrary string
+	SpadeConfig      writer.KinesisWriterConfig
+	LastEditedAt     time.Time
+	LastChangedBy    string
+	Dropped          bool
+	DroppedReason    string
 }
 
 // ActiveUser is a count of the number of changes a user has made.
@@ -50,6 +68,12 @@ type Bpdb interface {
 	CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
+
+	AllKinesisConfigs() ([]AnnotatedKinesisConfig, error)
+	KinesisConfig(account int64, streamType string, name string) (*AnnotatedKinesisConfig, error)
+	UpdateKinesisConfig(update *AnnotatedKinesisConfig, user string) *core.WebError
+	CreateKinesisConfig(config *AnnotatedKinesisConfig, user string) *core.WebError
+	DropKinesisConfig(config *AnnotatedKinesisConfig, reason string, user string) error
 
 	IsInMaintenanceMode() bool
 	SetMaintenanceMode(switchingOn bool, reason string) error
@@ -211,4 +235,33 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 			maxColumns, len(req.Additions), len(req.Deletes), len(schema.Columns))
 	}
 	return ""
+}
+
+func validateStreamType(t string) error {
+	if t == "stream" || t == "firehose" {
+		return nil
+	}
+	return fmt.Errorf("type not found")
+}
+
+func validateKinesisConfig(config *AnnotatedKinesisConfig) error {
+	err := validateIdentifier(config.StreamName)
+	if err != nil {
+		return fmt.Errorf("stream name invalid: %v", err)
+	}
+	err = validateStreamType(config.StreamType)
+	if err != nil {
+		return fmt.Errorf("stream type invalid: %v", err)
+	}
+	err = validateStreamType(config.SpadeConfig.StreamType)
+	if err != nil {
+		return fmt.Errorf("stream type invalid: %v", err)
+	}
+	if config.StreamName != config.SpadeConfig.StreamName {
+		return fmt.Errorf("stream name annotation does not match JSON")
+	}
+	if config.StreamType != config.SpadeConfig.StreamType {
+		return fmt.Errorf("stream type annotation does not match JSON")
+	}
+	return nil
 }

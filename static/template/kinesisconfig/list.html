@@ -1,0 +1,58 @@
+<h1>Published Kinesis Configurations</h1>
+<a href="#/kinesisconfig" ng-if="isEditable">
+  <button type="button" class="btn btn-success">Create</button>
+</a>
+<div class="row">
+  <div class="col-md-4 col-md-offset-8">
+    <input id="kinesisconfig-search"
+           type="text"
+           ng-model="search"
+           class="form-control"
+           placeholder="Search Kinesis configs"
+           autofocus
+           />
+  </div>
+</div>
+<div class="row">
+  <div class="col-xs-6">
+    <span>Search to find specific Kinesis configs.</span>
+  </div>
+</div>
+
+<div class="row" ng-if="loading">
+  <div class="col-md-1 col-md-offset-6">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px"></i>
+  </div>
+</div>
+<div ng-repeat="kinesisconfig in kinesisconfigs |
+                filter:search |
+                orderBy:'StreamName'">
+
+  <h3 style="margin-top: 35px">
+    <a href="#/kinesisconfig/{{::kinesisconfig.AWSAccount}}/{{::kinesisconfig.StreamType}}/{{::kinesisconfig.StreamName}}">{{::kinesisconfig.StreamName}}</a>
+    <span class="pull-right" ng-if="search.length > 1"><small>
+        <span ng-if="kinesisconfig.Version == 0">Created {{::kinesisconfig.LastEditedAt | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
+        <span ng-if="kinesisconfig.Version != 0">Last updated {{::kinesisconfig.LastEditedAt | date:'yyyy-MM-dd HH:mm:ss Z'}} to version {{::kinesisconfig.Version}}</span>
+        by {{::kinesisconfig.LastChangedBy}}</small></span>
+  </h3>
+
+  <table class="table table-hover" ng-if="search.length > 1">
+    <thead>
+      <tr>
+        <th>Stream Type</th>
+        <th>Team</th>
+        <th>AWS Account</th>
+        <th>Consuming Library</th>
+        <th>Usage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{::kinesisconfig.StreamType}}</td>
+        <td>{{::kinesisconfig.Team}}</td>
+        <td>{{::kinesisconfig.AWSAccount}}</td>
+        <td>{{::kinesisconfig.ConsumingLibrary}}</td>
+        <td>{{::kinesisconfig.Usage}}</td>
+      </tr>
+  </table>
+</div>

@@ -19,6 +19,17 @@ angular.module('blueprint')
       }
     );
   })
+  .factory('KinesisConfig', function($resource) {
+    return $resource(
+      '/kinesisconfigs', null,
+      {all:    {                                             method: 'GET', isArray: true},
+       get:    {url: '/kinesisconfig/:account/:type/:name',  method: 'GET'},
+       put:    {url: '/kinesisconfig',                       method: 'PUT'},
+       update: {url: '/kinesisconfig/:account/:type/:name',  method: 'POST'},
+       drop:   {url: '/drop/kinesisconfig',                  method: 'POST'},
+      }
+    );
+  })
   .factory('Types', function($resource) {
     return $resource('/types', null, null);
   })

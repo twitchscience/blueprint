@@ -32,3 +32,29 @@ BEGIN
       (false, 'initializing table');
   END IF;
 END $$;
+
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'stream_type') THEN
+    CREATE TYPE stream_type AS ENUM ('stream', 'firehose');
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS kinesis_config
+(
+  stream_name text,
+  stream_type stream_type,
+  team text,
+  version int,
+  contact text,
+  usage text,
+  aws_account bigint,
+  consuming_library text,
+  spade_config jsonb,
+  last_edited_at timestamp without time zone default NOW(),
+  last_changed_by text,
+  dropped boolean default false,
+  dropped_reason text default '',
+  PRIMARY KEY(stream_name, stream_type, aws_account, version)
+);
