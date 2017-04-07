@@ -48,7 +48,7 @@ func NewRouter(
 	r := &EventRouter{
 		Processors:       make(map[string]EventProcessor),
 		ProcessorFactory: NewNonTrackedEventProcessor,
-		FlushTimer:       flushTimer,
+		FlushTimer:       time.NewTicker(flushInterval).C,
 		bpdb:             bpdb,
 		OutputDir:        outputDir,
 	}
