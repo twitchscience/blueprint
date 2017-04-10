@@ -48,6 +48,8 @@ func TestAllSchemasCache(t *testing.T) {
 	repeatAllSchema(t, s, backend)
 	createSchema(t, s, c, backend)
 	repeatAllSchema(t, s, backend)
+	createSchemaBlacklisted(t, s, c, backend)
+	repeatAllSchema(t, s, backend)
 	updateSchema(t, s, c, backend)
 	repeatAllSchema(t, s, backend)
 
@@ -85,6 +87,23 @@ func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpdb) {
 	assertRequestOK(t, "createSchema", createRecorder)
 	if getCachedResult(s) != nil {
 		t.Error("Failed to invalidate cache")
+	}
+	printTotalAllSchemasCalls(t, backend)
+}
+
+func createSchemaBlacklisted(t *testing.T, s *server, c web.C, backend *test.MockBpdb) {
+	cfg := scoop.Config{EventName: "dfp_bad", Columns: nil, Version: 0}
+	cfgBytes, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal("unable to marshal scoop config, bailing")
+	}
+
+	createReq, _ := http.NewRequest("PUT", "/schema", bytes.NewReader(cfgBytes))
+	createRecorder := httptest.NewRecorder()
+	s.createSchema(c, createRecorder, createReq)
+	if status := createRecorder.Code; status != http.StatusBadRequest {
+		t.Errorf("blacklisted createSchema returned status code %v, want %v",
+			status, http.StatusBadRequest)
 	}
 	printTotalAllSchemasCalls(t, backend)
 }

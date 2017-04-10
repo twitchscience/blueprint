@@ -17,26 +17,16 @@ func TestBlacklist(t *testing.T) {
 		{"wow", true},
 		{"wow_", false},
 
-		{"logsadfp", false},
-		{"logsadfp_", false},
-		{"logsadfp_a", false},
-		{"logsadfp_abc", false},
+		{"abc_", true},
+		{"aec", false},
+		{"ac", false},
+		{"a.c_", true},
+		{"a.c_wow", true},
 
-		{"logs.abc_", true},
-		{"logs.aec", false},
-		{"logs.ac", false},
-		{"logs.a.c_", true},
-		{"logs.a.c_wow", true},
-
-		{"logs.dfp", false},
-		{"logs.dfp_", true},
-		{"logs.dfp_a", true},
-		{"logs.dfp_abc", true},
-
-		{"lOgs.dfp", false},
-		{"Logs.dfp_", true},
-		{"lOgs.dfp_a", true},
-		{"loGs.dfp_abc", true},
+		{"dfp", false},
+		{"dfp_", true},
+		{"dfp_a", true},
+		{"dfp_abc", true},
 	}
 
 	for _, test := range tests {

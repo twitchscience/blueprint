@@ -25,7 +25,7 @@ func deleteJSONFile(t *testing.T, jsonFile *os.File) {
 func writeConfig(t *testing.T, jsonFile *os.File) {
 	c := config{
 		CacheTimeoutSecs: 60,
-		Blacklist:        []string{"^wow$", "^logs\\.dfp_.*$", "^logs\\.a.c_.*$"},
+		Blacklist:        []string{"^wow$", "^dfp_.*$", "^a.c_.*$"},
 	}
 	writeConfigToJSON(t, c, jsonFile)
 }

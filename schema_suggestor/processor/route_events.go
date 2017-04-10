@@ -42,13 +42,13 @@ type EventRouter struct {
 // NewRouter allocates a new EventRouter that outputs transformations to a given output directory.
 func NewRouter(
 	outputDir string,
-	flushInterval time.Duration,
+	flushTimer <-chan time.Time,
 	bpdb bpdb.Bpdb,
 ) *EventRouter {
 	r := &EventRouter{
 		Processors:       make(map[string]EventProcessor),
 		ProcessorFactory: NewNonTrackedEventProcessor,
-		FlushTimer:       time.Tick(flushInterval),
+		FlushTimer:       flushTimer,
 		bpdb:             bpdb,
 		OutputDir:        outputDir,
 	}

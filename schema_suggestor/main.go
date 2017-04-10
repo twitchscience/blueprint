@@ -104,14 +104,17 @@ func main() {
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.
 
-	session := session.New()
+	session, err := session.NewSession()
+	if err != nil {
+		logger.WithError(err).Fatalf("Error creating AWS session")
+	}
 	sqs := sqs.New(session, aws.NewConfig().WithMaxRetries(10))
 
 	poller := listener.BuildSQSListener(
 		&BPHandler{
 			Router: processor.NewRouter(
 				*staticFileDir,
-				5*time.Minute,
+				time.Tick(5*time.Minute),
 				bpdb,
 			),
 			Downloader: s3manager.NewDownloader(session),
