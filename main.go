@@ -1,3 +1,13 @@
+/*
+Blueprint is a UI and API server for editing the Spade processing rules. Each
+schema defines processing rules for a particular event type, and results in that
+event being ingested by rs_ingester into Redshift. Processing rules transform
+one or more input fields to a TSV-compatible string. Systems can use the read-
+only endpoints to fetch the schema data without authentication. It listens on
+port 8080 for unauthenticated HTTP requests and on port 8081 for authenticated
+HTTP requests (assuming an Elastic Load Balancer already performed SSL
+termination).
+*/
 package main
 
 import (
