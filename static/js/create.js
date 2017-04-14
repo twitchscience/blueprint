@@ -29,13 +29,13 @@ angular.module('blueprint')
         {"Name": "app_version", "Change": [["size", 32]]},
         {"Name": "browser", "Change": [["size", 255]]},
         {"Name": "channel", "Change": [["size", 25]]},
-        {"Name": "channel_id", "Change": [["Transformer", "userIDWithMapping"], ["SupportingColumns", "channel"]]},
+        {"Name": "channel_id", "Change": [["Transformer", "userIDWithMapping"], ["mappingColumn", "channel"]]},
         {"Name": "content_mode", "Change": [["size", 32]]},
         {"Name": "device_id", "Change": [["size", 32]]},
         {"Name": "domain", "Change": [["size", 255]]},
         {"Name": "game", "Change": [["size", 64]]},
         {"Name": "host_channel", "Change": [["size", 25]]},
-        {"Name": "host_channel_id", "Change": [["Transformer", "userIDWithMapping"], ["SupportingColumns", "host_channel"]]},
+        {"Name": "host_channel_id", "Change": [["Transformer", "userIDWithMapping"], ["mappingColumn", "host_channel"]]},
         {"Name": "language", "Change": [["size", 8]]},
         {"Name": "login", "Change": [["size", 25]]},
         {"Name": "platform", "Change": [["size", 40]]},
@@ -46,7 +46,7 @@ angular.module('blueprint')
         {"Name": "referrer_url", "Change": [["size", 255]]},
         {"Name": "url", "Change": [["size", 255]]},
         {"Name": "user_agent", "Change": [["size", 255]]},
-        {"Name": "user_id", "Change": [["Transformer", "userIDWithMapping"], ["SupportingColumns", "login"]]},
+        {"Name": "user_id", "Change": [["Transformer", "userIDWithMapping"], ["mappingColumn", "login"]]},
         {"Name": "vod_id", "Change": [["size", 16]]},
       ];
 
@@ -81,44 +81,44 @@ angular.module('blueprint')
           OutboundName: 'time',
           Transformer: 'f@timestamp@unix',
           ColumnCreationOptions: ' sortkey',
-          SupportingColumns: ''
+          mappingColumn: ''
         },{
           InboundName: 'time',
           OutboundName: 'time_utc',
           Transformer: 'f@timestamp@unix-utc',
           ColumnCreationOptions: '',
-          SupportingColumns: ''
+          mappingColumn: ''
         },{
           InboundName: 'ip',
           OutboundName: 'ip',
           Transformer: 'varchar',
           size: 15,
           ColumnCreationOptions: '',
-          SupportingColumns: ''
+          mappingColumn: ''
         },{
           InboundName: 'ip',
           OutboundName: 'city',
           Transformer: 'ipCity',
           ColumnCreationOptions: '',
-          SupportingColumns: ''
+          mappingColumn: ''
         },{
           InboundName: 'ip',
           OutboundName: 'country',
           Transformer: 'ipCountry',
           ColumnCreationOptions: '',
-          SupportingColumns: ''
+          mappingColumn: ''
         },{
           InboundName: 'ip',
           OutboundName: 'region',
           Transformer: 'ipRegion',
           ColumnCreationOptions: '',
-          SupportingColumns: ''
+          mappingColumn: ''
         },{
           InboundName: 'ip',
           OutboundName: 'asn_id',
           Transformer: 'ipAsnInteger',
           ColumnCreationOptions: '',
-          SupportingColumns: ''
+          mappingColumn: ''
         }];
       // this is icky, it is tightly coupled to what spade is
       // looking for. It would be good to have an intermediate
