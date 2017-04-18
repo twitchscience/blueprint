@@ -1,6 +1,7 @@
 package bpdb
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -9,7 +10,6 @@ import (
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 	"github.com/twitchscience/scoop_protocol/transformer"
-	"github.com/twitchscience/spade/writer"
 )
 
 var (
@@ -40,7 +40,7 @@ type AnnotatedKinesisConfig struct {
 	Contact          string
 	Usage            string
 	ConsumingLibrary string
-	SpadeConfig      writer.KinesisWriterConfig
+	SpadeConfig      KinesisWriterConfig
 	LastEditedAt     time.Time
 	LastChangedBy    string
 	Dropped          bool
@@ -60,25 +60,174 @@ type DailyChange struct {
 	Users   int
 }
 
-// Bpdb is the interface of the blueprint db backend that stores schema state
+// The following 3 structs and their validation functions are copypasta'd from processor.
+// TODO: refactor them out of Blueprint/Processor and into Scoop Protocol
+
+// KinesisWriterConfig is used to configure a KinesisWriter
+// and its nested globber and batcher objects
+type KinesisWriterConfig struct {
+	StreamName             string
+	StreamRole             string
+	StreamType             string // StreamType should be either "stream" or "firehose"
+	Compress               bool   // true if compress data with flate, false to output json
+	FirehoseRedshiftStream bool   // true if JSON destined for Firehose->Redshift streaming
+	BufferSize             int
+	MaxAttemptsPerRecord   int
+	RetryDelay             string
+
+	Events map[string]*struct {
+		Filter     string
+		FilterFunc func(map[string]string) bool `json:"-"`
+		Fields     []string
+	}
+
+	Globber GlobberConfig
+	Batcher BatcherConfig
+}
+
+// Validate returns an error if the Kinesis Writer config is not valid, or nil if it is.
+// It also sets the FilterFunc on Events with Filters.
+func (c *KinesisWriterConfig) Validate() error {
+	err := c.Globber.Validate()
+	if err != nil {
+		return fmt.Errorf("globber config invalid: %s", err)
+	}
+
+	err = c.Batcher.Validate()
+	if err != nil {
+		return fmt.Errorf("batcher config invalid: %s", err)
+	}
+
+	for _, e := range c.Events {
+		if e.Filter != "" {
+			e.FilterFunc = filterFuncs[e.Filter]
+			if e.FilterFunc == nil {
+				return fmt.Errorf("batcher config invalid: %s", err)
+			}
+		}
+	}
+
+	if c.FirehoseRedshiftStream && (c.StreamType != "firehose" || c.Compress) {
+		return fmt.Errorf("Redshift streaming only valid with non-compressed firehose")
+	}
+
+	_, err = time.ParseDuration(c.RetryDelay)
+	return err
+}
+
+var filterFuncs = map[string]func(map[string]string) bool{
+	"isVod": func(fields map[string]string) bool {
+		return fields["vod_id"] != "" && fields["vod_type"] != "clip"
+	},
+}
+
+// BatcherConfig is used to configure a batcher instance
+type BatcherConfig struct {
+	// MaxSize is the max combined size of the batch
+	MaxSize int
+
+	// MaxEntries is the max number of entries that can be batched together
+	// if batches does not have an entry limit, set MaxEntries as -1
+	MaxEntries int
+
+	// MaxAge is the max age of the oldest entry in the glob
+	MaxAge string
+
+	// BufferLength is the length of the channel where newly
+	// submitted entries are stored, decreasing the size of this
+	// buffer can cause stalls, and increasing the size can increase
+	// shutdown time
+	BufferLength int
+}
+
+// Validate returns an error if the batcher config is invalid, nil otherwise.
+func (c *BatcherConfig) Validate() error {
+	maxAge, err := time.ParseDuration(c.MaxAge)
+	if err != nil {
+		return err
+	}
+
+	if maxAge <= 0 {
+		return errors.New("MaxAge must be a positive value")
+	}
+
+	if c.MaxSize <= 0 {
+		return errors.New("MaxSize must be a positive value")
+	}
+
+	if c.MaxEntries <= 0 && c.MaxEntries != -1 {
+		return errors.New("MaxEntries must be a positive value or -1")
+	}
+
+	if c.BufferLength == 0 {
+		return errors.New("BufferLength must be a positive value")
+	}
+
+	return nil
+}
+
+// GlobberConfig is used to configure a globber instance
+type GlobberConfig struct {
+	// MaxSize is the max size per glob before compression
+	MaxSize int
+
+	// MaxAge is the max age of the oldest entry in the glob
+	MaxAge string
+
+	// BufferLength is the length of the channel where newly
+	// submitted entries are stored, decreasing the size of this
+	// buffer can cause stalls, and increasing the size can increase
+	// shutdown time
+	BufferLength int
+}
+
+// Validate returns an error if the config is invalid, nil otherwise.
+func (c *GlobberConfig) Validate() error {
+	maxAge, err := time.ParseDuration(c.MaxAge)
+	if err != nil {
+		return err
+	}
+
+	if maxAge <= 0 {
+		return errors.New("MaxAge must be a positive value")
+	}
+
+	if c.MaxSize <= 0 {
+		return errors.New("MaxSize must be a positive value")
+	}
+
+	if c.BufferLength == 0 {
+		return errors.New("BufferLength must be a positive value")
+	}
+
+	return nil
+}
+
+// Bpdb is the interface of the blueprint db backend that interacts with maintenance mode and stats
 type Bpdb interface {
+	IsInMaintenanceMode() bool
+	SetMaintenanceMode(switchingOn bool, reason string) error
+	ActiveUsersLast30Days() ([]*ActiveUser, error)
+	DailyChangesLast30Days() ([]*DailyChange, error)
+}
+
+// BpSchemaBackend is the interface of the blueprint db backend that stores schema state
+type BpSchemaBackend interface {
 	AllSchemas() ([]AnnotatedSchema, error)
 	Schema(name string) (*AnnotatedSchema, error)
 	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError
 	CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
+}
 
+// BpKinesisConfigBackend is the interface of the blueprint db backend that stores kinesis config state
+type BpKinesisConfigBackend interface {
 	AllKinesisConfigs() ([]AnnotatedKinesisConfig, error)
 	KinesisConfig(account int64, streamType string, name string) (*AnnotatedKinesisConfig, error)
 	UpdateKinesisConfig(update *AnnotatedKinesisConfig, user string) *core.WebError
 	CreateKinesisConfig(config *AnnotatedKinesisConfig, user string) *core.WebError
 	DropKinesisConfig(config *AnnotatedKinesisConfig, reason string, user string) error
-
-	IsInMaintenanceMode() bool
-	SetMaintenanceMode(switchingOn bool, reason string) error
-	ActiveUsersLast30Days() ([]*ActiveUser, error)
-	DailyChangesLast30Days() ([]*DailyChange, error)
 }
 
 func validateType(t string) error {
@@ -238,10 +387,10 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 }
 
 func validateStreamType(t string) error {
-	if t == "stream" || t == "firehose" {
-		return nil
+	if t != "stream" && t != "firehose" {
+		return fmt.Errorf("type not found")
 	}
-	return fmt.Errorf("type not found")
+	return nil
 }
 
 func validateKinesisConfig(config *AnnotatedKinesisConfig) error {
@@ -262,6 +411,10 @@ func validateKinesisConfig(config *AnnotatedKinesisConfig) error {
 	}
 	if config.StreamType != config.SpadeConfig.StreamType {
 		return fmt.Errorf("stream type annotation does not match JSON")
+	}
+	err = config.SpadeConfig.Validate()
+	if err != nil {
+		return fmt.Errorf("Kinesis stream internal validate failed: %v", err)
 	}
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
-	"github.com/twitchscience/spade/writer"
 )
 
 func TestPreValidateSchemaBadType(t *testing.T) {
@@ -246,11 +245,39 @@ func TestPreValidateUpdateRenameErrors(t *testing.T) {
 
 func TestValidateKinesisConfigInvalidStreamName(t *testing.T) {
 	require := require.New(t)
-	var config writer.KinesisWriterConfig
-	err := json.Unmarshal([]byte(`{"StreamName": "test", "StreamType": "firehose"}`), &config)
+	var config KinesisWriterConfig
+	err := json.Unmarshal([]byte(`
+{
+	"StreamName": "spade-downstream-prod-test",
+	"StreamRole": "arn:aws:iam::123:role/spade-downstream-prod-test",
+	"StreamType": "firehose",
+	"Compress": false,
+	"Events": {
+		"minute-watched": {
+			"Fields": [
+				"time"
+			]
+		}
+	},
+	"BufferSize": 1024,
+	"MaxAttemptsPerRecord": 10,
+	"RetryDelay": "1s",
+	"Globber": {
+		"MaxSize": 990000,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	},
+	"Batcher": {
+		"MaxSize": 990000,
+		"MaxEntries": 500,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	}
+}
+	`), &config)
 	require.Nil(err, "Could not marshal JSON")
 	req := AnnotatedKinesisConfig{
-		StreamName:  "test",
+		StreamName:  "spade-downstream-prod-test",
 		StreamType:  "firehose",
 		SpadeConfig: config,
 	}
@@ -276,11 +303,39 @@ func TestValidateKinesisConfigInvalidStreamName(t *testing.T) {
 
 func TestValidateKinesisConfigInvalidStreamType(t *testing.T) {
 	require := require.New(t)
-	var config writer.KinesisWriterConfig
-	err := json.Unmarshal([]byte(`{"StreamName": "test", "StreamType": "firehose"}`), &config)
+	var config KinesisWriterConfig
+	err := json.Unmarshal([]byte(`
+{
+	"StreamName": "spade-downstream-prod-test",
+	"StreamRole": "arn:aws:iam::123:role/spade-downstream-prod-test",
+	"StreamType": "firehose",
+	"Compress": false,
+	"Events": {
+		"minute-watched": {
+			"Fields": [
+				"time"
+			]
+		}
+	},
+	"BufferSize": 1024,
+	"MaxAttemptsPerRecord": 10,
+	"RetryDelay": "1s",
+	"Globber": {
+		"MaxSize": 990000,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	},
+	"Batcher": {
+		"MaxSize": 990000,
+		"MaxEntries": 500,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	}
+}
+	`), &config)
 	require.Nil(err, "Could not marshal JSON")
 	req := AnnotatedKinesisConfig{
-		StreamName:  "test",
+		StreamName:  "spade-downstream-prod-test",
 		StreamType:  "firehose",
 		SpadeConfig: config,
 	}

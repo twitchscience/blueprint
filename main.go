@@ -11,6 +11,7 @@ Load Balancer already performed SSL termination).
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"os"
 	"os/signal"
@@ -53,14 +54,22 @@ func main() {
 		logger.WithError(http.ListenAndServe(port, nil)).Error("Serving pprof failed")
 	})
 
-	bpdbBackend, err := bpdb.NewPostgresBackend(*bpdbConnection)
+	db, err := sql.Open("postgres", *bpdbConnection)
+	if err != nil {
+		logger.WithError(err).Fatal("Failed to connect to DB")
+	}
+
+	// set up 3 backend objects; they handle schema actions, kinesis actions, and maintenance/stats actions
+	bpdbBackend, err := bpdb.NewPostgresBackend(db)
 	if err != nil {
 		logger.WithError(err).Fatal("Error setting up blueprint db backend")
 	}
+	bpSchemaBackend := bpdb.NewSchemaBackend(db)
+	bpKinesisConfigBackend := bpdb.NewKinesisConfigBackend(db)
 
 	ingCont := ingester.NewController(*ingesterURL)
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, *configFilename, ingCont, *slackbotURL, *readonly)
+	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, *configFilename, ingCont, *slackbotURL, *readonly)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,

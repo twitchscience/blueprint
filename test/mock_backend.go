@@ -8,30 +8,48 @@ import (
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
-// MockBpdb is a mock for the bpdb/Bpdb interface which tracks how many times AllSchemas has been
-// called and whether the DB is in maintenance mode.
+// MockBpdb is a mock for the bpdb/Bpdb interface which tracks whether the DB is in maintenance mode.
 type MockBpdb struct {
-	allSchemasMutex  *sync.RWMutex
 	maintenanceMutex *sync.RWMutex
 
-	allSchemasCalls int32
 	maintenanceMode bool
+}
+
+// MockBpSchemaBackend is a mock for the bpdb/BpSchemaBackend interface which tracks how many times AllSchemas has been called
+type MockBpSchemaBackend struct {
+	allSchemasMutex *sync.RWMutex
+
+	allSchemasCalls int32
+}
+
+// MockBpKinesisConfigBackend is a mock for the bpdb/BpKinesisConfigBackend interface
+type MockBpKinesisConfigBackend struct {
 }
 
 // NewMockBpdb creates a new mock backend.
 func NewMockBpdb() *MockBpdb {
-	return &MockBpdb{&sync.RWMutex{}, &sync.RWMutex{}, 0, false}
+	return &MockBpdb{&sync.RWMutex{}, false}
+}
+
+// NewMockBpSchemaBackend creates a new mock schema backend.
+func NewMockBpSchemaBackend() *MockBpSchemaBackend {
+	return &MockBpSchemaBackend{&sync.RWMutex{}, 0}
+}
+
+// NewMockBpKinesisConfigBackend creates a new mock kinesis config backend.
+func NewMockBpKinesisConfigBackend() *MockBpKinesisConfigBackend {
+	return &MockBpKinesisConfigBackend{}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.
-func (m *MockBpdb) GetAllSchemasCalls() int32 {
+func (m *MockBpSchemaBackend) GetAllSchemasCalls() int32 {
 	m.allSchemasMutex.RLock()
 	defer m.allSchemasMutex.RUnlock()
 	return m.allSchemasCalls
 }
 
 // AllSchemas increments the number of AllSchemas calls and return nils.
-func (m *MockBpdb) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
+func (m *MockBpSchemaBackend) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
 	m.allSchemasMutex.Lock()
 	m.allSchemasCalls++
 	m.allSchemasMutex.Unlock()
@@ -39,52 +57,52 @@ func (m *MockBpdb) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
 }
 
 // Schema returns nils.
-func (m *MockBpdb) Schema(name string) (*bpdb.AnnotatedSchema, error) {
+func (m *MockBpSchemaBackend) Schema(name string) (*bpdb.AnnotatedSchema, error) {
 	return nil, nil
 }
 
 // UpdateSchema returns nil.
-func (m *MockBpdb) UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError {
+func (m *MockBpSchemaBackend) UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError {
 	return nil
 }
 
 // CreateSchema returns nil.
-func (m *MockBpdb) CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError {
+func (m *MockBpSchemaBackend) CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError {
 	return nil
 }
 
 // Migration returns nils.
-func (m *MockBpdb) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
+func (m *MockBpSchemaBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
 	return nil, nil
 }
 
 // DropSchema return nil.
-func (m *MockBpdb) DropSchema(schema *bpdb.AnnotatedSchema, reason string, exists bool, user string) error {
+func (m *MockBpSchemaBackend) DropSchema(schema *bpdb.AnnotatedSchema, reason string, exists bool, user string) error {
 	return nil
 }
 
 // AllKinesisConfigs returns nil
-func (m *MockBpdb) AllKinesisConfigs() ([]bpdb.AnnotatedKinesisConfig, error) {
+func (m *MockBpKinesisConfigBackend) AllKinesisConfigs() ([]bpdb.AnnotatedKinesisConfig, error) {
 	return make([]bpdb.AnnotatedKinesisConfig, 0), nil
 }
 
 // KinesisConfig returns nil
-func (m *MockBpdb) KinesisConfig(account int64, streamType string, name string) (*bpdb.AnnotatedKinesisConfig, error) {
+func (m *MockBpKinesisConfigBackend) KinesisConfig(account int64, streamType string, name string) (*bpdb.AnnotatedKinesisConfig, error) {
 	return nil, nil
 }
 
 // UpdateKinesisConfig returns nil
-func (m *MockBpdb) UpdateKinesisConfig(update *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
+func (m *MockBpKinesisConfigBackend) UpdateKinesisConfig(update *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
 	return nil
 }
 
 // CreateKinesisConfig returns nil
-func (m *MockBpdb) CreateKinesisConfig(config *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
+func (m *MockBpKinesisConfigBackend) CreateKinesisConfig(config *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
 	return nil
 }
 
 // DropKinesisConfig returns nil
-func (m *MockBpdb) DropKinesisConfig(config *bpdb.AnnotatedKinesisConfig, reason string, user string) error {
+func (m *MockBpKinesisConfigBackend) DropKinesisConfig(config *bpdb.AnnotatedKinesisConfig, reason string, user string) error {
 	return nil
 }
 

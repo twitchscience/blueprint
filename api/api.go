@@ -24,17 +24,19 @@ type schemaResult struct {
 }
 
 type server struct {
-	docRoot            string
-	bpdbBackend        bpdb.Bpdb
-	configFilename     string
-	ingesterController ingester.Controller
-	slackbotURL        string
-	cacheSynchronizer  chan func()
-	cachedResult       *schemaResult
-	cachedVersion      int
-	cacheTimeout       time.Duration
-	blacklistRe        []*regexp.Regexp
-	readonly           bool
+	docRoot                string
+	bpdbBackend            bpdb.Bpdb
+	bpSchemaBackend        bpdb.BpSchemaBackend
+	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend
+	configFilename         string
+	ingesterController     ingester.Controller
+	slackbotURL            string
+	cacheSynchronizer      chan func()
+	cachedResult           *schemaResult
+	cachedVersion          int
+	cacheTimeout           time.Duration
+	blacklistRe            []*regexp.Regexp
+	readonly               bool
 }
 
 var (
@@ -63,17 +65,27 @@ func init() {
 }
 
 // New returns an API process.
-func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller, slackbotURL string, readonly bool) core.Subprocess {
+func New(
+	docRoot string,
+	bpdbBackend bpdb.Bpdb,
+	bpSchemaBackend bpdb.BpSchemaBackend,
+	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend,
+	configFilename string,
+	ingCont ingester.Controller,
+	slackbotURL string,
+	readonly bool) core.Subprocess {
 	s := &server{
-		docRoot:            docRoot,
-		bpdbBackend:        bpdbBackend,
-		configFilename:     configFilename,
-		ingesterController: ingCont,
-		slackbotURL:        slackbotURL,
-		cacheSynchronizer:  make(chan func()),
-		cachedResult:       nil,
-		cachedVersion:      0,
-		readonly:           readonly,
+		docRoot:                docRoot,
+		bpdbBackend:            bpdbBackend,
+		bpSchemaBackend:        bpSchemaBackend,
+		bpKinesisConfigBackend: bpKinesisConfigBackend,
+		configFilename:         configFilename,
+		ingesterController:     ingCont,
+		slackbotURL:            slackbotURL,
+		cacheSynchronizer:      make(chan func()),
+		cachedResult:           nil,
+		cachedVersion:          0,
+		readonly:               readonly,
 	}
 	if err := s.loadConfig(); err != nil {
 		logger.WithError(err).Fatal("failed to load config")

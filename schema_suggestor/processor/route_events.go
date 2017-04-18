@@ -29,8 +29,8 @@ type EventRouter struct {
 	// FlushTimer will peridically flush data about events to the output directory.
 	FlushTimer <-chan time.Time
 
-	// Bpdb talks to blueprint's db to get the current tables.
-	bpdb bpdb.Bpdb
+	// bpSchemaBackend talks to blueprint's db to get the current tables.
+	bpSchemaBackend bpdb.BpSchemaBackend
 
 	// GzipReader is for reading files, and is re-used.
 	GzipReader *gzip.Reader
@@ -42,14 +42,14 @@ type EventRouter struct {
 // NewRouter allocates a new EventRouter that outputs transformations to a given output directory.
 func NewRouter(
 	outputDir string,
-	flushTimer <-chan time.Time,
-	bpdb bpdb.Bpdb,
+	flushInterval time.Duration,
+	bpSchemaBackend bpdb.BpSchemaBackend,
 ) *EventRouter {
 	r := &EventRouter{
 		Processors:       make(map[string]EventProcessor),
 		ProcessorFactory: NewNonTrackedEventProcessor,
 		FlushTimer:       time.NewTicker(flushInterval).C,
-		bpdb:             bpdb,
+		bpSchemaBackend:  bpSchemaBackend,
 		OutputDir:        outputDir,
 	}
 	r.UpdateCurrentTables()
@@ -121,7 +121,7 @@ func (e *EventRouter) ReadFile(filename string) error {
 
 // UpdateCurrentTables talks to bpdb and updates the list of tables that have been created.
 func (e *EventRouter) UpdateCurrentTables() {
-	configs, err := e.bpdb.AllSchemas()
+	configs, err := e.bpSchemaBackend.AllSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to fetch schemas from bpdb")
 		return
