@@ -55,10 +55,8 @@ func New(githubServer string,
 	}
 
 	cookieStore := sessions.NewCookieStore([]byte(cookieSecret))
-	cookieStore.Options = &sessions.Options{
-		HttpOnly: true,
-		Secure:   true,
-	}
+	cookieStore.Options.HttpOnly = true
+	cookieStore.Options.Secure = true
 	return &GithubAuth{
 		RequiredOrg:  requiredOrg,
 		AdminTeam:    adminTeam,
