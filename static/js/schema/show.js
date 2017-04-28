@@ -1,5 +1,5 @@
 angular.module('blueprint')
-  .controller('Show', function ($scope, $http, $location, $routeParams, $q, store, Schema, Types, Droppable, Column, auth) {
+  .controller('ShowSchema', function ($scope, $http, $location, $routeParams, $q, store, Schema, Types, Droppable, Column, auth) {
     var types, schema, dropMessage, cancelDropMessage;
     var typeRequest = Types.get(function(data) {
       if (data) {

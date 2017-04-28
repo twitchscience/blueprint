@@ -22,8 +22,10 @@
           <div class="navbar navbar-static-top">
             <div class="navbar-inner">
               <a class="navbar-brand" href="#">Blueprint</a>
+              <a href="/#/kinesisconfigs" ng-if="currentEditor!='kinesisconfig'" ng-click="updateEditor('kinesisconfig')"><button type="button" class="btn btn-primary navbar-btn pull-left">Edit Kinesis Configs</button></a>
+              <a href="/#/schemas" ng-if="currentEditor!='schema'" ng-click="updateEditor('schema')"><button type="button" class="btn btn-primary navbar-btn pull-left">Edit Ace Schemas</button></a>
               <span ng-if="loginName" class="pull-right"><span class="navbar-text">Logged in as {{loginName}}</span>
-              <a href="/logout"><button type="button" class="btn btn-primary navbar-btn pull-right">Logout</button></a>
+                <a href="/logout"><button type="button" class="btn btn-primary navbar-btn pull-right">Logout</button></a>
               </span>
               <a href="/login?redirect_to=#{{loc.path()}}" ng-if="!loginName"><button type="button" class="btn btn-primary navbar-btn pull-right">Login</button></a>
             </div>
@@ -62,9 +64,12 @@
     <script src="/js/store.js"></script>
 
     <script src="/js/header.js"></script>
-    <script src="/js/show.js"></script>
-    <script src="/js/list.js"></script>
-    <script src="/js/create.js"></script>
+    <script src="/js/schema/show.js"></script>
+    <script src="/js/schema/list.js"></script>
+    <script src="/js/schema/create.js"></script>
+    <script src="/js/kinesisconfig/show.js"></script>
+    <script src="/js/kinesisconfig/list.js"></script>
+    <script src="/js/kinesisconfig/create.js"></script>
     <script src="/js/stats.js"></script>
   </body>
 </html>

@@ -24,17 +24,19 @@ type schemaResult struct {
 }
 
 type server struct {
-	docRoot            string
-	bpdbBackend        bpdb.Bpdb
-	configFilename     string
-	ingesterController ingester.Controller
-	slackbotURL        string
-	cacheSynchronizer  chan func()
-	cachedResult       *schemaResult
-	cachedVersion      int
-	cacheTimeout       time.Duration
-	blacklistRe        []*regexp.Regexp
-	readonly           bool
+	docRoot                string
+	bpdbBackend            bpdb.Bpdb
+	bpSchemaBackend        bpdb.BpSchemaBackend
+	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend
+	configFilename         string
+	ingesterController     ingester.Controller
+	slackbotURL            string
+	cacheSynchronizer      chan func()
+	cachedResult           *schemaResult
+	cachedVersion          int
+	cacheTimeout           time.Duration
+	blacklistRe            []*regexp.Regexp
+	readonly               bool
 }
 
 var (
@@ -63,17 +65,27 @@ func init() {
 }
 
 // New returns an API process.
-func New(docRoot string, bpdbBackend bpdb.Bpdb, configFilename string, ingCont ingester.Controller, slackbotURL string, readonly bool) core.Subprocess {
+func New(
+	docRoot string,
+	bpdbBackend bpdb.Bpdb,
+	bpSchemaBackend bpdb.BpSchemaBackend,
+	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend,
+	configFilename string,
+	ingCont ingester.Controller,
+	slackbotURL string,
+	readonly bool) core.Subprocess {
 	s := &server{
-		docRoot:            docRoot,
-		bpdbBackend:        bpdbBackend,
-		configFilename:     configFilename,
-		ingesterController: ingCont,
-		slackbotURL:        slackbotURL,
-		cacheSynchronizer:  make(chan func()),
-		cachedResult:       nil,
-		cachedVersion:      0,
-		readonly:           readonly,
+		docRoot:                docRoot,
+		bpdbBackend:            bpdbBackend,
+		bpSchemaBackend:        bpSchemaBackend,
+		bpKinesisConfigBackend: bpKinesisConfigBackend,
+		configFilename:         configFilename,
+		ingesterController:     ingCont,
+		slackbotURL:            slackbotURL,
+		cacheSynchronizer:      make(chan func()),
+		cachedResult:           nil,
+		cachedVersion:          0,
+		readonly:               readonly,
 	}
 	if err := s.loadConfig(); err != nil {
 		logger.WithError(err).Fatal("failed to load config")
@@ -118,6 +130,11 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
 	goji.Get("/stats", roAPI)
+
+	roAPI.Get("/kinesisconfigs", s.allKinesisConfigs)
+	roAPI.Get("/kinesisconfig/:account/:type/:name", s.kinesisconfig)
+	goji.Get("/kinesisconfigs", roAPI)
+	goji.Get("/kinesisconfig/*", roAPI)
 }
 
 // Create the write API available only to authenticated users, which includes creating and
@@ -143,13 +160,21 @@ func (s *server) authWriteAPI() *web.Mux {
 	return authWriteAPI
 }
 
-// Create the write API available only to admins.  Currently limited to toggling maintenance mode.
+// Create the write API available only to admins. Currently limited to toggling maintenance
+// mode and modifying Kinesis configs.
 func (s *server) authAdminAPI() *web.Mux {
 	adminAPI := web.New()
 	adminAPI.Use(context.ClearHandler)
 
 	adminAPI.Post("/maintenance", s.setMaintenanceMode)
 	goji.Post("/maintenance", adminAPI)
+
+	adminAPI.Put("/kinesisconfig", s.createKinesisConfig)
+	adminAPI.Post("/kinesisconfig/:account/:type/:name", s.updateKinesisConfig)
+	adminAPI.Post("/drop/kinesisconfig", s.dropKinesisConfig)
+	goji.Put("/kinesisconfig", adminAPI)
+	goji.Post("/kinesisconfig/*", adminAPI)
+	goji.Post("/drop/kinesisconfig", adminAPI)
 
 	return adminAPI
 }

@@ -42,19 +42,31 @@ type DailyChange struct {
 	Users   int
 }
 
-// Bpdb is the interface of the blueprint db backend that stores schema state
+// Bpdb is the interface of the blueprint db backend that interacts with maintenance mode and stats
 type Bpdb interface {
+	IsInMaintenanceMode() bool
+	SetMaintenanceMode(switchingOn bool, reason string) error
+	ActiveUsersLast30Days() ([]*ActiveUser, error)
+	DailyChangesLast30Days() ([]*DailyChange, error)
+}
+
+// BpSchemaBackend is the interface of the blueprint db backend that stores schema state
+type BpSchemaBackend interface {
 	AllSchemas() ([]AnnotatedSchema, error)
 	Schema(name string) (*AnnotatedSchema, error)
 	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError
 	CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError
 	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
+}
 
-	IsInMaintenanceMode() bool
-	SetMaintenanceMode(switchingOn bool, reason string) error
-	ActiveUsersLast30Days() ([]*ActiveUser, error)
-	DailyChangesLast30Days() ([]*DailyChange, error)
+// BpKinesisConfigBackend is the interface of the blueprint db backend that stores kinesis config state
+type BpKinesisConfigBackend interface {
+	AllKinesisConfigs() ([]scoop_protocol.AnnotatedKinesisConfig, error)
+	KinesisConfig(account int64, streamType string, name string) (*scoop_protocol.AnnotatedKinesisConfig, error)
+	UpdateKinesisConfig(update *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError
+	CreateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError
+	DropKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, reason string, user string) error
 }
 
 func validateType(t string) error {
@@ -211,4 +223,31 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 			maxColumns, len(req.Additions), len(req.Deletes), len(schema.Columns))
 	}
 	return ""
+}
+
+func validateStreamType(t string) error {
+	if t != "stream" && t != "firehose" {
+		return fmt.Errorf("type not found")
+	}
+	return nil
+}
+
+func validateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig) error {
+	err := validateIdentifier(config.SpadeConfig.StreamName)
+	if err != nil {
+		return fmt.Errorf("stream name invalid: %v", err)
+	}
+	err = validateStreamType(config.SpadeConfig.StreamType)
+	if err != nil {
+		return fmt.Errorf("stream type invalid: %v", err)
+	}
+	err = validateStreamType(config.SpadeConfig.StreamType)
+	if err != nil {
+		return fmt.Errorf("stream type invalid: %v", err)
+	}
+	err = config.SpadeConfig.Validate()
+	if err != nil {
+		return fmt.Errorf("Kinesis stream internal validate failed: %v", err)
+	}
+	return nil
 }

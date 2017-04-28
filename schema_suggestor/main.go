@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -97,10 +98,12 @@ func main() {
 		logger.Fatal("Missing required flag: --nonTrackedQueue")
 	}
 
-	bpdb, err := bpdb.NewPostgresBackend(*bpdbConnection)
+	db, err := sql.Open("postgres", *bpdbConnection)
 	if err != nil {
-		logger.WithError(err).Fatalf("Error creating bpdb backend")
+		logger.WithError(err).Fatal("Failed to connect to DB")
 	}
+	bpSchemaBackend := bpdb.NewSchemaBackend(db)
+
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.
 
@@ -114,8 +117,8 @@ func main() {
 		&BPHandler{
 			Router: processor.NewRouter(
 				*staticFileDir,
-				time.Tick(5*time.Minute),
-				bpdb,
+				5*time.Minute,
+				bpSchemaBackend,
 			),
 			Downloader: s3manager.NewDownloader(session),
 		},

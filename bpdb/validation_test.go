@@ -1,6 +1,7 @@
 package bpdb
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -240,4 +241,102 @@ func TestPreValidateUpdateRenameErrors(t *testing.T) {
 	req.Renames = core.Renames{"y": "x"}
 	requestErr = preValidateUpdate(&req, &schema)
 	require.Equal(requestErr, "Attempting to rename to duplicate column: x")
+}
+
+func TestValidateKinesisConfigInvalidStreamName(t *testing.T) {
+	require := require.New(t)
+	var config scoop_protocol.KinesisWriterConfig
+	err := json.Unmarshal([]byte(`
+{
+	"StreamName": "spade-downstream-prod-test",
+	"StreamRole": "arn:aws:iam::123:role/spade-downstream-prod-test",
+	"StreamType": "firehose",
+	"Compress": false,
+	"Events": {
+		"minute-watched": {
+			"Fields": [
+				"time"
+			]
+		}
+	},
+	"BufferSize": 1024,
+	"MaxAttemptsPerRecord": 10,
+	"RetryDelay": "1s",
+	"Globber": {
+		"MaxSize": 990000,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	},
+	"Batcher": {
+		"MaxSize": 990000,
+		"MaxEntries": 500,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	}
+}
+	`), &config)
+	require.Nil(err, "Could not marshal JSON")
+	req := scoop_protocol.AnnotatedKinesisConfig{
+		SpadeConfig: config,
+	}
+
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Base valid name test failed")
+
+	req.SpadeConfig.StreamName = "a-name_with_va1id-symb0ls"
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Valid name with numbers and symbols failed")
+
+	req.SpadeConfig.StreamName = "a bad name!"
+	err = validateKinesisConfig(&req)
+	require.NotNil(err, "Invalid name with bad characters did not fail")
+}
+
+func TestValidateKinesisConfigInvalidStreamType(t *testing.T) {
+	require := require.New(t)
+	var config scoop_protocol.KinesisWriterConfig
+	err := json.Unmarshal([]byte(`
+{
+	"StreamName": "spade-downstream-prod-test",
+	"StreamRole": "arn:aws:iam::123:role/spade-downstream-prod-test",
+	"StreamType": "firehose",
+	"Compress": false,
+	"Events": {
+		"minute-watched": {
+			"Fields": [
+				"time"
+			]
+		}
+	},
+	"BufferSize": 1024,
+	"MaxAttemptsPerRecord": 10,
+	"RetryDelay": "1s",
+	"Globber": {
+		"MaxSize": 990000,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	},
+	"Batcher": {
+		"MaxSize": 990000,
+		"MaxEntries": 500,
+		"MaxAge": "1s",
+		"BufferLength": 1024
+	}
+}
+	`), &config)
+	require.Nil(err, "Could not marshal JSON")
+	req := scoop_protocol.AnnotatedKinesisConfig{
+		SpadeConfig: config,
+	}
+
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Base firehose test invalid")
+
+	req.SpadeConfig.StreamType = "badtype"
+	err = validateKinesisConfig(&req)
+	require.NotNil(err, "Bad type did not fail")
+
+	req.SpadeConfig.StreamType = "stream"
+	err = validateKinesisConfig(&req)
+	require.Nil(err, "Valid stream type deemed invalid")
 }

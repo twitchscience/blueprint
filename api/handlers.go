@@ -161,7 +161,7 @@ func (s *server) createSchemaHelper(username string, body io.ReadCloser) *core.W
 	}
 
 	defer s.clearCache()
-	return s.bpdbBackend.CreateSchema(&cfg, username)
+	return s.bpSchemaBackend.CreateSchema(&cfg, username)
 }
 
 // isBlacklisted check whether name matches any regex in the blacklist (case insensitive).
@@ -194,7 +194,7 @@ func (s *server) updateSchemaHelper(eventName string, username string, body io.R
 	req.EventName = eventName
 
 	defer s.clearCache()
-	return s.bpdbBackend.UpdateSchema(&req, username)
+	return s.bpSchemaBackend.UpdateSchema(&req, username)
 }
 
 func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -211,7 +211,7 @@ func (s *server) dropSchemaHelper(username string, body io.ReadCloser) *core.Web
 		return core.NewServerWebError(err)
 	}
 
-	schema, err := s.bpdbBackend.Schema(req.EventName)
+	schema, err := s.bpSchemaBackend.Schema(req.EventName)
 	if err != nil {
 		return core.NewServerWebErrorf("retrieving schema: %v", err)
 	}
@@ -237,7 +237,7 @@ func (s *server) dropSchemaHelper(username string, body io.ReadCloser) *core.Web
 	}
 
 	defer s.clearCache()
-	err = s.bpdbBackend.DropSchema(schema, req.Reason, exists, username)
+	err = s.bpSchemaBackend.DropSchema(schema, req.Reason, exists, username)
 	if err != nil {
 		return core.NewServerWebErrorf("dropping schema in operation table: %v", err)
 	}
@@ -277,7 +277,7 @@ func (s *server) getAllSchemas() *schemaResult {
 			return
 		}
 
-		schemas, err := s.bpdbBackend.AllSchemas()
+		schemas, err := s.bpSchemaBackend.AllSchemas()
 		if err != nil {
 			logger.WithError(err).Error("Failed to retrieve all schemas")
 		}
@@ -291,7 +291,7 @@ func (s *server) getAllSchemas() *schemaResult {
 }
 
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
-	schema, err := s.bpdbBackend.Schema(c.URLParams["id"])
+	schema, err := s.bpSchemaBackend.Schema(c.URLParams["id"])
 	if err != nil {
 		logger.WithError(err).WithField("schema", c.URLParams["id"]).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -320,7 +320,7 @@ func respondWithJSONBool(w http.ResponseWriter, key string, result bool) {
 
 // TODO: Update goji to goji/goji so handlers with URLParams are testable.
 func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request) {
-	schema, err := s.bpdbBackend.Schema(c.URLParams["id"])
+	schema, err := s.bpSchemaBackend.Schema(c.URLParams["id"])
 	if err != nil {
 		logger.WithError(err).WithField("schema", c.URLParams["id"]).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -358,7 +358,7 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 			Error("'to_version' must be non-negative integer")
 		return
 	}
-	operations, err := s.bpdbBackend.Migration(
+	operations, err := s.bpSchemaBackend.Migration(
 		c.URLParams["schema"],
 		to,
 	)
@@ -549,6 +549,118 @@ func (s *server) statsHelper(w io.Writer) error {
 	_, err = w.Write(b)
 	if err != nil {
 		return fmt.Errorf("writing response: %v", err)
+	}
+	return nil
+}
+
+func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
+	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
+	if err != nil {
+		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
+	}
+	writeEvent(w, schemas)
+}
+
+func reportKinesisConfigUserError(w http.ResponseWriter, err error, msg string) {
+	webErr := core.NewUserWebError(err)
+	webErr.ReportError(w, msg)
+}
+
+func reportKinesisConfigServerError(w http.ResponseWriter, err error, msg string) {
+	webErr := core.NewServerWebError(err)
+	webErr.ReportError(w, msg)
+}
+
+func (s *server) kinesisconfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	accountNumber, err := strconv.ParseInt(c.URLParams["account"], 10, 64)
+	if err != nil {
+		reportKinesisConfigUserError(w, err, "Non-numeric account number supplied.")
+		return
+	}
+	config, err := s.bpKinesisConfigBackend.KinesisConfig(accountNumber, c.URLParams["type"], c.URLParams["name"])
+	if err != nil {
+		reportKinesisConfigServerError(w, err, "Error retrieving Kinesis config")
+		return
+	}
+	if config == nil {
+		fourOhFour(w, r)
+		return
+	}
+	writeEvent(w, config)
+}
+
+func (s *server) updateKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	accountNumber, err := strconv.ParseInt(c.URLParams["account"], 10, 64)
+	if err != nil {
+		reportKinesisConfigUserError(w, err, "Non-numeric account number supplied.")
+		return
+	}
+	streamType := c.URLParams["type"]
+	streamName := c.URLParams["name"]
+	webErr := s.updateKinesisConfigHelper(accountNumber, streamType, streamName, c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error updating Kinesis config")
+	}
+}
+
+func (s *server) updateKinesisConfigHelper(account int64, streamType string, streamName string, username string, body io.ReadCloser) *core.WebError {
+	var req struct {
+		Kinesisconfig scoop_protocol.AnnotatedKinesisConfig
+	}
+	err := decodeBody(body, &req)
+	if err != nil {
+		return core.NewUserWebError(err)
+	}
+
+	return s.bpKinesisConfigBackend.UpdateKinesisConfig(&req.Kinesisconfig, username)
+}
+
+func (s *server) createKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	webErr := s.createKinesisConfigHelper(c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error creating Kinesis config")
+	}
+}
+
+func (s *server) createKinesisConfigHelper(username string, body io.ReadCloser) *core.WebError {
+	var config scoop_protocol.AnnotatedKinesisConfig
+	err := decodeBody(body, &config)
+	if err != nil {
+		return core.NewUserWebError(err)
+	}
+	return s.bpKinesisConfigBackend.CreateKinesisConfig(&config, username)
+}
+
+func (s *server) dropKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {
+	webErr := s.dropKinesisConfigHelper(c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error dropping schema")
+	}
+}
+
+func (s *server) dropKinesisConfigHelper(username string, body io.ReadCloser) *core.WebError {
+	var req struct {
+		StreamName string
+		StreamType string
+		AWSAccount int64
+		Reason     string
+	}
+	err := decodeBody(body, &req)
+	if err != nil {
+		return core.NewUserWebError(err)
+	}
+
+	current, err := s.bpKinesisConfigBackend.KinesisConfig(req.AWSAccount, req.StreamType, req.StreamName)
+	if err != nil {
+		return core.NewServerWebErrorf("retrieving Kinesis config: %v", err)
+	}
+	if current == nil {
+		return core.NewUserWebErrorf("unknown Kinesis config to drop")
+	}
+
+	err = s.bpKinesisConfigBackend.DropKinesisConfig(current, req.Reason, username)
+	if err != nil {
+		return core.NewServerWebErrorf("dropping Kinesis config in bpdb table: %v", err)
 	}
 	return nil
 }

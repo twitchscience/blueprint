@@ -1,0 +1,59 @@
+<div>
+  <form ng-submit="createKinesisConfig()" name="createKinesisConfigForm">
+    <h1><a href="#/kinesisconfigs">&#x21e6;</a> Create a New Kinesis Configuration</h1>
+    <span ng-if="!isEditable">You do not have permission to create a Kinesis Configuration. Turn back now, mortal!</span>
+    <table class="table table-hover" ng-if="isEditable">
+      <tbody>
+        <tr>
+          <td>AWS Account</td>
+          <td><input type="number"
+                     placeholder="Your account number"
+                     ng-model="$parent.AWSAccount"
+                     required/></td>
+        </tr>
+        <tr>
+          <td>Team</td>
+          <td><input type="text"
+                     placeholder="Which team owns this?"
+                     ng-model="$parent.Team"
+                     required/></td>
+        </tr>
+        <tr>
+          <td>Contact Info</td>
+          <td><input type="text"
+                     placeholder="Email or Slack channel in case of error"
+                     ng-model="$parent.Contact"
+                     required/></td>
+        </tr>
+        <tr>
+          <td>Usage</td>
+          <td><input type="text"
+                     placeholder="Summary of what's this used for"
+                     ng-model="$parent.Usage"
+                     required/></td>
+        </tr>
+        <tr>
+          <td>Consuming Library</td>
+          <td><input type="text"
+                     placeholder="What's on your end of the pipe?"
+                     ng-model="$parent.ConsumingLibrary"
+                     required/></td>
+        </tr>
+        <tr>
+          <td>Kinesis Configuration</td>
+          <td><textarea class="form-control" rows="20"
+                        ng-model="$parent.configJSON"
+                        placeholder="Copy and paste from another config to start if unsure."></textarea>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="text-center pull-left">
+            <button type="submit"
+                    class="btn btn-success">Create!</button>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </form>
+</div>

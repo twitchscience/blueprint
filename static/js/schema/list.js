@@ -1,5 +1,5 @@
 angular.module('blueprint')
-  .controller('List', function($scope, $location, Schema, Suggestions, Maintenance, store, auth) {
+  .controller('ListSchemas', function($scope, $location, Schema, Suggestions, Maintenance, store, auth) {
     $scope.loginName = auth.getLoginName();
     $scope.isAdmin = auth.isAdmin();
     $scope.isEditable = false;

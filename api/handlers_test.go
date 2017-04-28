@@ -20,7 +20,7 @@ func TestMigrationNegativeTo(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, configFile.Name(), nil, "", false).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)
@@ -32,13 +32,13 @@ func TestMigrationNegativeTo(t *testing.T) {
 }
 
 func TestAllSchemasCache(t *testing.T) {
-	backend := test.NewMockBpdb()
+	backend := test.NewMockBpSchemaBackend()
 
 	configFile := createJSONFile(t, "testCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, backend, nil, configFile.Name(), nil, "", false).(*server)
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}
@@ -61,7 +61,7 @@ func TestAllSchemasCache(t *testing.T) {
 	}
 }
 
-func repeatAllSchema(t *testing.T, s *server, backend *test.MockBpdb) {
+func repeatAllSchema(t *testing.T, s *server, backend *test.MockBpSchemaBackend) {
 	getAllReq, _ := http.NewRequest("GET", "/schemas", strings.NewReader(""))
 	for i := 0; i < 3; i++ {
 		getAllRecorder := httptest.NewRecorder()
@@ -74,7 +74,7 @@ func repeatAllSchema(t *testing.T, s *server, backend *test.MockBpdb) {
 	}
 }
 
-func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpdb) {
+func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBackend) {
 	cfg := scoop.Config{EventName: "event", Columns: nil, Version: 0}
 	cfgBytes, err := json.Marshal(cfg)
 	if err != nil {
@@ -91,7 +91,7 @@ func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpdb) {
 	printTotalAllSchemasCalls(t, backend)
 }
 
-func createSchemaBlacklisted(t *testing.T, s *server, c web.C, backend *test.MockBpdb) {
+func createSchemaBlacklisted(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBackend) {
 	cfg := scoop.Config{EventName: "dfp_bad", Columns: nil, Version: 0}
 	cfgBytes, err := json.Marshal(cfg)
 	if err != nil {
@@ -108,7 +108,7 @@ func createSchemaBlacklisted(t *testing.T, s *server, c web.C, backend *test.Moc
 	printTotalAllSchemasCalls(t, backend)
 }
 
-func updateSchema(t *testing.T, s *server, c web.C, backend *test.MockBpdb) {
+func updateSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBackend) {
 	updateSchemaReq := core.ClientUpdateSchemaRequest{}
 	updateSchemaReqBytes, err := json.Marshal(updateSchemaReq)
 	if err != nil {
@@ -143,6 +143,6 @@ func assertRequestOK(t *testing.T, testedName string, w *httptest.ResponseRecord
 	}
 }
 
-func printTotalAllSchemasCalls(t *testing.T, backend *test.MockBpdb) {
+func printTotalAllSchemasCalls(t *testing.T, backend *test.MockBpSchemaBackend) {
 	t.Logf("AllSchemas() calls seen: %v", backend.GetAllSchemasCalls())
 }

@@ -1,0 +1,89 @@
+<h1><a href="#/kinesisconfigs">&#x21e6</a> Published Kinesis Config for {{kinesisconfig.SpadeConfig.StreamName}}
+</h1>
+<span ng-show="isEditable">Note: any changes you make will take up to 10 minutes to propagate.</span>
+<div class="row">
+  <div class="col-md-5">
+    <button ng-click="showDropConfig = !showDropConfig"
+            type="button" class="btn" ng-class="{'btn-danger': !showDropConfig, 'btn-success': showDropConfig}"
+            ng-show="isEditable && dropMessage">{{ showDropConfig ? cancelDropMessage : dropMessage }}</button>
+  </div>
+  <div class="col-md-6 col-md-offset-1">
+    <span class="pull-right">
+      <span ng-if="kinesisconfig.Version == 0">Created {{::kinesisconfig.LastEditedAt | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
+      <span ng-if="kinesisconfig.Version != 0">Last updated {{::kinesisconfig.LastEditedAt | date:'yyyy-MM-dd HH:mm:ss Z'}} to version {{::kinesisconfig.Version}}</span>
+      by {{::kinesisconfig.LastChangedBy}}
+    </span>
+  </div>
+</div>
+<div class="row" ng-if="loading">
+  <div class="col-md-1 col-md-offset-6">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px; margin-top: 30px"></i>
+  </div>
+</div>
+<form ng-show="isEditable && showDropConfig && dropMessage && !loading" ng-submit="dropConfig()">
+<div class="row form-group" style="margin-top: 35px">
+  <div class="col-xs-3">
+    <label for="reason">Reason for dropping: </label>
+  </div>
+  <div class="col-xs-6">
+    <textarea name="reason" ng-model="dropConfigReason" class="form-control"></textarea>
+  </div>
+  <div class="col-xs-2">
+    <button type="submit" class="btn btn-danger" ng-disabled="executingDrop">Drop Config</button>
+  </div>
+  <div class="col-xs-1">
+    <i class="fa fa-spinner fa-spin" style="font-size:24px" ng-show="executingDrop"></i>
+  </div>
+</div>
+</form>
+
+<form ng-show="!loading && (!showDropConfig || !dropMessage)" name="updateKinesisConfigForm" ng-submit="updateKinesisConfig()">
+<table class="table table-hover">
+  <tbody>
+    <tr>
+      <td>Stream Name</td>
+      <td>{{::kinesisconfig.SpadeConfig.StreamName}}</td>
+    </tr>
+    <tr>
+      <td>Stream Type</td>
+      <td>{{::kinesisconfig.SpadeConfig.StreamType}}</td>
+    </tr>
+    <tr>
+      <td>AWS Account</td>
+      <td>{{::kinesisconfig.AWSAccount}}</td>
+    </tr>
+    <tr>
+      <td>Team</td>
+      <td><input type="text" ng-model="kinesisconfig.Team" ng-if="isEditable">
+          <span ng-if="!isEditable">{{::kinesisconfig.Team}}</span></td>
+    </tr>
+    <tr>
+      <td>Contact Info</td>
+      <td><input type="text" ng-model="kinesisconfig.Contact" ng-if="isEditable">
+          <span ng-if="!isEditable">{{::kinesisconfig.Contact}}</span></td>
+    </tr>
+    <tr>
+      <td>Usage</td>
+      <td><input type="text" ng-model="kinesisconfig.Usage" ng-if="isEditable">
+          <span ng-if="!isEditable">{{::kinesisconfig.Usage}}</span></td>
+    </tr>
+    <tr>
+      <td>Consuming Library</td>
+      <td><input type="text" ng-model="kinesisconfig.ConsumingLibrary" ng-if="isEditable">
+          <span ng-if="!isEditable">{{::kinesisconfig.ConsumingLibrary}}</span></td>
+    </tr>
+    <tr>
+      <td>Kinesis Configuration</td>
+      <td><textarea class="form-control" rows="20" ng-model="configJSON" ng-disabled="!isEditable"></textarea>
+    </tr>
+  </tbody>
+  <tfoot ng-if="isEditable">
+    <tr>
+      <td class="text-center pull-left">
+          <button type="submit"
+                  class="btn btn-success">Update Kinesis Config</button>
+      </td>
+    </tr>
+  </tfoot>
+</table>
+</form>
