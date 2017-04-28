@@ -556,31 +556,30 @@ func (s *server) statsHelper(w io.Writer) error {
 func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
 	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
 	if err != nil {
-		logger.WithError(err).Error("Failed to retrieve all KinesisConfigs")
+		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
 	}
 	writeEvent(w, schemas)
 }
 
-func reportKinesisConfigError(w http.ResponseWriter, c web.C, err error, msg string) {
+func reportKinesisConfigUserError(w http.ResponseWriter, err error, msg string) {
 	webErr := core.NewUserWebError(err)
 	webErr.ReportError(w, msg)
-	logger.
-		WithError(err).
-		WithField("account", c.URLParams["account"]).
-		WithField("type", c.URLParams["type"]).
-		WithField("name", c.URLParams["name"]).
-		Error(msg)
+}
+
+func reportKinesisConfigServerError(w http.ResponseWriter, err error, msg string) {
+	webErr := core.NewServerWebError(err)
+	webErr.ReportError(w, msg)
 }
 
 func (s *server) kinesisconfig(c web.C, w http.ResponseWriter, r *http.Request) {
 	accountNumber, err := strconv.ParseInt(c.URLParams["account"], 10, 64)
 	if err != nil {
-		reportKinesisConfigError(w, c, err, "Non-numeric account number supplied.")
+		reportKinesisConfigUserError(w, err, "Non-numeric account number supplied.")
 		return
 	}
 	config, err := s.bpKinesisConfigBackend.KinesisConfig(accountNumber, c.URLParams["type"], c.URLParams["name"])
 	if err != nil {
-		reportKinesisConfigError(w, c, err, "Error retrieving Kinesis config")
+		reportKinesisConfigServerError(w, err, "Error retrieving Kinesis config")
 		return
 	}
 	if config == nil {
@@ -593,7 +592,7 @@ func (s *server) kinesisconfig(c web.C, w http.ResponseWriter, r *http.Request) 
 func (s *server) updateKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {
 	accountNumber, err := strconv.ParseInt(c.URLParams["account"], 10, 64)
 	if err != nil {
-		reportKinesisConfigError(w, c, err, "Non-numeric account number supplied.")
+		reportKinesisConfigUserError(w, err, "Non-numeric account number supplied.")
 		return
 	}
 	streamType := c.URLParams["type"]
@@ -606,11 +605,11 @@ func (s *server) updateKinesisConfig(c web.C, w http.ResponseWriter, r *http.Req
 
 func (s *server) updateKinesisConfigHelper(account int64, streamType string, streamName string, username string, body io.ReadCloser) *core.WebError {
 	var req struct {
-		Kinesisconfig bpdb.AnnotatedKinesisConfig
+		Kinesisconfig scoop_protocol.AnnotatedKinesisConfig
 	}
 	err := decodeBody(body, &req)
 	if err != nil {
-		return core.NewServerWebError(err)
+		return core.NewUserWebError(err)
 	}
 
 	return s.bpKinesisConfigBackend.UpdateKinesisConfig(&req.Kinesisconfig, username)
@@ -624,10 +623,10 @@ func (s *server) createKinesisConfig(c web.C, w http.ResponseWriter, r *http.Req
 }
 
 func (s *server) createKinesisConfigHelper(username string, body io.ReadCloser) *core.WebError {
-	var config bpdb.AnnotatedKinesisConfig
+	var config scoop_protocol.AnnotatedKinesisConfig
 	err := decodeBody(body, &config)
 	if err != nil {
-		return core.NewServerWebError(err)
+		return core.NewUserWebError(err)
 	}
 	return s.bpKinesisConfigBackend.CreateKinesisConfig(&config, username)
 }
@@ -648,7 +647,7 @@ func (s *server) dropKinesisConfigHelper(username string, body io.ReadCloser) *c
 	}
 	err := decodeBody(body, &req)
 	if err != nil {
-		return core.NewServerWebError(err)
+		return core.NewUserWebError(err)
 	}
 
 	current, err := s.bpKinesisConfigBackend.KinesisConfig(req.AWSAccount, req.StreamType, req.StreamName)

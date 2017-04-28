@@ -37,6 +37,9 @@ angular.module('blueprint')
       } catch (err) {
         store.setError("Could not stringify JSON from server: " + err)
       }
+      $scope.StreamName = kinesisconfig.SpadeConfig.StreamName
+      $scope.StreamType = kinesisconfig.SpadeConfig.StreamType
+      $scope.AWSAccount = kinesisconfig.AWSAccount
 
       $scope.updateKinesisConfig = function() {
         try {
@@ -45,11 +48,17 @@ angular.module('blueprint')
           store.setError("Invalid JSON - could not be parsed: " + err)
           return false
         }
+        if ($scope.StreamName != kinesisconfig.SpadeConfig.StreamName ||
+            $scope.StreamType != kinesisconfig.SpadeConfig.StreamType ||
+            $scope.AWSAccount != kinesisconfig.AWSAccount) {
+          store.setError("AWS account, stream name and stream type must not be changed")
+          return false
+        }
         KinesisConfig.update(
-          {account: kinesisconfig.AWSAccount, type: kinesisconfig.StreamType, name: kinesisconfig.StreamName},
+          {account: kinesisconfig.AWSAccount, type: kinesisconfig.SpadeConfig.StreamType, name: kinesisconfig.SpadeConfig.StreamName},
           {kinesisconfig: kinesisconfig},
           function() {
-            store.setMessage("Succesfully updated Kinesis configuration: " +  kinesisconfig.StreamName);
+            store.setMessage("Succesfully updated Kinesis configuration: " +  kinesisconfig.SpadeConfig.StreamName);
           },
           function(err) {
             store.setError(err, undefined);
@@ -62,9 +71,9 @@ angular.module('blueprint')
         }
         $scope.executingDrop = true;
         KinesisConfig.drop(
-          { StreamName: kinesisconfig.StreamName,
-            StreamType: kinesisconfig.StreamType,
-            AWSAccount: kinesisconfig.AWSAccount,
+          { StreamName: $scope.StreamName,
+            StreamType: $scope.StreamType,
+            AWSAccount: $scope.AWSAccount,
             Reason: $scope.dropConfigReason},
           function() {
             store.setMessage($scope.successDropMessage);

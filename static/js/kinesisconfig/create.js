@@ -20,9 +20,13 @@ angular.module('blueprint')
         store.setError("Invalid JSON - could not be parsed: " + err)
         return false
       }
+      if (!$scope.SpadeConfig.StreamName || !$scope.SpadeConfig.StreamType || $scope.AWSAccount == 0) {
+        store.setError("AWS account, stream name and stream type must be present")
+        return false
+      }
       KinesisConfig.put({
-        "StreamName": $scope.StreamName,
-        "StreamType": $scope.StreamType,
+        "StreamName": $scope.SpadeConfig.StreamName,
+        "StreamType": $scope.SpadeConfig.StreamType,
         "AWSAccount": $scope.AWSAccount,
         "Team": $scope.Team,
         "Contact": $scope.Contact,

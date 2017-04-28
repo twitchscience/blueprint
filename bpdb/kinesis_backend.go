@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq" // to include the 'postgres' driver
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
+	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 var (
@@ -78,12 +79,12 @@ func (p *kinesisConfigBackend) execFnInTransaction(work func(*sql.Tx) error) err
 }
 
 // Schema returns all of the current Kinesis configs
-func (p *kinesisConfigBackend) AllKinesisConfigs() ([]AnnotatedKinesisConfig, error) {
+func (p *kinesisConfigBackend) AllKinesisConfigs() ([]scoop_protocol.AnnotatedKinesisConfig, error) {
 	rows, err := p.db.Query(allKinesisConfigsQuery)
 	if err != nil {
 		return nil, fmt.Errorf("querying for all Kinesis configs: %v", err)
 	}
-	configs := []AnnotatedKinesisConfig{}
+	configs := []scoop_protocol.AnnotatedKinesisConfig{}
 	defer func() {
 		err := rows.Close()
 		if err != nil {
@@ -91,11 +92,12 @@ func (p *kinesisConfigBackend) AllKinesisConfigs() ([]AnnotatedKinesisConfig, er
 		}
 	}()
 	for rows.Next() {
-		var config AnnotatedKinesisConfig
+		var config scoop_protocol.AnnotatedKinesisConfig
 		var b []byte
+		var streamName, streamType string
 		err := rows.Scan(
-			&config.StreamName,
-			&config.StreamType,
+			&streamName,
+			&streamType,
 			&config.Team,
 			&config.Version,
 			&config.Contact,
@@ -120,7 +122,7 @@ func (p *kinesisConfigBackend) AllKinesisConfigs() ([]AnnotatedKinesisConfig, er
 }
 
 // KinesisConfig returns the current schema for the kinesis `name`
-func (p *kinesisConfigBackend) KinesisConfig(account int64, streamType string, name string) (*AnnotatedKinesisConfig, error) {
+func (p *kinesisConfigBackend) KinesisConfig(account int64, streamType string, name string) (*scoop_protocol.AnnotatedKinesisConfig, error) {
 	row, err := p.db.Query(kinesisConfigQuery, account, streamType, name)
 	if err != nil {
 		return nil, fmt.Errorf("querying for Kinesis config %d %s %s: %v", account, streamType, name, err)
@@ -128,11 +130,11 @@ func (p *kinesisConfigBackend) KinesisConfig(account int64, streamType string, n
 	if !row.Next() {
 		return nil, nil
 	}
-	var config AnnotatedKinesisConfig
+	var config scoop_protocol.AnnotatedKinesisConfig
 	var b []byte
 	err = row.Scan(
-		&config.StreamName,
-		&config.StreamType,
+		&name,
+		&streamType,
 		&config.Team,
 		&config.Version,
 		&config.Contact,
@@ -158,8 +160,8 @@ func (p *kinesisConfigBackend) KinesisConfig(account int64, streamType string, n
 }
 
 // UpdateKinesisConfig validates the updated configuration, then adds it to the database
-func (p *kinesisConfigBackend) UpdateKinesisConfig(req *AnnotatedKinesisConfig, user string) *core.WebError {
-	config, err := p.KinesisConfig(req.AWSAccount, req.StreamType, req.StreamName)
+func (p *kinesisConfigBackend) UpdateKinesisConfig(req *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError {
+	config, err := p.KinesisConfig(req.AWSAccount, req.SpadeConfig.StreamType, req.SpadeConfig.StreamName)
 	if err != nil {
 		return core.NewServerWebErrorf("error getting Kinesis config to validate schema update: %v", err)
 	}
@@ -172,20 +174,20 @@ func (p *kinesisConfigBackend) UpdateKinesisConfig(req *AnnotatedKinesisConfig, 
 	}
 
 	return core.NewServerWebError(p.execFnInTransaction(func(tx *sql.Tx) error {
-		row := tx.QueryRow(nextKinesisConfigVersionQuery, req.AWSAccount, req.StreamType, req.StreamName)
+		row := tx.QueryRow(nextKinesisConfigVersionQuery, req.AWSAccount, req.SpadeConfig.StreamType, req.SpadeConfig.StreamName)
 		var newVersion int
 		err := row.Scan(&newVersion)
 		if err != nil {
-			return fmt.Errorf("parsing response for version number for %s: %v", req.StreamName, err)
+			return fmt.Errorf("parsing response for version number for %s: %v", req.SpadeConfig.StreamName, err)
 		}
 		var b []byte
 		b, err = json.Marshal(req.SpadeConfig)
 		if err != nil {
-			return fmt.Errorf("marshalling %s config to json: %v", req.StreamName, err)
+			return fmt.Errorf("marshalling %s config to json: %v", req.SpadeConfig.StreamName, err)
 		}
 		_, err = tx.Exec(insertKinesisConfigQuery,
-			req.StreamName,
-			req.StreamType,
+			req.SpadeConfig.StreamName,
+			req.SpadeConfig.StreamType,
 			req.Team,
 			newVersion,
 			req.Contact,
@@ -195,21 +197,14 @@ func (p *kinesisConfigBackend) UpdateKinesisConfig(req *AnnotatedKinesisConfig, 
 			b, // the marshalled config
 			user,
 		)
-		if err != nil {
-			rollErr := tx.Rollback()
-			if rollErr != nil {
-				return fmt.Errorf("failed to commit: %v; then error rolling back commit: %v", err, rollErr)
-			}
-			return fmt.Errorf("INSERTing Kinesis config row on %s: %v", req.StreamName, err)
-		}
-		return nil
+		return err
 	}))
 }
 
 // CreateKinesisConfig validates that the creation request is valid and if so, stores
 // the Kinesisconfig in bpdb
-func (p *kinesisConfigBackend) CreateKinesisConfig(req *AnnotatedKinesisConfig, user string) *core.WebError {
-	existing, err := p.KinesisConfig(req.AWSAccount, req.StreamType, req.StreamName)
+func (p *kinesisConfigBackend) CreateKinesisConfig(req *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError {
+	existing, err := p.KinesisConfig(req.AWSAccount, req.SpadeConfig.StreamType, req.SpadeConfig.StreamName)
 	if err != nil {
 		return core.NewServerWebErrorf("checking for Kinesis config existence: %v", err)
 	}
@@ -225,11 +220,11 @@ func (p *kinesisConfigBackend) CreateKinesisConfig(req *AnnotatedKinesisConfig, 
 		var b []byte
 		b, err := json.Marshal(req.SpadeConfig)
 		if err != nil {
-			return fmt.Errorf("marshalling %s Kinesis config json: %v", req.StreamName, err)
+			return fmt.Errorf("marshalling %s Kinesis config json: %v", req.SpadeConfig.StreamName, err)
 		}
 		_, err = tx.Exec(insertKinesisConfigQuery,
-			req.StreamName,
-			req.StreamType,
+			req.SpadeConfig.StreamName,
+			req.SpadeConfig.StreamType,
 			req.Team,
 			0, // first version is always 0
 			req.Contact,
@@ -239,41 +234,27 @@ func (p *kinesisConfigBackend) CreateKinesisConfig(req *AnnotatedKinesisConfig, 
 			b, // the marshalled config
 			user,
 		)
-		if err != nil {
-			rollErr := tx.Rollback()
-			if rollErr != nil {
-				return fmt.Errorf("failed to commit: %v; then error rolling back commit: %v", err, rollErr)
-			}
-			return fmt.Errorf("INSERTing Kinesis config on %s: %v", req.StreamName, err)
-		}
-		return nil
+		return err
 	}))
 }
 
 // DropKinesisConfig drops Kinesis config; don't worry, it's recoverable.
-func (p *kinesisConfigBackend) DropKinesisConfig(config *AnnotatedKinesisConfig, reason string, user string) error {
+func (p *kinesisConfigBackend) DropKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, reason string, user string) error {
 	return p.execFnInTransaction(func(tx *sql.Tx) error {
 		var newVersion int
-		row := tx.QueryRow(nextKinesisConfigVersionQuery, config.AWSAccount, config.StreamType, config.StreamName)
+		row := tx.QueryRow(nextKinesisConfigVersionQuery, config.AWSAccount, config.SpadeConfig.StreamType, config.SpadeConfig.StreamName)
 		err := row.Scan(&newVersion)
 		if err != nil {
-			return fmt.Errorf("parsing response for version number for %s: %v", config.StreamName, err)
+			return fmt.Errorf("parsing response for version number for %s: %v", config.SpadeConfig.StreamName, err)
 		}
 		_, err = tx.Exec(dropKinesisConfigQuery,
-			config.StreamName,
-			config.StreamType,
+			config.SpadeConfig.StreamName,
+			config.SpadeConfig.StreamType,
 			config.AWSAccount,
 			newVersion,
 			user,
 			reason,
 		)
-		if err != nil {
-			rollErr := tx.Rollback()
-			if rollErr != nil {
-				return fmt.Errorf("failed to commit: %v; then error rolling back commit: %v", err, rollErr)
-			}
-			return fmt.Errorf("INSERTing tombstone row on %s: %v", config.StreamName, err)
-		}
-		return nil
+		return err
 	})
 }

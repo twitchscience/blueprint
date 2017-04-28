@@ -1,6 +1,6 @@
-<h1><a href="#/kinesisconfigs">&#x21e6</a> Published Kinesis Config for {{kinesisconfig.StreamName}}
+<h1><a href="#/kinesisconfigs">&#x21e6</a> Published Kinesis Config for {{kinesisconfig.SpadeConfig.StreamName}}
 </h1>
-<span ng-show="isEditable">Note: any changes you make will take up to 5 minutes to propagate.</span>
+<span ng-show="isEditable">Note: any changes you make will take up to 10 minutes to propagate.</span>
 <div class="row">
   <div class="col-md-5">
     <button ng-click="showDropConfig = !showDropConfig"
@@ -42,11 +42,11 @@
   <tbody>
     <tr>
       <td>Stream Name</td>
-      <td>{{::kinesisconfig.StreamName}}</td>
+      <td>{{::kinesisconfig.SpadeConfig.StreamName}}</td>
     </tr>
     <tr>
       <td>Stream Type</td>
-      <td>{{::kinesisconfig.StreamType}}</td>
+      <td>{{::kinesisconfig.SpadeConfig.StreamType}}</td>
     </tr>
     <tr>
       <td>AWS Account</td>

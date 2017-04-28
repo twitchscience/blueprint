@@ -82,27 +82,27 @@ func (m *MockBpSchemaBackend) DropSchema(schema *bpdb.AnnotatedSchema, reason st
 }
 
 // AllKinesisConfigs returns nil
-func (m *MockBpKinesisConfigBackend) AllKinesisConfigs() ([]bpdb.AnnotatedKinesisConfig, error) {
-	return make([]bpdb.AnnotatedKinesisConfig, 0), nil
+func (m *MockBpKinesisConfigBackend) AllKinesisConfigs() ([]scoop_protocol.AnnotatedKinesisConfig, error) {
+	return make([]scoop_protocol.AnnotatedKinesisConfig, 0), nil
 }
 
 // KinesisConfig returns nil
-func (m *MockBpKinesisConfigBackend) KinesisConfig(account int64, streamType string, name string) (*bpdb.AnnotatedKinesisConfig, error) {
+func (m *MockBpKinesisConfigBackend) KinesisConfig(account int64, streamType string, name string) (*scoop_protocol.AnnotatedKinesisConfig, error) {
 	return nil, nil
 }
 
 // UpdateKinesisConfig returns nil
-func (m *MockBpKinesisConfigBackend) UpdateKinesisConfig(update *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
+func (m *MockBpKinesisConfigBackend) UpdateKinesisConfig(update *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError {
 	return nil
 }
 
 // CreateKinesisConfig returns nil
-func (m *MockBpKinesisConfigBackend) CreateKinesisConfig(config *bpdb.AnnotatedKinesisConfig, user string) *core.WebError {
+func (m *MockBpKinesisConfigBackend) CreateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError {
 	return nil
 }
 
 // DropKinesisConfig returns nil
-func (m *MockBpKinesisConfigBackend) DropKinesisConfig(config *bpdb.AnnotatedKinesisConfig, reason string, user string) error {
+func (m *MockBpKinesisConfigBackend) DropKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, reason string, user string) error {
 	return nil
 }
 
