@@ -2,7 +2,7 @@
 </h1>
 <div class="row">
   <div class="col-md-5">
-    <button id="button-{{schema.EventName}}" ng-click="ingestTable(schema)" ng-if="isEditable && !schema.DropRequested" class="btn btn-primary"
+    <button id="button-{{schema.EventName}}" ng-click="forceLoadTable(schema)" ng-if="isEditable && !schema.DropRequested" class="btn btn-primary"
       >Force Load</button>
     <button ng-click="showDropTable = !showDropTable"
             type="button" class="btn" ng-class="{'btn-danger': !showDropTable, 'btn-success': showDropTable}"

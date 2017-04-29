@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
@@ -103,8 +104,8 @@ func (s *server) maintenanceHandler(h http.Handler) http.Handler {
 	})
 }
 
-// ingest proxies the request through to the ingester /control/ingest
-func (s *server) ingest(c web.C, w http.ResponseWriter, r *http.Request) {
+// forceLoad proxies the request through to the ingester
+func (s *server) forceLoad(c web.C, w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var tableArg struct {
 		Table string
@@ -115,11 +116,13 @@ func (s *server) ingest(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fields := map[string]interface{}{"table": tableArg.Table}
-	fields["user_requesting"] = c.Env["username"].(string)
-	logger.WithFields(fields).Info("Table flush request")
+	requester := c.Env["username"].(string)
+	logger.WithFields(logrus.Fields{
+		"table":     tableArg.Table,
+		"requester": requester,
+	}).Info("Table flush request")
 
-	err = s.ingesterController.ForceIngest(tableArg.Table)
+	err = s.ingesterController.ForceLoad(tableArg.Table, requester)
 	if err != nil {
 		logger.WithError(err).Error("Failed to issue ForceLoad to ingester")
 		http.Error(w, err.Error(), http.StatusInternalServerError)

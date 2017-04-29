@@ -14,8 +14,8 @@ angular.module('blueprint')
     $scope.loginName = auth.getLoginName();
     auth.isEditable($scope);
 
-    $scope.ingestTable = function(schema){
-      $http.post("/ingest", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
+    $scope.forceLoadTable = function(schema){
+      $http.post("/force_load", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
           store.setMessage("Force load successful");
       }).error(function(data,status){
           store.setError("Force load failed");
