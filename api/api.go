@@ -138,20 +138,20 @@ func (s *server) setupReadonlyAPI() {
 }
 
 // Create the write API available only to authenticated users, which includes creating and
-// adding rows to schemata, requesting deletion, and starting a forced ingest.  Because it
+// adding rows to schemata, requesting deletion, and starting force loads.  Because it
 // involves changes to the Blueprint DB, all of it is locked down during maintenance mode.
 func (s *server) authWriteAPI() *web.Mux {
 	authWriteAPI := web.New()
 	authWriteAPI.Use(context.ClearHandler)
 	authWriteAPI.Use(s.maintenanceHandler)
 
-	authWriteAPI.Post("/ingest", s.ingest)
+	authWriteAPI.Post("/force_load", s.forceLoad)
 	authWriteAPI.Put("/schema", s.createSchema)
 	authWriteAPI.Post("/schema/:id", s.updateSchema)
 	authWriteAPI.Post("/drop/schema", s.dropSchema)
 	authWriteAPI.Post("/removesuggestion/:id", s.removeSuggestion)
 
-	goji.Post("/ingest", authWriteAPI)
+	goji.Post("/force_load", authWriteAPI)
 	goji.Put("/schema", authWriteAPI)
 	goji.Post("/schema/*", authWriteAPI)
 	goji.Post("/drop/schema", authWriteAPI)
