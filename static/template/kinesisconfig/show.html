@@ -1,11 +1,11 @@
 <h1><a href="#/kinesisconfigs">&#x21e6</a> Published Kinesis Config for {{kinesisconfig.SpadeConfig.StreamName}}
 </h1>
-<span ng-show="isEditable">Note: any changes you make will take up to 10 minutes to propagate.</span>
+<span ng-show="isAdmin">Note: any changes you make will take up to 10 minutes to propagate.</span>
 <div class="row">
   <div class="col-md-5">
     <button ng-click="showDropConfig = !showDropConfig"
             type="button" class="btn" ng-class="{'btn-danger': !showDropConfig, 'btn-success': showDropConfig}"
-            ng-show="isEditable && dropMessage">{{ showDropConfig ? cancelDropMessage : dropMessage }}</button>
+            ng-show="isAdmin && dropMessage">{{ showDropConfig ? cancelDropMessage : dropMessage }}</button>
   </div>
   <div class="col-md-6 col-md-offset-1">
     <span class="pull-right">
@@ -20,7 +20,7 @@
     <i class="fa fa-spinner fa-spin" style="font-size:24px; margin-top: 30px"></i>
   </div>
 </div>
-<form ng-show="isEditable && showDropConfig && dropMessage && !loading" ng-submit="dropConfig()">
+<form ng-show="isAdmin && showDropConfig && dropMessage && !loading" ng-submit="dropConfig()">
 <div class="row form-group" style="margin-top: 35px">
   <div class="col-xs-3">
     <label for="reason">Reason for dropping: </label>
@@ -54,30 +54,30 @@
     </tr>
     <tr>
       <td>Team</td>
-      <td><input type="text" ng-model="kinesisconfig.Team" ng-if="isEditable">
-          <span ng-if="!isEditable">{{::kinesisconfig.Team}}</span></td>
+      <td><input type="text" ng-model="kinesisconfig.Team" ng-if="isAdmin">
+          <span ng-if="!isAdmin">{{::kinesisconfig.Team}}</span></td>
     </tr>
     <tr>
       <td>Contact Info</td>
-      <td><input type="text" ng-model="kinesisconfig.Contact" ng-if="isEditable">
-          <span ng-if="!isEditable">{{::kinesisconfig.Contact}}</span></td>
+      <td><input type="text" ng-model="kinesisconfig.Contact" ng-if="isAdmin">
+          <span ng-if="!isAdmin">{{::kinesisconfig.Contact}}</span></td>
     </tr>
     <tr>
       <td>Usage</td>
-      <td><input type="text" ng-model="kinesisconfig.Usage" ng-if="isEditable">
-          <span ng-if="!isEditable">{{::kinesisconfig.Usage}}</span></td>
+      <td><input type="text" ng-model="kinesisconfig.Usage" ng-if="isAdmin">
+          <span ng-if="!isAdmin">{{::kinesisconfig.Usage}}</span></td>
     </tr>
     <tr>
       <td>Consuming Library</td>
-      <td><input type="text" ng-model="kinesisconfig.ConsumingLibrary" ng-if="isEditable">
-          <span ng-if="!isEditable">{{::kinesisconfig.ConsumingLibrary}}</span></td>
+      <td><input type="text" ng-model="kinesisconfig.ConsumingLibrary" ng-if="isAdmin">
+          <span ng-if="!isAdmin">{{::kinesisconfig.ConsumingLibrary}}</span></td>
     </tr>
     <tr>
       <td>Kinesis Configuration</td>
-      <td><textarea class="form-control" rows="20" ng-model="configJSON" ng-disabled="!isEditable"></textarea>
+      <td><textarea class="form-control" rows="20" ng-model="configJSON" ng-disabled="!isAdmin"></textarea>
     </tr>
   </tbody>
-  <tfoot ng-if="isEditable">
+  <tfoot ng-if="isAdmin">
     <tr>
       <td class="text-center pull-left">
           <button type="submit"
