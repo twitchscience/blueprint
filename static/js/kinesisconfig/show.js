@@ -3,7 +3,7 @@ angular.module('blueprint')
     var kinesisconfig, dropMessage, cancelDropMessage;
     $scope.loading = true;
     $scope.loginName = auth.getLoginName();
-    auth.isEditable($scope);
+    $scope.isAdmin = auth.isAdmin();
 
     var kinesisconfigRequest = KinesisConfig.get($routeParams, function(data) {
       if (data) {

@@ -1,8 +1,8 @@
 <div>
   <form ng-submit="createKinesisConfig()" name="createKinesisConfigForm">
     <h1><a href="#/kinesisconfigs">&#x21e6;</a> Create a New Kinesis Configuration</h1>
-    <span ng-if="!isEditable">You do not have permission to create a Kinesis Configuration. Turn back now, mortal!</span>
-    <table class="table table-hover" ng-if="isEditable">
+    <span ng-if="!isAdmin">You do not have permission to create a Kinesis Configuration. Turn back now, mortal!</span>
+    <table class="table table-hover" ng-if="isAdmin">
       <tbody>
         <tr>
           <td>AWS Account</td>

@@ -1,7 +1,7 @@
 angular.module('blueprint')
   .controller('CreateKinesisConfig', function($scope, $location, $routeParams, store, KinesisConfig, auth) {
     $scope.loginName = auth.getLoginName();
-    auth.isEditable($scope);
+    $scope.isAdmin = auth.isAdmin();
 
     $scope.StreamName = '';
     $scope.StreamType = '';

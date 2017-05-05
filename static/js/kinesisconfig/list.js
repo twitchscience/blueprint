@@ -2,10 +2,7 @@ angular.module('blueprint')
   .controller('ListKinesisConfigs', function($scope, $location, KinesisConfig, store, auth) {
     $scope.loginName = auth.getLoginName();
     $scope.isAdmin = auth.isAdmin();
-    $scope.isEditable = false;
-    auth.isEditableContinuation(function(isEditable) {
-      $scope.isEditable = isEditable;
-    });
+
     $scope.loading = true;
     $scope.ready = false;
     KinesisConfig.all(function(data) {
