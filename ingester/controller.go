@@ -13,7 +13,7 @@ import (
 
 // Controller is used to issue requests to the ingester.
 type Controller interface {
-	ForceLoad(string, string) error
+	ForceIngest(string) error
 	IncrementVersion(string) error
 	TableExists(string) (bool, error)
 }
@@ -34,12 +34,10 @@ func NewController(ingesterURL string) Controller {
 	return &controller{ingesterURL}
 }
 
-// ForceLoad causes an ingest of the given table to happen as soon as possible.
-func (c *controller) ForceLoad(tableName string, requester string) (err error) {
-	action := "ForceLoad"
-	resp, err := c.sendRequest("/control/force_load",
-		map[string]interface{}{"Table": tableName, "Requester": requester},
-		5*time.Second)
+// ForceIngest causes an ingest of the given table to happen as soon as possible.
+func (c *controller) ForceIngest(tableName string) (err error) {
+	action := "ForceIngest"
+	resp, err := c.sendRequest("/control/ingest", map[string]interface{}{"Table": tableName}, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("error making %s request to ingester: %v", action, err)
 	}
