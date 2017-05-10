@@ -6,7 +6,7 @@ angular.module('blueprint')
     $scope.clearMessage = store.clearMessage;
     $scope.loginName = auth.getLoginName();
     $scope.loc = $location;
-    $scope.currentEditor = 'none';
+    $scope.currentEditor = 'schema';
     $scope.currentEditor = $location.$$url.indexOf('/schema') == 0 ? 'schema' : $scope.currentEditor
     $scope.currentEditor = $location.$$url.indexOf('/kinesisconfig') == 0 ? 'kinesisconfig' : $scope.currentEditor
     $scope.updateEditor = function(newEditor) {
