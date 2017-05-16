@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/blueprint/test"
 	scoop "github.com/twitchscience/scoop_protocol/scoop_protocol"
@@ -20,7 +21,7 @@ func TestMigrationNegativeTo(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)
@@ -38,7 +39,7 @@ func TestAllSchemasCache(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, backend, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, backend, nil, nil, configFile.Name(), nil, "", false).(*server)
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}
@@ -69,7 +70,7 @@ func repeatAllSchema(t *testing.T, s *server, backend *test.MockBpSchemaBackend)
 		if getCachedResult(s) == nil {
 			t.Error("Failed to cache result")
 		}
-		assertRequestOK(t, "allSchemas", getAllRecorder)
+		assertRequestOK(t, "allSchemas", getAllRecorder, "")
 		printTotalAllSchemasCalls(t, backend)
 	}
 }
@@ -84,7 +85,7 @@ func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	createReq, _ := http.NewRequest("PUT", "/schema", bytes.NewReader(cfgBytes))
 	createRecorder := httptest.NewRecorder()
 	s.createSchema(c, createRecorder, createReq)
-	assertRequestOK(t, "createSchema", createRecorder)
+	assertRequestOK(t, "createSchema", createRecorder, "")
 	if getCachedResult(s) != nil {
 		t.Error("Failed to invalidate cache")
 	}
@@ -118,7 +119,7 @@ func updateSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	updateReq, _ := http.NewRequest("POST", "/schema/1", bytes.NewReader(updateSchemaReqBytes))
 	updateRecorder := httptest.NewRecorder()
 	s.updateSchema(c, updateRecorder, updateReq)
-	assertRequestOK(t, "updateSchema", updateRecorder)
+	assertRequestOK(t, "updateSchema", updateRecorder, "")
 	if getCachedResult(s) != nil {
 		t.Error("Failed to invalidate cache")
 	}
@@ -137,12 +138,160 @@ func getCachedVersion(s *server) int {
 	return <-c
 }
 
-func assertRequestOK(t *testing.T, testedName string, w *httptest.ResponseRecorder) {
-	if status := w.Code; status != http.StatusOK {
-		t.Errorf("%v returned status code %v, want %v", testedName, status, http.StatusOK)
+func printTotalAllSchemasCalls(t *testing.T, backend *test.MockBpSchemaBackend) {
+	t.Logf("AllSchemas() calls seen: %v", backend.GetAllSchemasCalls())
+}
+
+func assertRequestOK(t *testing.T, testedName string, w *httptest.ResponseRecorder, expectedResponse string) {
+	if w.Code != http.StatusOK {
+		t.Errorf("%v returned status code %v, want %v", testedName, w.Code, http.StatusOK)
+	}
+	response := strings.TrimSpace(w.Body.String())
+	if expectedResponse != "" && response != expectedResponse {
+		t.Errorf("%v returned response [%v] does not match expected response [%v]", testedName, response, expectedResponse)
 	}
 }
 
-func printTotalAllSchemasCalls(t *testing.T, backend *test.MockBpSchemaBackend) {
-	t.Logf("AllSchemas() calls seen: %v", backend.GetAllSchemasCalls())
+func assertRequest404(t *testing.T, testedName string, w *httptest.ResponseRecorder) {
+	if w.Code != http.StatusNotFound {
+		t.Errorf("%v returned status code %v, want %v", testedName, w.Code, http.StatusNotFound)
+	}
+	errorMsg := strings.TrimSpace(w.Body.String())
+	if errorMsg != "Not Found" {
+		t.Errorf("%v returned error message [%v] does not match expected error message [%v]", testedName, errorMsg, "Not Found")
+	}
+
+}
+
+func assertRequestBad(t *testing.T, testedName string, w *httptest.ResponseRecorder, expectedErrorMsg string) {
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("%v returned status code %v, want %v", testedName, w.Code, http.StatusBadRequest)
+	}
+	errorMsg := strings.TrimSpace(w.Body.String())
+	expectedErrorMsg = strings.TrimSpace(expectedErrorMsg)
+	if expectedErrorMsg != "" && errorMsg != expectedErrorMsg {
+		t.Errorf("%v returned error message [%v] does not match expected error message [%v]", testedName, errorMsg, expectedErrorMsg)
+	}
+}
+
+func assertRequestInternalError(t *testing.T, testedName string, w *httptest.ResponseRecorder, expectedErrorMsg string) {
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("%v returned status code %v, want %v", testedName, w.Code, http.StatusInternalServerError)
+	}
+	errorMsg := strings.TrimSpace(w.Body.String())
+	expectedErrorMsg = strings.TrimSpace(expectedErrorMsg)
+	if expectedErrorMsg != "" && errorMsg != expectedErrorMsg {
+		t.Errorf("%v returned error message [%v] does not match expected error message [%v]", testedName, errorMsg, expectedErrorMsg)
+	}
+}
+
+// Tests trying to get a comment for an event with no schema
+// Expected result is a 404 not found
+func TestGetEventCommentNotFound(t *testing.T) {
+	eventCommentMap := make(map[string]bpdb.EventComment)
+	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+	configFile := createJSONFile(t, "TestGetEventCommentNotFound")
+
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	recorder := httptest.NewRecorder()
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
+	}
+	req, _ := http.NewRequest("GET", "/comment/this-table-does-not-exist", nil)
+	s.eventComment(c, recorder, req)
+
+	expectedErrorMsg := "no comment found for event this-table-does-not-exist"
+	assertRequestInternalError(t, "TestGetEventCommentNotFound", recorder, expectedErrorMsg)
+}
+
+// Tests trying to get a comment for an event with a schema
+// Expected result is a 200 OK response
+func TestGetEventComment(t *testing.T) {
+	eventCommentMap := make(map[string]bpdb.EventComment)
+	eventCommentMap["this-table-exists-and-has-a-comment"] = bpdb.EventComment{
+		EventName: "event",
+		Comment:   "Test Comment",
+		UserName:  "unknown",
+		Version:   1,
+	}
+	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+	configFile := createJSONFile(t, "TestGetEventComment")
+
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	recorder := httptest.NewRecorder()
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"username": "", "event": "this-table-exists-and-has-a-comment"},
+	}
+	req, _ := http.NewRequest("GET", "/comment/this-table-exists-and-has-a-comment", nil)
+
+	s.eventComment(c, recorder, req)
+	expectedBody := "[{\"EventName\":\"event\",\"Comment\":\"Test Comment\",\"TS\":\"0001-01-01T00:00:00Z\",\"UserName\":\"unknown\",\"Version\":1}]"
+	assertRequestOK(t, "TestGetEventComment", recorder, expectedBody)
+}
+
+// Tests trying to update a comment for an event with no schema
+// Expected result is a 400 bad request
+func TestUpdateEventCommentNoSchema(t *testing.T) {
+	eventCommentMap := make(map[string]bpdb.EventComment)
+	eventCommentMap["this-table-does-not-exist"] = bpdb.EventComment{}
+	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+	configFile := createJSONFile(t, "TestUpdateEventCommentNoSchema")
+
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
+	}
+
+	cfg := scoop.EventComment{EventName: "this-table-does-not-exist", EventComment: "Test Comment", UserName: ""}
+	cfgBytes, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal("unable to marshal scoop config, bailing")
+	}
+
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/comment/this-table-does-not-exist", bytes.NewReader(cfgBytes))
+
+	s.updateEventComment(c, recorder, req)
+	assertRequestBad(t, "TestUpdateEventCommentNoSchema", recorder, "Error updating event comment: schema does not exist")
+}
+
+// Tests trying to update a comment for an event with a schema
+// Expected result is a 200 OK response
+func TestUpdateEventComment(t *testing.T) {
+	eventCommentMap := make(map[string]bpdb.EventComment)
+	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+	configFile := createJSONFile(t, "TestUpdateEventComment")
+
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
+	}
+
+	cfg := scoop.EventComment{EventName: "this-table-exists", EventComment: "Test Comment", UserName: ""}
+	cfgBytes, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal("unable to marshal scoop config, bailing")
+	}
+
+	createRecorder := httptest.NewRecorder()
+	createReq, _ := http.NewRequest("PUT", "/comment/this-table-exists", bytes.NewReader(cfgBytes))
+
+	s.updateEventComment(c, createRecorder, createReq)
+	assertRequestOK(t, "TestUpdateEventComment", createRecorder, "")
 }

@@ -130,21 +130,6 @@ func (s *server) forceLoad(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func decodeBody(body io.ReadCloser, requestObj interface{}) error {
-	defer func() {
-		err := body.Close()
-		if err != nil {
-			logger.WithError(err).Error("Failed to close request body")
-		}
-	}()
-
-	err := json.NewDecoder(body).Decode(requestObj)
-	if err != nil {
-		return fmt.Errorf("decoding json: %v", err)
-	}
-	return nil
-}
-
 func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	webErr := s.createSchemaHelper(c.Env["username"].(string), r.Body)
 	if webErr != nil {
@@ -253,7 +238,7 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	if result.err != nil {
 		http.Error(w, result.err.Error(), http.StatusInternalServerError)
 	} else {
-		writeEvent(w, result.allSchemas)
+		writeStructToResponse(w, result.allSchemas)
 	}
 }
 
@@ -304,7 +289,7 @@ func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
 		fourOhFour(w, r)
 		return
 	}
-	writeEvent(w, []*bpdb.AnnotatedSchema{schema})
+	writeStructToResponse(w, []*bpdb.AnnotatedSchema{schema})
 }
 
 func respondWithJSONBool(w http.ResponseWriter, key string, result bool) {
@@ -349,6 +334,35 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 	}
 
 	respondWithJSONBool(w, "Droppable", !exists)
+}
+
+func (s *server) eventComment(c web.C, w http.ResponseWriter, r *http.Request) {
+	eventComment, err := s.bpEventCommentBackend.EventComment(c.URLParams["event"])
+	if err != nil {
+		logger.WithError(err).WithField("eventComment", c.URLParams["event"]).Error("Error retrieving event comment")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeStructToResponse(w, []*bpdb.EventComment{eventComment})
+}
+
+func (s *server) updateEventComment(c web.C, w http.ResponseWriter, r *http.Request) {
+	eventName := c.URLParams["event"]
+	webErr := s.updateEventCommentHelper(eventName, c.Env["username"].(string), r.Body)
+	if webErr != nil {
+		webErr.ReportError(w, "Error updating event comment")
+	}
+}
+
+func (s *server) updateEventCommentHelper(eventName string, username string, body io.ReadCloser) *core.WebError {
+	var req core.ClientUpdateEventCommentRequest
+	err := decodeBody(body, &req)
+	if err != nil {
+		return core.NewServerWebError(err)
+	}
+	req.EventName = eventName
+
+	return s.bpEventCommentBackend.UpdateEventComment(&req, username)
 }
 
 func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -561,7 +575,7 @@ func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
 	}
-	writeEvent(w, schemas)
+	writeStructToResponse(w, schemas)
 }
 
 func reportKinesisConfigUserError(w http.ResponseWriter, err error, msg string) {
@@ -589,7 +603,7 @@ func (s *server) kinesisconfig(c web.C, w http.ResponseWriter, r *http.Request) 
 		fourOhFour(w, r)
 		return
 	}
-	writeEvent(w, config)
+	writeStructToResponse(w, config)
 }
 
 func (s *server) updateKinesisConfig(c web.C, w http.ResponseWriter, r *http.Request) {

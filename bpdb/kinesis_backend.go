@@ -61,23 +61,6 @@ func NewKinesisConfigBackend(db *sql.DB) BpKinesisConfigBackend {
 	return &kinesisConfigBackend{db: db}
 }
 
-//execFnInTransaction takes a closure function of a request and runs it on the db in a transaction
-func (p *kinesisConfigBackend) execFnInTransaction(work func(*sql.Tx) error) error {
-	tx, err := p.db.Begin()
-	if err != nil {
-		return err
-	}
-	err = work(tx)
-	if err != nil {
-		rollbackErr := tx.Rollback()
-		if rollbackErr != nil {
-			return fmt.Errorf("could not rollback successfully after error (%v), reason: %v", err, rollbackErr)
-		}
-		return err
-	}
-	return tx.Commit()
-}
-
 // Schema returns all of the current Kinesis configs
 func (p *kinesisConfigBackend) AllKinesisConfigs() ([]scoop_protocol.AnnotatedKinesisConfig, error) {
 	rows, err := p.db.Query(allKinesisConfigsQuery)
@@ -173,7 +156,7 @@ func (p *kinesisConfigBackend) UpdateKinesisConfig(req *scoop_protocol.Annotated
 		return core.NewUserWebError(requestErr)
 	}
 
-	return core.NewServerWebError(p.execFnInTransaction(func(tx *sql.Tx) error {
+	return core.NewServerWebError(execFnInTransaction(func(tx *sql.Tx) error {
 		row := tx.QueryRow(nextKinesisConfigVersionQuery, req.AWSAccount, req.SpadeConfig.StreamType, req.SpadeConfig.StreamName)
 		var newVersion int
 		err := row.Scan(&newVersion)
@@ -198,7 +181,7 @@ func (p *kinesisConfigBackend) UpdateKinesisConfig(req *scoop_protocol.Annotated
 			user,
 		)
 		return err
-	}))
+	}, p.db))
 }
 
 // CreateKinesisConfig validates that the creation request is valid and if so, stores
@@ -216,7 +199,7 @@ func (p *kinesisConfigBackend) CreateKinesisConfig(req *scoop_protocol.Annotated
 		return core.NewUserWebError(requestErr)
 	}
 
-	return core.NewServerWebError(p.execFnInTransaction(func(tx *sql.Tx) error {
+	return core.NewServerWebError(execFnInTransaction(func(tx *sql.Tx) error {
 		var b []byte
 		b, err := json.Marshal(req.SpadeConfig)
 		if err != nil {
@@ -235,12 +218,12 @@ func (p *kinesisConfigBackend) CreateKinesisConfig(req *scoop_protocol.Annotated
 			user,
 		)
 		return err
-	}))
+	}, p.db))
 }
 
 // DropKinesisConfig drops Kinesis config; don't worry, it's recoverable.
 func (p *kinesisConfigBackend) DropKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, reason string, user string) error {
-	return p.execFnInTransaction(func(tx *sql.Tx) error {
+	return execFnInTransaction(func(tx *sql.Tx) error {
 		var newVersion int
 		row := tx.QueryRow(nextKinesisConfigVersionQuery, config.AWSAccount, config.SpadeConfig.StreamType, config.SpadeConfig.StreamName)
 		err := row.Scan(&newVersion)
@@ -256,5 +239,5 @@ func (p *kinesisConfigBackend) DropKinesisConfig(config *scoop_protocol.Annotate
 			reason,
 		)
 		return err
-	})
+	}, p.db)
 }

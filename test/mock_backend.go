@@ -1,6 +1,8 @@
 package test
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/twitchscience/blueprint/bpdb"
@@ -26,6 +28,11 @@ type MockBpSchemaBackend struct {
 type MockBpKinesisConfigBackend struct {
 }
 
+// MockBpEventCommentBackend is a mock for the bpdb/BpEventCommentBackend interface
+type MockBpEventCommentBackend struct {
+	returnMap map[string]bpdb.EventComment
+}
+
 // NewMockBpdb creates a new mock backend.
 func NewMockBpdb() *MockBpdb {
 	return &MockBpdb{&sync.RWMutex{}, false}
@@ -39,6 +46,11 @@ func NewMockBpSchemaBackend() *MockBpSchemaBackend {
 // NewMockBpKinesisConfigBackend creates a new mock kinesis config backend.
 func NewMockBpKinesisConfigBackend() *MockBpKinesisConfigBackend {
 	return &MockBpKinesisConfigBackend{}
+}
+
+// NewMockBpEventCommentBackend creates a mock event comment backend.
+func NewMockBpEventCommentBackend(returnMap map[string]bpdb.EventComment) *MockBpEventCommentBackend {
+	return &MockBpEventCommentBackend{returnMap}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.
@@ -78,6 +90,22 @@ func (m *MockBpSchemaBackend) Migration(table string, to int) ([]*scoop_protocol
 
 // DropSchema return nil.
 func (m *MockBpSchemaBackend) DropSchema(schema *bpdb.AnnotatedSchema, reason string, exists bool, user string) error {
+	return nil
+}
+
+// EventComment returns nils except when the event name is "this-table-exists-and-has-a-comment".
+func (m *MockBpEventCommentBackend) EventComment(name string) (*bpdb.EventComment, error) {
+	if eventComment, exists := m.returnMap[name]; exists {
+		return &eventComment, nil
+	}
+	return nil, fmt.Errorf("no comment found for event %s", name)
+}
+
+// UpdateEventComment returns nil except when the event name is "this-table-does-not-exist"
+func (m *MockBpEventCommentBackend) UpdateEventComment(update *core.ClientUpdateEventCommentRequest, user string) *core.WebError {
+	if _, exists := m.returnMap[update.EventName]; exists {
+		return core.NewUserWebError(errors.New("schema does not exist"))
+	}
 	return nil
 }
 

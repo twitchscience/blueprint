@@ -28,6 +28,7 @@ type server struct {
 	bpdbBackend            bpdb.Bpdb
 	bpSchemaBackend        bpdb.BpSchemaBackend
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend
+	bpEventCommentBackend  bpdb.BpEventCommentBackend
 	configFilename         string
 	ingesterController     ingester.Controller
 	slackbotURL            string
@@ -70,6 +71,7 @@ func New(
 	bpdbBackend bpdb.Bpdb,
 	bpSchemaBackend bpdb.BpSchemaBackend,
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend,
+	bpEventCommentBackend bpdb.BpEventCommentBackend,
 	configFilename string,
 	ingCont ingester.Controller,
 	slackbotURL string,
@@ -78,6 +80,7 @@ func New(
 		docRoot:                docRoot,
 		bpdbBackend:            bpdbBackend,
 		bpSchemaBackend:        bpSchemaBackend,
+		bpEventCommentBackend:  bpEventCommentBackend,
 		bpKinesisConfigBackend: bpKinesisConfigBackend,
 		configFilename:         configFilename,
 		ingesterController:     ingCont,
@@ -120,6 +123,7 @@ func (s *server) setupReadonlyAPI() {
 	roAPI.Get("/suggestions", s.listSuggestions)
 	roAPI.Get("/suggestion/:id", s.suggestion)
 	roAPI.Get("/stats", s.stats)
+	roAPI.Get("/comment/:event", s.eventComment)
 
 	goji.Get("/schemas", roAPI)
 	goji.Get("/schema/*", roAPI)
@@ -130,6 +134,7 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
 	goji.Get("/stats", roAPI)
+	goji.Get("/comment/*", roAPI)
 
 	roAPI.Get("/kinesisconfigs", s.allKinesisConfigs)
 	roAPI.Get("/kinesisconfig/:account/:type/:name", s.kinesisconfig)
@@ -150,12 +155,14 @@ func (s *server) authWriteAPI() *web.Mux {
 	authWriteAPI.Post("/schema/:id", s.updateSchema)
 	authWriteAPI.Post("/drop/schema", s.dropSchema)
 	authWriteAPI.Post("/removesuggestion/:id", s.removeSuggestion)
+	authWriteAPI.Post("/comment/:event", s.updateEventComment)
 
 	goji.Post("/force_load", authWriteAPI)
 	goji.Put("/schema", authWriteAPI)
 	goji.Post("/schema/*", authWriteAPI)
 	goji.Post("/drop/schema", authWriteAPI)
 	goji.Post("/removesuggestion/*", authWriteAPI)
+	goji.Post("/comment/*", authWriteAPI)
 
 	return authWriteAPI
 }

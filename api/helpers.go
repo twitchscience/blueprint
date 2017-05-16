@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -31,7 +32,7 @@ func fourOhFour(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }
 
-func writeEvent(w http.ResponseWriter, events interface{}) {
+func writeStructToResponse(w http.ResponseWriter, events interface{}) {
 	b, err := json.Marshal(events)
 	if err != nil {
 		logger.WithError(err).Error("Failed to serialize data")
@@ -131,6 +132,21 @@ func (s *server) requestTableDeletion(schemaName string, reason string, username
 			return fmt.Errorf("error reading slackbot deletion response body: %v", err)
 		}
 		return fmt.Errorf("error in slackbot (code %d): %s", resp.StatusCode, body)
+	}
+	return nil
+}
+
+func decodeBody(body io.ReadCloser, requestObj interface{}) error {
+	defer func() {
+		err := body.Close()
+		if err != nil {
+			logger.WithError(err).Error("Failed to close request body")
+		}
+	}()
+
+	err := json.NewDecoder(body).Decode(requestObj)
+	if err != nil {
+		return fmt.Errorf("decoding json: %v", err)
 	}
 	return nil
 }

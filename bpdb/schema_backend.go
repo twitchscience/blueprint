@@ -97,23 +97,6 @@ func (p *schemaBackend) Migration(table string, to int) ([]*scoop_protocol.Opera
 	return ops, nil
 }
 
-//execFnInTransaction takes a closure function of a request and runs it on the db in a transaction
-func (p *schemaBackend) execFnInTransaction(work func(*sql.Tx) error) error {
-	tx, err := p.db.Begin()
-	if err != nil {
-		return err
-	}
-	err = work(tx)
-	if err != nil {
-		rollbackErr := tx.Rollback()
-		if rollbackErr != nil {
-			return fmt.Errorf("could not rollback successfully after error (%v), reason: %v", err, rollbackErr)
-		}
-		return err
-	}
-	return tx.Commit()
-}
-
 // returns error but does not rollback on error. Does not commit.
 func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, eventName, user string) error {
 	for i, op := range ops {
@@ -158,7 +141,7 @@ func (p *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *c
 	}
 
 	ops := schemaCreateRequestToOps(req)
-	return core.NewServerWebError(p.execFnInTransaction(func(tx *sql.Tx) error {
+	return core.NewServerWebError(execFnInTransaction(func(tx *sql.Tx) error {
 		row := tx.QueryRow(nextVersionQuery, req.EventName)
 		var newVersion int
 		err = row.Scan(&newVersion)
@@ -168,8 +151,18 @@ func (p *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *c
 		case err != nil:
 			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
-		return insertOperations(tx, ops, newVersion, req.EventName, user)
-	}))
+		// Add default comment for event
+		err = insertOperations(tx, ops, newVersion, req.EventName, user)
+		if err != nil {
+			return err
+		}
+
+		newVersion, err = getNextEventCommentVersion(tx, req.EventName)
+		if err != nil {
+			return err
+		}
+		return insertEventComment(tx, "", newVersion, req.EventName, user)
+	}, p.db))
 }
 
 // UpdateSchema validates that the update operation is valid and if so, stores
@@ -181,7 +174,7 @@ func (p *schemaBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user s
 		return core.NewServerWebErrorf("error getting schema to validate schema update: %v", err)
 	}
 	if schema == nil {
-		return core.NewUserWebError(errors.New("Unknown schema"))
+		return core.NewUserWebError(errors.New("schema does not exist"))
 	}
 	requestErr := preValidateUpdate(req, schema)
 	if requestErr != "" {
@@ -193,7 +186,7 @@ func (p *schemaBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user s
 		return core.NewServerWebErrorf("error applying update operations: %v", err)
 	}
 
-	return core.NewServerWebError(p.execFnInTransaction(func(tx *sql.Tx) error {
+	return core.NewServerWebError(execFnInTransaction(func(tx *sql.Tx) error {
 		row := tx.QueryRow(nextVersionQuery, req.EventName)
 		var newVersion int
 		err := row.Scan(&newVersion)
@@ -201,12 +194,12 @@ func (p *schemaBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user s
 			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
 		return insertOperations(tx, ops, newVersion, req.EventName, user)
-	}))
+	}, p.db))
 }
 
 // DropSchema drops or requests a drop for a schema, depending on whether it exists according to ingester.
 func (p *schemaBackend) DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error {
-	return p.execFnInTransaction(func(tx *sql.Tx) error {
+	return execFnInTransaction(func(tx *sql.Tx) error {
 		var newVersion int
 		row := tx.QueryRow(nextVersionQuery, schema.EventName)
 		err := row.Scan(&newVersion)
@@ -220,7 +213,7 @@ func (p *schemaBackend) DropSchema(schema *AnnotatedSchema, reason string, exist
 			op = scoop_protocol.NewDropEventOperation(reason)
 		}
 		return insertOperations(tx, []scoop_protocol.Operation{op}, newVersion, schema.EventName, user)
-	})
+	}, p.db)
 }
 
 // SchemaExists checks if a schema name exists in blueprint already

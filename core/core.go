@@ -90,6 +90,12 @@ type ClientDropSchemaRequest struct {
 	Reason    string
 }
 
+// ClientUpdateEventCommentRequest is a request to update the comment for an event.
+type ClientUpdateEventCommentRequest struct {
+	EventName    string
+	EventComment string
+}
+
 // WebError is either a server or user error.
 type WebError struct {
 	ServerError error
