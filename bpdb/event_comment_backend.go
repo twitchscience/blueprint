@@ -24,7 +24,7 @@ VALUES ($1, $2, $3, $4)
 `
 
 	nextEventCommentVersionQuery = `
-SELECT max(comment_version) + 1
+SELECT coalesce(max(comment_version) + 1, 1)
 FROM event_comment
 WHERE event = $1
 `
@@ -85,10 +85,7 @@ func getNextEventCommentVersion(tx *sql.Tx, eventName string) (int, error) {
 	var newVersion int
 	err := row.Scan(&newVersion)
 
-	switch {
-	case err == sql.ErrNoRows:
-		newVersion = 1
-	case err != nil:
+	if err != nil {
 		return 0, fmt.Errorf("parsing response for version number of comment for %s: %v", eventName, err)
 	}
 	return newVersion, nil
