@@ -21,11 +21,18 @@
         <div class="col-md-9 col-md-offset-1"  ng-controller="Header">
           <div class="navbar navbar-static-top">
             <div class="navbar-inner">
-              <a class="navbar-brand" href="#">Blueprint</a>
-              <span class="navbar-text" ng-if="currentEditor=='schema'">Editing Ace Schemas</span>
-              <span class="navbar-text" ng-if="currentEditor=='kinesisconfig'">Editing Kinesis Configs</span>
-              <a href="/#/kinesisconfigs" ng-if="currentEditor!='kinesisconfig'" ng-click="updateEditor('kinesisconfig')"><button type="button" class="btn btn-primary navbar-btn pull-left">Edit Kinesis Configs</button></a>
-              <a href="/#/schemas" ng-if="currentEditor!='schema'" ng-click="updateEditor('schema')"><button type="button" class="btn btn-primary navbar-btn pull-left">Edit Ace Schemas</button></a>
+              <a class="navbar-brand" href="#" ng-click="updateNavArea(navAreas.SCHEMA)">Blueprint</a>
+              <span class="navbar-text" ng-if="currentNavArea == navAreas.SCHEMA">Editing Ace Schemas</span>
+              <span class="navbar-text" ng-if="currentNavArea == navAreas.KINESIS">Editing Kinesis Configs</span>
+              <a href="/#/schemas" ng-if="currentNavArea == navAreas.STATS || currentNavArea == navAreas.KINESIS" ng-click="updateNavArea(navAreas.SCHEMA)">
+                <button type="button" class="btn btn-primary navbar-btn pull-left">Edit Ace Schemas</button>
+              </a>
+              <a href="/#/kinesisconfigs" ng-if="currentNavArea == navAreas.STATS || currentNavArea == navAreas.SCHEMA" ng-click="updateNavArea(navAreas.KINESIS)">
+                <button type="button" class="btn btn-primary navbar-btn pull-left" style="margin-left: 15px;">Edit Kinesis Configs</button>
+              </a>
+              <a href="/#/stats" ng-click="updateNavArea(navAreas.STATS)">
+                <button type="button" class="btn btn-info navbar-btn pull-left" style="margin-left: 15px;">Stats</button>
+              </a>
               <span ng-if="loginName" class="pull-right"><span class="navbar-text">Logged in as {{loginName}}</span>
                 <a href="/logout"><button type="button" class="btn btn-primary navbar-btn pull-right">Logout</button></a>
               </span>
