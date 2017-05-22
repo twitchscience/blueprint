@@ -1,6 +1,6 @@
-angular.module('blueprint')
-  .controller('ShowSchema', function ($scope, $http, $location, $routeParams, $q, store, Schema, Types, Droppable, Column, auth) {
-    var types, schema, dropMessage, cancelDropMessage;
+var app = angular.module('blueprint')
+  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventComment, Column, auth) {
+    var types, schema, dropMessage, cancelDropMessage, eventComment;
     var typeRequest = Types.get(function(data) {
       if (data) {
         types = data.result;
@@ -12,6 +12,10 @@ angular.module('blueprint')
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
     $scope.loginName = auth.getLoginName();
+    // Event comment variables
+    $scope.isCommentCollapsed = true;
+    $scope.isEventCommentEditable = false;
+    $scope.isEventCommentInPreviewMode = false;
     auth.isEditable($scope);
 
     $scope.forceLoadTable = function(schema){
@@ -62,7 +66,23 @@ angular.module('blueprint')
       store.setError(msg);
     }).$promise;
 
-    $q.all([typeRequest, schemaRequest, droppableRequest]).then(function() {
+    var eventCommentRequest = EventComment.get($routeParams, function(data) {
+      if (data) {
+        eventComment = data[0];
+      } else {
+        store.setError('Failed to fetch event comment', undefined);
+      }
+    }, function(err) {
+      var msg;
+      if (err.data) {
+        msg = 'API Error: ' + err.data;
+      } else {
+        msg = 'Schema not found or threw an error when retrieving event comment';
+      }
+      store.setError(msg);
+    }).$promise;
+
+    $q.all([typeRequest, schemaRequest, droppableRequest, eventCommentRequest]).then(function() {
       if (!schema || !types) {
         store.setError('API Error', '/schemas');
       }
@@ -73,6 +93,9 @@ angular.module('blueprint')
       $scope.executingDrop = false;
       $scope.cancelDropMessage = cancelDropMessage;
       $scope.successDropMessage = successDropMessage;
+      $scope.eventComment = eventComment;
+      $scope.savedEventCommentText = $scope.eventComment.Comment;
+      $scope.displayedComment = $scope.eventComment.Comment;
       $scope.schema = schema;
       $scope.additions = {Columns: []}; // Used to hold new columns
       $scope.deletes = {ColInds: []}; // Used to hold dropped columns
@@ -175,6 +198,35 @@ angular.module('blueprint')
         });
         return i;
       }
+      $scope.togglePreviewEventComment = function() {
+        $scope.isEventCommentInPreviewMode = !$scope.isEventCommentInPreviewMode;
+        $scope.previewComment = $scope.eventComment.Comment;
+      }
+      $scope.cancelEditEventComment = function() {
+        $scope.isEventCommentEditable = false;
+        $scope.isEventCommentInPreviewMode = false;
+        // Reset event comment to saved version
+        $scope.eventComment.Comment = $scope.savedEventCommentText;
+      }
+      $scope.editEventComment = function() {
+        $scope.isEventCommentEditable = true;
+      }
+      $scope.updateEventComment = function() {
+        EventComment.update(
+          {event: $scope.schema.EventName},
+          {EventComment: $scope.eventComment.Comment},
+          function() {
+            store.setMessage("Successfully updated comment for " +  schema.EventName);
+            $scope.savedEventCommentText = $scope.eventComment.Comment;
+            $scope.displayedComment = $scope.eventComment.Comment;
+            $scope.isEventCommentEditable = false;
+            $scope.isEventCommentInPreviewMode = false;
+          },
+          function(err) {
+            store.setError(err, undefined);
+            $scope.isEventCommentEditable = true;
+          });
+      };
       $scope.updateSchema = function() {
         var additions = $scope.additions;
         var deletes = [];

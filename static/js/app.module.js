@@ -1,5 +1,7 @@
 angular.module('blueprint', [
   'ngResource',
   'ngRoute',
-  'ngCookies'
+  'ngCookies',
+  'ngSanitize',
+  'ng-showdown'
 ]);

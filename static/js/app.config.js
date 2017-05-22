@@ -32,4 +32,8 @@ angular.module('blueprint')
       .otherwise({
         redirectTo: '/schemas'
       });
-  });
+  }).config(['$showdownProvider', function($showdownProvider) {
+    showdown.setFlavor('github');
+    $showdownProvider.setOption('requireSpaceBeforeHeadingText', false);
+    $showdownProvider.setOption('simpleLineBreaks', true);
+  }]);
