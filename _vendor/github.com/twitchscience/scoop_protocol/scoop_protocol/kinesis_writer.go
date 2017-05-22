@@ -81,6 +81,12 @@ var filterFuncs = map[string]func(map[string]string) bool{
 	"isVod": func(fields map[string]string) bool {
 		return fields["vod_id"] != "" && fields["vod_type"] != "clip"
 	},
+	"isUserIDSet": func(fields map[string]string) bool {
+		return fields["user_id"] != ""
+	},
+	"isChannelIDSet": func(fields map[string]string) bool {
+		return fields["channel_id"] != ""
+	},
 }
 
 // BatcherConfig is used to configure a batcher instance
