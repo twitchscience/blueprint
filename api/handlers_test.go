@@ -3,17 +3,21 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/zenazn/goji/web"
+
 	"github.com/twitchscience/blueprint/bpdb"
 	"github.com/twitchscience/blueprint/core"
 	"github.com/twitchscience/blueprint/test"
 	scoop "github.com/twitchscience/scoop_protocol/scoop_protocol"
-	"github.com/zenazn/goji/web"
 )
 
 func TestMigrationNegativeTo(t *testing.T) {
@@ -294,4 +298,30 @@ func TestUpdateEventComment(t *testing.T) {
 
 	s.updateEventComment(c, createRecorder, createReq)
 	assertRequestOK(t, "TestUpdateEventComment", createRecorder, "")
+}
+
+func TestDecodeBody(t *testing.T) {
+	r := strings.NewReader(`{
+		"StreamName": "spade-downstream-prod-test",
+		"StreamRole": "arn:aws:iam::123:role/spade-downstream-prod-test",
+		"StreamType": "firehose",
+		"EventNameTargetField": "name",
+		"Compress": false,
+		"Events": {
+			"minute-watched": {
+				"Fields": [
+					"time"
+				]
+			}
+		}
+	}`)
+	var config scoop.KinesisWriterConfig
+	err := decodeBody(ioutil.NopCloser(r), &config)
+	require.Nil(t, err)
+	assert.Equal(t, "spade-downstream-prod-test", config.StreamName)
+	assert.Equal(t, "arn:aws:iam::123:role/spade-downstream-prod-test", config.StreamRole)
+	assert.Equal(t, "firehose", config.StreamType)
+	assert.Equal(t, "name", config.EventNameTargetField)
+	assert.Equal(t, false, config.Compress)
+	assert.Equal(t, []string{"time"}, config.Events["minute-watched"].Fields)
 }
