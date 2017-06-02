@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	_ "github.com/lib/pq" // to include the 'postgres' driver
+	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
 )
 
@@ -62,6 +63,13 @@ func (p *eventCommentBackend) EventComment(name string) (*EventComment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("querying comment for event %s: %v", name, err)
 	}
+
+	defer func() {
+		defererr := rows.Close()
+		if defererr != nil {
+			logger.WithError(defererr).Error("closing rows in postgres backend Migration")
+		}
+	}()
 
 	if !rows.Next() {
 		return nil, fmt.Errorf("no comment found for event %s", name)
