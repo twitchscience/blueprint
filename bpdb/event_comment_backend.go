@@ -65,9 +65,9 @@ func (p *eventCommentBackend) EventComment(name string) (*EventComment, error) {
 	}
 
 	defer func() {
-		err := rows.Close()
-		if err != nil {
-			logger.WithError(err).Error("closing rows in postgres backend Migration")
+		defererr := rows.Close()
+		if defererr != nil {
+			logger.WithError(defererr).Error("closing rows in postgres backend Migration")
 		}
 	}()
 
