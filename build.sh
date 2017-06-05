@@ -1,8 +1,6 @@
 #!/bin/bash --
 set -euo pipefail
 
-# ossareh(20150109): Perhaps use something like:
-# http://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
 PROJECT=$1
 BRANCH=$2
 SOURCE_AMI=$3
@@ -10,14 +8,13 @@ VPC=$4
 SUBNET=$5
 SECURITY_GROUP=$6
 
-# I hate boolean args, but I'm not sure how to handle this.
 USE_PRIVATE_IP=${7:-"false"}
 
 export GOARCH=amd64
 export GOOS=linux
 export GOBIN="/tmp/${PROJECT}_build_$$"
 
-go test -v ./...
+bash run_tests.sh
 go install -v ./...
 
 gometalinter ./... --disable=gocyclo  --disable=dupl --disable=gas --deadline 90s
