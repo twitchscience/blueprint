@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	maxColumns = 300
-	keyNames   = []string{"distkey", "sortkey"}
+	maxColumns               = 300
+	keyNames                 = []string{"distkey", "sortkey"}
+	blacklistedOutboundNames = []string{"date"}
 )
 
 // AnnotatedSchema is a schema annotated with modification information.
@@ -104,6 +105,26 @@ func validateIdentifier(name string) error {
 	return nil
 }
 
+// stringInSlice returns true if the string is in the list of strings
+func stringInSlice(needle string, haystack []string) bool {
+	for _, a := range haystack {
+		if a == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func validateOutboundName(name string) error {
+	if err := validateIdentifier(name); err != nil {
+		return err
+	}
+	if stringInSlice(strings.ToLower(name), blacklistedOutboundNames) {
+		return fmt.Errorf("column %s is a reserved OutboundName", name)
+	}
+	return nil
+}
+
 func validateIsNotKey(options string) error {
 	for _, keyName := range keyNames {
 		if strings.Contains(options, keyName) {
@@ -119,7 +140,7 @@ func preValidateSchema(schema *scoop_protocol.Config) error {
 		return fmt.Errorf("event name invalid: %v", err)
 	}
 	for _, col := range schema.Columns {
-		err = validateIdentifier(col.OutboundName)
+		err = validateOutboundName(col.OutboundName)
 		if err != nil {
 			return fmt.Errorf("column outbound name invalid: %v", err)
 		}
@@ -190,7 +211,7 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 
 	// Validate schema "add"s
 	for _, col := range req.Additions {
-		err := validateIdentifier(col.OutboundName)
+		err := validateOutboundName(col.OutboundName)
 		if err != nil {
 			return fmt.Sprintf("Column outbound name invalid: %v", err)
 		}

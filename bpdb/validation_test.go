@@ -10,6 +10,23 @@ import (
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
+func TestPreValidateSchemaDateOutbound(t *testing.T) {
+	cfg := scoop_protocol.Config{
+		EventName: "name",
+		Columns: []scoop_protocol.ColumnDefinition{
+			{
+				InboundName:           "whatever",
+				OutboundName:          "date",
+				Transformer:           "int",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
+		},
+		Version: 0,
+	}
+	require.NotNil(t, preValidateSchema(&cfg), "Expected error on OutboundName date.")
+}
+
 func TestPreValidateSchemaBadType(t *testing.T) {
 	cfg := scoop_protocol.Config{
 		EventName: "name",
