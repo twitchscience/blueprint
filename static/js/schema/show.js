@@ -227,6 +227,7 @@ var app = angular.module('blueprint')
             $scope.isEventCommentEditable = true;
           });
       };
+      $scope.blacklistedOutboundNames = ["date"];
       $scope.updateSchema = function() {
         var additions = $scope.additions;
         var deletes = [];
@@ -236,6 +237,28 @@ var app = angular.module('blueprint')
           deletes.push($scope.schema.Columns[colIndex].OutboundName);
           delNames[$scope.schema.Columns[colIndex].OutboundName] = true;
         });
+
+        // Check that none of the added columns or the renames are blacklisted
+        // outbound names
+        if (!$scope.additions.Columns.every(function (col) {
+          if ($scope.blacklistedOutboundNames.indexOf(col.OutboundName.toLowerCase()) != -1) {
+            store.setError("Cannot have an outbound name '" + col.OutboundName + "'. It is a reserved identifier.");
+            return false;
+          }
+          return true;
+        })) {
+          return false;
+        }
+        if (!Object.keys($scope.nameMap).every(function (oldName) {
+          var newName = $scope.nameMap[oldName];
+          if($scope.blacklistedOutboundNames.indexOf(newName) != -1) {
+            store.setError("Cannot have an outbound name '" + newName + "'. It is a reserved identifier.");
+            return false;
+          }
+          return true;
+        })) {
+          return false;
+        }
 
         // Check that columns which are not going to be deleted still have valid supporting columns
         if (!$scope.schema.Columns.every(function (col) {

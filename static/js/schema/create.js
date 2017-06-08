@@ -179,12 +179,17 @@ angular.module('blueprint')
       $scope.dropColumnFromSchema = function(columnInd) {
         $scope.event.Columns.splice(columnInd, 1);
       }
+      $scope.outboundNameBlacklist = ["date"];
       $scope.createSchema = function() {
         store.clearError();
         var setDistKey = $scope.event.distkey;
         var nameSet = {};
         var inboundNames = $scope.validInboundNames();
         angular.forEach($scope.event.Columns, function(item) {
+          if($scope.outboundNameBlacklist.indexOf(item.OutboundName.toLowerCase()) != -1){
+            store.setError("Cannot have outbound name '"+item.OutboundName+"'. It is a reserved identifier.");
+          }
+
           if(item.OutboundName in nameSet){
             store.setError("Cannot repeat column name. Repeated '"+item.OutboundName+"'");
             return false;
