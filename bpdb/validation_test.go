@@ -10,6 +10,57 @@ import (
 	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
+func TestPreValidateSchemaTimeWrongInbound(t *testing.T) {
+	cfg := scoop_protocol.Config{
+		EventName: "name",
+		Columns: []scoop_protocol.ColumnDefinition{
+			{
+				InboundName:           "not_time",
+				OutboundName:          "time",
+				Transformer:           "f@timestamp@unix",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
+		},
+		Version: 0,
+	}
+	require.NotNil(t, preValidateSchema(&cfg), "Expected error on no valid time present.")
+}
+
+func TestPreValidateSchemaTimeWrongOutbound(t *testing.T) {
+	cfg := scoop_protocol.Config{
+		EventName: "name",
+		Columns: []scoop_protocol.ColumnDefinition{
+			{
+				InboundName:           "time",
+				OutboundName:          "not_time",
+				Transformer:           "f@timestamp@unix",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
+		},
+		Version: 0,
+	}
+	require.NotNil(t, preValidateSchema(&cfg), "Expected error on no valid time present.")
+}
+
+func TestPreValidateSchemaTimeWrongType(t *testing.T) {
+	cfg := scoop_protocol.Config{
+		EventName: "name",
+		Columns: []scoop_protocol.ColumnDefinition{
+			{
+				InboundName:           "time",
+				OutboundName:          "time",
+				Transformer:           "int",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
+		},
+		Version: 0,
+	}
+	require.NotNil(t, preValidateSchema(&cfg), "Expected error on no valid time present.")
+}
+
 func TestPreValidateSchemaDateOutbound(t *testing.T) {
 	cfg := scoop_protocol.Config{
 		EventName: "name",
@@ -18,6 +69,13 @@ func TestPreValidateSchemaDateOutbound(t *testing.T) {
 				InboundName:           "whatever",
 				OutboundName:          "date",
 				Transformer:           "int",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
+			{
+				InboundName:           "time",
+				OutboundName:          "time",
+				Transformer:           "f@timestamp@unix",
 				ColumnCreationOptions: "",
 				SupportingColumns:     "",
 			},
@@ -35,6 +93,13 @@ func TestPreValidateSchemaBadType(t *testing.T) {
 				InboundName:           "this",
 				OutboundName:          "that",
 				Transformer:           "invalidtype",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
+			{
+				InboundName:           "time",
+				OutboundName:          "time",
+				Transformer:           "f@timestamp@unix",
 				ColumnCreationOptions: "",
 				SupportingColumns:     "",
 			},
@@ -62,6 +127,13 @@ func TestPreValidateSchemaOkay(t *testing.T) {
 				ColumnCreationOptions: "",
 				SupportingColumns:     "",
 			},
+			{
+				InboundName:           "time",
+				OutboundName:          "time",
+				Transformer:           "f@timestamp@unix",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
 		},
 		Version: 0,
 	}
@@ -69,7 +141,15 @@ func TestPreValidateSchemaOkay(t *testing.T) {
 }
 
 func TestPreValidateSchemaManyColumns(t *testing.T) {
-	columns := []scoop_protocol.ColumnDefinition{}
+	columns := []scoop_protocol.ColumnDefinition{
+		{
+			InboundName:           "time",
+			OutboundName:          "time",
+			Transformer:           "f@timestamp@unix",
+			ColumnCreationOptions: "",
+			SupportingColumns:     "",
+		},
+	}
 	for i := 0; i < 301; i++ {
 		col := scoop_protocol.ColumnDefinition{
 			InboundName:           "this",
@@ -103,6 +183,13 @@ func TestPreValidateSchemaColumnCollision(t *testing.T) {
 				InboundName:           "foo",
 				OutboundName:          "that",
 				Transformer:           "invalidtype",
+				ColumnCreationOptions: "",
+				SupportingColumns:     "",
+			},
+			{
+				InboundName:           "time",
+				OutboundName:          "time",
+				Transformer:           "f@timestamp@unix",
 				ColumnCreationOptions: "",
 				SupportingColumns:     "",
 			},
@@ -177,6 +264,36 @@ func TestPreValidateUpdateDeleteErrors(t *testing.T) {
 	}
 	requestErr = preValidateUpdate(&req, &schema)
 	require.Equal(t, requestErr, "Column is a key and cannot be dropped: x")
+}
+
+func TestPreValidateUpdateRenameTime(t *testing.T) {
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{{OutboundName: "time", Transformer: "f@timestamp@unix", InboundName: "time"}},
+		Deletes:   []string{},
+		Renames:   core.Renames{"time": "not_time"},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{{OutboundName: "x"}, {OutboundName: "time"}},
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.NotEqual(t, requestErr, "")
+}
+
+func TestPreValidateUpdateDeleteTime(t *testing.T) {
+	req := core.ClientUpdateSchemaRequest{
+		EventName: "test",
+		Additions: []core.Column{{OutboundName: "time", Transformer: "f@timestamp@unix", InboundName: "time"}},
+		Deletes:   []string{"time"},
+		Renames:   core.Renames{},
+	}
+	schema := AnnotatedSchema{
+		EventName: "test",
+		Columns:   []scoop_protocol.ColumnDefinition{{OutboundName: "x"}, {OutboundName: "time"}},
+	}
+	requestErr := preValidateUpdate(&req, &schema)
+	require.NotEqual(t, requestErr, "")
 }
 
 func TestPreValidateUpdateAddDelete(t *testing.T) {

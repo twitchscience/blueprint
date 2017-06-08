@@ -1,6 +1,7 @@
 package bpdb
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -134,6 +135,15 @@ func validateIsNotKey(options string) error {
 	return nil
 }
 
+func validateHasTime(cols []scoop_protocol.ColumnDefinition) error {
+	for _, col := range cols {
+		if col.OutboundName == "time" && col.InboundName == "time" && col.Transformer == "f@timestamp@unix" {
+			return nil
+		}
+	}
+	return errors.New("Schema must contain time->time of type f@timestamp@unix")
+}
+
 func preValidateSchema(schema *scoop_protocol.Config) error {
 	err := validateIdentifier(schema.EventName)
 	if err != nil {
@@ -148,6 +158,10 @@ func preValidateSchema(schema *scoop_protocol.Config) error {
 		if err != nil {
 			return fmt.Errorf("column transformer invalid: %v", err)
 		}
+	}
+	err = validateHasTime(schema.Columns)
+	if err != nil {
+		return err
 	}
 	ops := schemaCreateRequestToOps(schema)
 	err = ApplyOperations(&AnnotatedSchema{}, ops)
@@ -206,6 +220,9 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 		if err != nil {
 			return fmt.Sprintf("Column is a key and cannot be dropped: %s", columnName)
 		}
+		if columnName == "time" {
+			return "Cannot delete time column."
+		}
 		delete(columnDefs, columnName)
 	}
 
@@ -236,6 +253,9 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 		_, exists := columnDefs[oldName]
 		if !exists {
 			return fmt.Sprintf("Attempting to rename column that doesn't exist: %s", oldName)
+		}
+		if oldName == "time" {
+			return "Cannot rename time column"
 		}
 		for _, name := range []string{oldName, newName} {
 			_, found := renameSet[name]
