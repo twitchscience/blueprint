@@ -185,7 +185,12 @@ angular.module('blueprint')
         var setDistKey = $scope.event.distkey;
         var nameSet = {};
         var inboundNames = $scope.validInboundNames();
+        var hasValidTime = false;
         angular.forEach($scope.event.Columns, function(item) {
+          if(item.OutboundName == "time" && item.InboundName == "time" && item.Transformer == "f@timestamp@unix"){
+            hasValidTime = true;
+          }
+
           if($scope.outboundNameBlacklist.indexOf(item.OutboundName.toLowerCase()) != -1){
             store.setError("Cannot have outbound name '"+item.OutboundName+"'. It is a reserved identifier.");
           }
@@ -230,6 +235,9 @@ angular.module('blueprint')
             item.Transformer = 'bigint';
           }
         });
+        if(!hasValidTime) {
+          store.setError("Must have time->time of type f@timestamp@unix.");
+        }
 
         if (store.getError()) {
           return;

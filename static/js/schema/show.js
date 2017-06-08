@@ -238,6 +238,17 @@ var app = angular.module('blueprint')
           delNames[$scope.schema.Columns[colIndex].OutboundName] = true;
         });
 
+
+        // Check that time isn't being deleted or renamed away
+        if (deletes.indexOf("time") != -1) {
+          store.setError("Cannot delete the time column.");
+          return false;
+        }
+        if (Object.keys($scope.nameMap).indexOf("time") != -1) {
+          store.setError("Cannot rename the time column.");
+          return false;
+        }
+
         // Check that none of the added columns or the renames are blacklisted
         // outbound names
         if (!$scope.additions.Columns.every(function (col) {
