@@ -16,6 +16,7 @@ var (
 	maxColumns               = 300
 	keyNames                 = []string{"distkey", "sortkey"}
 	blacklistedOutboundNames = []string{"date"}
+	timeColName              = "time"
 )
 
 // AnnotatedSchema is a schema annotated with modification information.
@@ -137,7 +138,7 @@ func validateIsNotKey(options string) error {
 
 func validateHasTime(cols []scoop_protocol.ColumnDefinition) error {
 	for _, col := range cols {
-		if col.OutboundName == "time" && col.InboundName == "time" && col.Transformer == "f@timestamp@unix" {
+		if col.OutboundName == timeColName && col.InboundName == timeColName && col.Transformer == "f@timestamp@unix" {
 			return nil
 		}
 	}
@@ -220,7 +221,7 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 		if err != nil {
 			return fmt.Sprintf("Column is a key and cannot be dropped: %s", columnName)
 		}
-		if columnName == "time" {
+		if columnName == timeColName {
 			return "Cannot delete time column."
 		}
 		delete(columnDefs, columnName)
@@ -254,7 +255,7 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 		if !exists {
 			return fmt.Sprintf("Attempting to rename column that doesn't exist: %s", oldName)
 		}
-		if oldName == "time" {
+		if oldName == timeColName {
 			return "Cannot rename time column"
 		}
 		for _, name := range []string{oldName, newName} {
