@@ -244,7 +244,7 @@ var app = angular.module('blueprint')
           store.setError("Cannot delete the time column.");
           return false;
         }
-        if (Object.keys($scope.nameMap).indexOf("time") != -1) {
+        if ("time" in $scope.nameMap && $scope.nameMap["time"] != "time") {
           store.setError("Cannot rename the time column.");
           return false;
         }
