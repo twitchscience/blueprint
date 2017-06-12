@@ -247,7 +247,7 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 	renameSet := make(map[string]bool)
 	// Validate schema "rename"s
 	for oldName, newName := range req.Renames {
-		err := validateIdentifier(newName)
+		err := validateOutboundName(newName)
 		if err != nil {
 			return fmt.Sprintf("New name for column is invalid: %v", err)
 		}
