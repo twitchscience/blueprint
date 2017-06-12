@@ -1,6 +1,7 @@
 package bpdb
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -12,8 +13,10 @@ import (
 )
 
 var (
-	maxColumns = 300
-	keyNames   = []string{"distkey", "sortkey"}
+	maxColumns               = 300
+	keyNames                 = []string{"distkey", "sortkey"}
+	blacklistedOutboundNames = []string{"date"}
+	timeColName              = "time"
 )
 
 // AnnotatedSchema is a schema annotated with modification information.
@@ -104,6 +107,26 @@ func validateIdentifier(name string) error {
 	return nil
 }
 
+// stringInSlice returns true if the string is in the list of strings
+func stringInSlice(needle string, haystack []string) bool {
+	for _, a := range haystack {
+		if a == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func validateOutboundName(name string) error {
+	if err := validateIdentifier(name); err != nil {
+		return err
+	}
+	if stringInSlice(strings.ToLower(name), blacklistedOutboundNames) {
+		return fmt.Errorf("column %s is a reserved OutboundName", name)
+	}
+	return nil
+}
+
 func validateIsNotKey(options string) error {
 	for _, keyName := range keyNames {
 		if strings.Contains(options, keyName) {
@@ -113,13 +136,22 @@ func validateIsNotKey(options string) error {
 	return nil
 }
 
+func validateHasTime(cols []scoop_protocol.ColumnDefinition) error {
+	for _, col := range cols {
+		if col.OutboundName == timeColName && col.InboundName == timeColName && col.Transformer == "f@timestamp@unix" {
+			return nil
+		}
+	}
+	return errors.New("Schema must contain time->time of type f@timestamp@unix")
+}
+
 func preValidateSchema(schema *scoop_protocol.Config) error {
 	err := validateIdentifier(schema.EventName)
 	if err != nil {
 		return fmt.Errorf("event name invalid: %v", err)
 	}
 	for _, col := range schema.Columns {
-		err = validateIdentifier(col.OutboundName)
+		err = validateOutboundName(col.OutboundName)
 		if err != nil {
 			return fmt.Errorf("column outbound name invalid: %v", err)
 		}
@@ -127,6 +159,10 @@ func preValidateSchema(schema *scoop_protocol.Config) error {
 		if err != nil {
 			return fmt.Errorf("column transformer invalid: %v", err)
 		}
+	}
+	err = validateHasTime(schema.Columns)
+	if err != nil {
+		return err
 	}
 	ops := schemaCreateRequestToOps(schema)
 	err = ApplyOperations(&AnnotatedSchema{}, ops)
@@ -185,12 +221,15 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 		if err != nil {
 			return fmt.Sprintf("Column is a key and cannot be dropped: %s", columnName)
 		}
+		if columnName == timeColName {
+			return "Cannot delete time column."
+		}
 		delete(columnDefs, columnName)
 	}
 
 	// Validate schema "add"s
 	for _, col := range req.Additions {
-		err := validateIdentifier(col.OutboundName)
+		err := validateOutboundName(col.OutboundName)
 		if err != nil {
 			return fmt.Sprintf("Column outbound name invalid: %v", err)
 		}
@@ -208,13 +247,16 @@ func preValidateUpdate(req *core.ClientUpdateSchemaRequest, schema *AnnotatedSch
 	renameSet := make(map[string]bool)
 	// Validate schema "rename"s
 	for oldName, newName := range req.Renames {
-		err := validateIdentifier(newName)
+		err := validateOutboundName(newName)
 		if err != nil {
 			return fmt.Sprintf("New name for column is invalid: %v", err)
 		}
 		_, exists := columnDefs[oldName]
 		if !exists {
 			return fmt.Sprintf("Attempting to rename column that doesn't exist: %s", oldName)
+		}
+		if oldName == timeColName {
+			return "Cannot rename time column"
 		}
 		for _, name := range []string{oldName, newName} {
 			_, found := renameSet[name]
