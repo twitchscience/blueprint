@@ -68,3 +68,22 @@ CREATE TABLE IF NOT EXISTS event_comment
   comment_version int,
   PRIMARY KEY (event, comment_version)
 );
+
+DO $$
+  BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_metadata_type') THEN
+    CREATE TYPE event_metadata_type AS ENUM ('comment', 'edge_type');
+  END IF;
+END $$;
+
+-- This tables keeps track of the only the current event metadata
+CREATE TABLE IF NOT EXISTS event_metadata
+(
+  event varchar,
+  metadata_type event_metadata_type,
+  metadata_value varchar,
+  ts timestamp without time zone default NOW(),
+  user_name varchar,
+  version int,
+  PRIMARY KEY (event, metadata_type, version)
+);
