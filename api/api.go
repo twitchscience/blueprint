@@ -29,6 +29,7 @@ type server struct {
 	bpSchemaBackend        bpdb.BpSchemaBackend
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend
 	bpEventCommentBackend  bpdb.BpEventCommentBackend
+	bpEventMetadataBackend bpdb.BpEventMetadataBackend
 	configFilename         string
 	ingesterController     ingester.Controller
 	slackbotURL            string
@@ -72,6 +73,7 @@ func New(
 	bpSchemaBackend bpdb.BpSchemaBackend,
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend,
 	bpEventCommentBackend bpdb.BpEventCommentBackend,
+	bpEventMetadataBackend bpdb.BpEventMetadataBackend,
 	configFilename string,
 	ingCont ingester.Controller,
 	slackbotURL string,
@@ -81,6 +83,7 @@ func New(
 		bpdbBackend:            bpdbBackend,
 		bpSchemaBackend:        bpSchemaBackend,
 		bpEventCommentBackend:  bpEventCommentBackend,
+		bpEventMetadataBackend: bpEventMetadataBackend,
 		bpKinesisConfigBackend: bpKinesisConfigBackend,
 		configFilename:         configFilename,
 		ingesterController:     ingCont,
@@ -124,6 +127,7 @@ func (s *server) setupReadonlyAPI() {
 	roAPI.Get("/suggestion/:id", s.suggestion)
 	roAPI.Get("/stats", s.stats)
 	roAPI.Get("/comment/:event", s.eventComment)
+	roAPI.Get("/metadata/:event", s.eventMetadata)
 
 	goji.Get("/schemas", roAPI)
 	goji.Get("/schema/*", roAPI)
@@ -135,6 +139,7 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/suggestion/*", roAPI)
 	goji.Get("/stats", roAPI)
 	goji.Get("/comment/*", roAPI)
+	goji.Get("/metadata/*", roAPI)
 
 	roAPI.Get("/kinesisconfigs", s.allKinesisConfigs)
 	roAPI.Get("/kinesisconfig/:account/:type/:name", s.kinesisconfig)
@@ -156,6 +161,7 @@ func (s *server) authWriteAPI() *web.Mux {
 	authWriteAPI.Post("/drop/schema", s.dropSchema)
 	authWriteAPI.Post("/removesuggestion/:id", s.removeSuggestion)
 	authWriteAPI.Post("/comment/:event", s.updateEventComment)
+	authWriteAPI.Post("/metadata/:event", s.updateEventMetadata)
 
 	goji.Post("/force_load", authWriteAPI)
 	goji.Put("/schema", authWriteAPI)
@@ -163,6 +169,7 @@ func (s *server) authWriteAPI() *web.Mux {
 	goji.Post("/drop/schema", authWriteAPI)
 	goji.Post("/removesuggestion/*", authWriteAPI)
 	goji.Post("/comment/*", authWriteAPI)
+	goji.Post("/metadata/*", authWriteAPI)
 
 	return authWriteAPI
 }

@@ -30,6 +30,7 @@ type KinesisWriterConfig struct {
 	Compress               bool   // true if compress data with flate, false to output json
 	FirehoseRedshiftStream bool   // true if JSON destined for Firehose->Redshift streaming
 	EventNameTargetField   string // Field name to write the event's name to (useful for uncompressed streams)
+	ExcludeEmptyFields     bool   // true if empty fields should be excluded from the JSON
 	BufferSize             int
 	MaxAttemptsPerRecord   int
 	RetryDelay             string

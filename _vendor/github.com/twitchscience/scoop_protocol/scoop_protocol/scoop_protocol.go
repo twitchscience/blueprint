@@ -42,6 +42,13 @@ type Operation struct {
 	ActionMetadata map[string]string
 }
 
+type EventMetadataType string
+
+const (
+	COMMENT   EventMetadataType = "comment"
+	EDGE_TYPE EventMetadataType = "edge_type"
+)
+
 func NewAddOperation(outbound, inbound, type_, options, columns string) Operation {
 	return Operation{
 		Action: ADD,

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/twitchscience/aws_utils/logger"
+	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 // Subprocess represents something that can be set up, started, and stopped. E.g. a server.
@@ -94,6 +95,13 @@ type ClientDropSchemaRequest struct {
 type ClientUpdateEventCommentRequest struct {
 	EventName    string
 	EventComment string
+}
+
+// ClientUpdateEventMetadataRequest is a request to update the metadata for an event.
+type ClientUpdateEventMetadataRequest struct {
+	EventName     string
+	MetadataType  scoop_protocol.EventMetadataType
+	MetadataValue string
 }
 
 // WebError is either a server or user error.

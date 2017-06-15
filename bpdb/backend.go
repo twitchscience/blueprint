@@ -54,6 +54,21 @@ type EventComment struct {
 	Version   int
 }
 
+// EventMetadataRow stores the data of one row of event_metadata
+type EventMetadataRow struct {
+	MetadataType  string
+	MetadataValue string
+	TS            time.Time
+	UserName      string
+	Version       int
+}
+
+// EventMetadata is the metadata associated with an event schema
+type EventMetadata struct {
+	EventName string
+	Metadata  []EventMetadataRow
+}
+
 // Bpdb is the interface of the blueprint db backend that interacts with maintenance mode and stats
 type Bpdb interface {
 	IsInMaintenanceMode() bool
@@ -85,6 +100,12 @@ type BpKinesisConfigBackend interface {
 type BpEventCommentBackend interface {
 	EventComment(name string) (*EventComment, error)
 	UpdateEventComment(req *core.ClientUpdateEventCommentRequest, user string) *core.WebError
+}
+
+// BpEventMetadataBackend is the interface of the blueprint db backend that stores event metadata
+type BpEventMetadataBackend interface {
+	EventMetadata(eventName string) (*EventMetadata, error)
+	UpdateEventMetadata(req *core.ClientUpdateEventMetadataRequest, user string) *core.WebError
 }
 
 func validateType(t string) error {

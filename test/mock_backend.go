@@ -33,6 +33,11 @@ type MockBpEventCommentBackend struct {
 	returnMap map[string]bpdb.EventComment
 }
 
+// MockBpEventMetadataBackend is a mock for the bpdb/BpEventMetadataBackend interface
+type MockBpEventMetadataBackend struct {
+	returnMap map[string]bpdb.EventMetadata
+}
+
 // NewMockBpdb creates a new mock backend.
 func NewMockBpdb() *MockBpdb {
 	return &MockBpdb{&sync.RWMutex{}, false}
@@ -51,6 +56,11 @@ func NewMockBpKinesisConfigBackend() *MockBpKinesisConfigBackend {
 // NewMockBpEventCommentBackend creates a mock event comment backend.
 func NewMockBpEventCommentBackend(returnMap map[string]bpdb.EventComment) *MockBpEventCommentBackend {
 	return &MockBpEventCommentBackend{returnMap}
+}
+
+// NewMockBpEventMetadataBackend creates a mock event metadata backend.
+func NewMockBpEventMetadataBackend(returnMap map[string]bpdb.EventMetadata) *MockBpEventMetadataBackend {
+	return &MockBpEventMetadataBackend{returnMap}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.
@@ -103,6 +113,22 @@ func (m *MockBpEventCommentBackend) EventComment(name string) (*bpdb.EventCommen
 
 // UpdateEventComment returns nil except when the event name is "this-table-does-not-exist"
 func (m *MockBpEventCommentBackend) UpdateEventComment(update *core.ClientUpdateEventCommentRequest, user string) *core.WebError {
+	if _, exists := m.returnMap[update.EventName]; exists {
+		return core.NewUserWebError(errors.New("schema does not exist"))
+	}
+	return nil
+}
+
+// EventMetadata returns nil except when update.EventName is in the returnMap
+func (m *MockBpEventMetadataBackend) EventMetadata(name string) (*bpdb.EventMetadata, error) {
+	if eventMetadata, exists := m.returnMap[name]; exists {
+		return &eventMetadata, nil
+	}
+	return nil, fmt.Errorf("no metadata found for event %s", name)
+}
+
+// UpdateEventMetadata returns nil except when update.EventName is in the returnMap
+func (m *MockBpEventMetadataBackend) UpdateEventMetadata(update *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {
 	if _, exists := m.returnMap[update.EventName]; exists {
 		return core.NewUserWebError(errors.New("schema does not exist"))
 	}

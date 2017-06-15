@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -363,6 +364,38 @@ func (s *server) updateEventCommentHelper(eventName string, username string, bod
 	req.EventName = eventName
 
 	return s.bpEventCommentBackend.UpdateEventComment(&req, username)
+}
+
+func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
+	eventMetadata, err := s.bpEventMetadataBackend.EventMetadata(c.URLParams["event"])
+	if err != nil {
+		logger.WithError(err).WithField("eventMetadata", c.URLParams["event"]).Error("Error retrieving event metadata")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeStructToResponse(w, []*bpdb.EventMetadata{eventMetadata})
+}
+
+func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
+	eventName := c.URLParams["event"]
+	var req core.ClientUpdateEventMetadataRequest
+	err := decodeBody(r.Body, &req)
+	if err != nil {
+		core.NewServerWebError(err).ReportError(w, "Error decoding request body")
+		return
+	}
+
+	req.EventName = eventName
+	if req.MetadataType != scoop_protocol.COMMENT && req.MetadataType != scoop_protocol.EDGE_TYPE {
+		err = errors.New("Invalid event metadata type")
+		core.NewServerWebError(err).ReportError(w, "Invalid event metadata type")
+		return
+	}
+
+	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
+	if webErr != nil {
+		webErr.ReportError(w, "Error updating event metadata")
+	}
 }
 
 func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
