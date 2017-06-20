@@ -54,15 +54,6 @@ func insertEventMetadata(tx *sql.Tx, eventName string, metadataType scoop_protoc
 
 // EventMetadata returns the current metadata for an event
 func (p *eventMetadataBackend) EventMetadata(eventName string) (*EventMetadata, error) {
-	bpSchemaBackend := NewSchemaBackend(p.db)
-	schema, err := bpSchemaBackend.Schema(eventName)
-	if err != nil {
-		return nil, fmt.Errorf("querying existence of schema  %s: %v", eventName, err)
-	}
-	if schema == nil {
-		return nil, fmt.Errorf("schema does not exist")
-	}
-
 	rows, err := p.db.Query(eventMetadataQuery, eventName)
 	if err != nil {
 		return nil, fmt.Errorf("querying metadata for event %s: %v", eventName, err)

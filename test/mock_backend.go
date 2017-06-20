@@ -78,8 +78,11 @@ func (m *MockBpSchemaBackend) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
 	return make([]bpdb.AnnotatedSchema, 0), nil
 }
 
-// Schema returns nils.
+// Schema returns nils except when the event name is "this-table-exists"
 func (m *MockBpSchemaBackend) Schema(name string) (*bpdb.AnnotatedSchema, error) {
+	if name == "this-table-exists" {
+		return &bpdb.AnnotatedSchema{}, nil
+	}
 	return nil, nil
 }
 

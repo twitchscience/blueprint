@@ -50,15 +50,6 @@ func insertEventComment(tx *sql.Tx, comment string, version int, eventName strin
 
 // EventComment returns the current schema for the table `name`
 func (p *eventCommentBackend) EventComment(name string) (*EventComment, error) {
-	bpSchemaBackend := NewSchemaBackend(p.db)
-	schema, err := bpSchemaBackend.Schema(name)
-	if err != nil {
-		return nil, fmt.Errorf("querying existence of schema  %s: %v", name, err)
-	}
-	if schema == nil {
-		return nil, fmt.Errorf("schema does not exist")
-	}
-
 	rows, err := p.db.Query(eventCommentQuery, name)
 	if err != nil {
 		return nil, fmt.Errorf("querying comment for event %s: %v", name, err)

@@ -338,6 +338,16 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) eventComment(c web.C, w http.ResponseWriter, r *http.Request) {
+	schema, err := s.bpSchemaBackend.Schema(c.URLParams["event"])
+	if err != nil {
+		logger.WithError(err).WithField("schema", c.URLParams["event"]).Error("Error retrieving schema")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if schema == nil {
+		fourOhFour(w, r)
+		return
+	}
 	eventComment, err := s.bpEventCommentBackend.EventComment(c.URLParams["event"])
 	if err != nil {
 		logger.WithError(err).WithField("eventComment", c.URLParams["event"]).Error("Error retrieving event comment")
@@ -367,6 +377,16 @@ func (s *server) updateEventCommentHelper(eventName string, username string, bod
 }
 
 func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
+	schema, err := s.bpSchemaBackend.Schema(c.URLParams["event"])
+	if err != nil {
+		logger.WithError(err).WithField("schema", c.URLParams["event"]).Error("Error retrieving schema")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if schema == nil {
+		fourOhFour(w, r)
+		return
+	}
 	eventMetadata, err := s.bpEventMetadataBackend.EventMetadata(c.URLParams["event"])
 	if err != nil {
 		logger.WithError(err).WithField("eventMetadata", c.URLParams["event"]).Error("Error retrieving event metadata")

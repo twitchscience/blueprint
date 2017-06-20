@@ -190,16 +190,17 @@ func assertRequestInternalError(t *testing.T, testedName string, w *httptest.Res
 }
 
 // Tests trying to get a comment for an event with no schema
-// Expected result is a 500 internal error
+// Expected result is a 404 not found
 func TestGetEventCommentNotFound(t *testing.T) {
 	eventCommentMap := make(map[string]bpdb.EventComment)
-	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+	schemaBackend := test.NewMockBpSchemaBackend()
+	eventCommentBackend := test.NewMockBpEventCommentBackend(eventCommentMap)
 	configFile := createJSONFile(t, "TestGetEventCommentNotFound")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventCommentBackend, nil, configFile.Name(), nil, "", false).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -208,33 +209,33 @@ func TestGetEventCommentNotFound(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/comment/this-table-does-not-exist", nil)
 	s.eventComment(c, recorder, req)
 
-	expectedErrorMsg := "no comment found for event this-table-does-not-exist"
-	assertRequestInternalError(t, "TestGetEventCommentNotFound", recorder, expectedErrorMsg)
+	assertRequest404(t, "TestGetEventCommentNotFound", recorder)
 }
 
 // Tests trying to get a comment for an event with a schema
 // Expected result is a 200 OK response
 func TestGetEventComment(t *testing.T) {
+	schemaBackend := test.NewMockBpSchemaBackend()
 	eventCommentMap := make(map[string]bpdb.EventComment)
-	eventCommentMap["this-table-exists-and-has-a-comment"] = bpdb.EventComment{
+	eventCommentMap["this-table-exists"] = bpdb.EventComment{
 		EventName: "event",
 		Comment:   "Test Comment",
 		UserName:  "unknown",
 		Version:   1,
 	}
-	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+	eventCommentBackend := test.NewMockBpEventCommentBackend(eventCommentMap)
 	configFile := createJSONFile(t, "TestGetEventComment")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventCommentBackend, nil, configFile.Name(), nil, "", false).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
-		URLParams: map[string]string{"username": "", "event": "this-table-exists-and-has-a-comment"},
+		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
 	}
-	req, _ := http.NewRequest("GET", "/comment/this-table-exists-and-has-a-comment", nil)
+	req, _ := http.NewRequest("GET", "/comment/this-table-exists", nil)
 
 	s.eventComment(c, recorder, req)
 	expectedBody := "[{\"EventName\":\"event\",\"Comment\":\"Test Comment\",\"TS\":\"0001-01-01T00:00:00Z\",\"UserName\":\"unknown\",\"Version\":1}]"
@@ -301,16 +302,17 @@ func TestUpdateEventComment(t *testing.T) {
 }
 
 // Tests trying to get metadata for an event with no schema
-// Expected result is a 500 internal error
+// Expected result is a 404 not found
 func TestGetEventMetadataNotFound(t *testing.T) {
+	schemaBackend := test.NewMockBpSchemaBackend()
 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
-	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	configFile := createJSONFile(t, "TestGetEventMetadataNotFound")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -319,13 +321,13 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/metadata/this-table-does-not-exist", nil)
 	s.eventMetadata(c, recorder, req)
 
-	expectedErrorMsg := "no metadata found for event this-table-does-not-exist"
-	assertRequestInternalError(t, "TestGetEventMetadataNotFound", recorder, expectedErrorMsg)
+	assertRequest404(t, "TestGetEventMetadataNotFound", recorder)
 }
 
 // Tests trying to get metadata for an event with a schema
 // Expected result is a 200 OK response
 func TestGetEventMetadata(t *testing.T) {
+	schemaBackend := test.NewMockBpSchemaBackend()
 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
 	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{
 		EventName: "event",
@@ -338,13 +340,13 @@ func TestGetEventMetadata(t *testing.T) {
 			},
 		},
 	}
-	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	configFile := createJSONFile(t, "TestGetEventMetadata")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
