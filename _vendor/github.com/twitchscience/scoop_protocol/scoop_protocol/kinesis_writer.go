@@ -22,7 +22,17 @@ type AnnotatedKinesisConfig struct {
 	DroppedReason    string
 }
 
+// KinesisWriterEventConfig describes how a given Event is written to a Kinesis stream.
+type KinesisWriterEventConfig struct {
+	Filter       string
+	FilterFunc   func(map[string]string) bool `json:"-"`
+	Fields       []string
+	FieldRenames map[string]string
+	FullFieldMap map[string]string `json:"-"`
+}
+
 // KinesisWriterConfig describes a Kinesis Writer that the processor uses to export data to a Kinesis Stream/Firehose
+// Make sure to call Validate() on Spade after loading this from JSON to populate some derived fields.
 type KinesisWriterConfig struct {
 	StreamName             string
 	StreamRole             string
@@ -35,18 +45,14 @@ type KinesisWriterConfig struct {
 	MaxAttemptsPerRecord   int
 	RetryDelay             string
 
-	Events map[string]*struct {
-		Filter     string
-		FilterFunc func(map[string]string) bool `json:"-"`
-		Fields     []string
-	}
+	Events map[string]*KinesisWriterEventConfig
 
 	Globber GlobberConfig
 	Batcher BatcherConfig
 }
 
 // Validate returns an error if the Kinesis Writer config is not valid, or nil if it is.
-// It also sets the FilterFunc on Events with Filters.
+// It also sets the FilterFunc on Events with Filters and populates FullFieldMap.
 func (c *KinesisWriterConfig) Validate() error {
 	if c.StreamType == "" || c.StreamName == "" {
 		return fmt.Errorf("Mandatory fields stream type and stream name aren't populated")
@@ -67,6 +73,17 @@ func (c *KinesisWriterConfig) Validate() error {
 			e.FilterFunc = filterFuncs[e.Filter]
 			if e.FilterFunc == nil {
 				return fmt.Errorf("batcher config invalid: %s", err)
+			}
+		}
+		e.FullFieldMap = make(map[string]string, len(e.Fields))
+		if e.FieldRenames == nil {
+			e.FieldRenames = make(map[string]string)
+		}
+		for _, f := range e.Fields {
+			if renamed, ok := e.FieldRenames[f]; ok {
+				e.FullFieldMap[f] = renamed
+			} else {
+				e.FullFieldMap[f] = f
 			}
 		}
 	}
