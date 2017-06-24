@@ -94,6 +94,10 @@ func getAvailableSuggestions(docRoot string) ([]SchemaSuggestion, error) {
 	return availableSuggestions, nil
 }
 
+func getCacheKey(cacheType string, eventName string) string {
+	return cacheType + "." + eventName
+}
+
 func validSuggestion(suggestion, docRoot string) bool {
 	availableSuggestions, err := getAvailableSuggestions(docRoot)
 	if err != nil {

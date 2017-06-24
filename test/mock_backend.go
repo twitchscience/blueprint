@@ -35,7 +35,9 @@ type MockBpEventCommentBackend struct {
 
 // MockBpEventMetadataBackend is a mock for the bpdb/BpEventMetadataBackend interface
 type MockBpEventMetadataBackend struct {
-	returnMap map[string]bpdb.EventMetadata
+	returnMap             map[string]bpdb.EventMetadata
+	allEventMetadataMutex *sync.RWMutex
+	allEventMetadataCalls int32
 }
 
 // NewMockBpdb creates a new mock backend.
@@ -60,7 +62,7 @@ func NewMockBpEventCommentBackend(returnMap map[string]bpdb.EventComment) *MockB
 
 // NewMockBpEventMetadataBackend creates a mock event metadata backend.
 func NewMockBpEventMetadataBackend(returnMap map[string]bpdb.EventMetadata) *MockBpEventMetadataBackend {
-	return &MockBpEventMetadataBackend{returnMap}
+	return &MockBpEventMetadataBackend{returnMap, &sync.RWMutex{}, 0}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.
@@ -78,9 +80,9 @@ func (m *MockBpSchemaBackend) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
 	return make([]bpdb.AnnotatedSchema, 0), nil
 }
 
-// Schema returns nils except when the event name is "this-table-exists"
+// Schema returns nils except when the event name is "this-table-exists" or "this-event-exists"
 func (m *MockBpSchemaBackend) Schema(name string) (*bpdb.AnnotatedSchema, error) {
-	if name == "this-table-exists" {
+	if name == "this-table-exists" || name == "this-event-exists" {
 		return &bpdb.AnnotatedSchema{}, nil
 	}
 	return nil, nil
@@ -122,20 +124,30 @@ func (m *MockBpEventCommentBackend) UpdateEventComment(update *core.ClientUpdate
 	return nil
 }
 
+// GetAllEventMetadataCalls returns the number of times EventMetadata() has been called.
+func (m *MockBpEventMetadataBackend) GetAllEventMetadataCalls() int32 {
+	m.allEventMetadataMutex.RLock()
+	defer m.allEventMetadataMutex.RUnlock()
+	return m.allEventMetadataCalls
+}
+
 // EventMetadata returns nil except when update.EventName is in the returnMap
 func (m *MockBpEventMetadataBackend) EventMetadata(name string) (*bpdb.EventMetadata, error) {
 	if eventMetadata, exists := m.returnMap[name]; exists {
+		m.allEventMetadataMutex.Lock()
+		m.allEventMetadataCalls++
+		m.allEventMetadataMutex.Unlock()
 		return &eventMetadata, nil
 	}
 	return nil, fmt.Errorf("no metadata found for event %s", name)
 }
 
-// UpdateEventMetadata returns nil except when update.EventName is in the returnMap
+// UpdateEventMetadata returns nil if update.EventName is in the returnMap
 func (m *MockBpEventMetadataBackend) UpdateEventMetadata(update *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {
 	if _, exists := m.returnMap[update.EventName]; exists {
-		return core.NewUserWebError(errors.New("schema does not exist"))
+		return nil
 	}
-	return nil
+	return core.NewUserWebError(errors.New("schema does not exist"))
 }
 
 // AllKinesisConfigs returns nil

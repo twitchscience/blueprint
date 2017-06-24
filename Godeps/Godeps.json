@@ -314,6 +314,11 @@
 			"ImportPath": "github.com/aws/aws-sdk-go/aws/signer/v4",
 			"Comment": "v1.7.9-3-g62c16d8b",
 			"Rev": "62c16d8bf2fd6ee59f2bf11ae8268d045470ccf6"
+		},
+		{
+			"ImportPath": "github.com/patrickmn/go-cache",
+			"Comment": "v2.0.0-9-g7ac1518",
+			"Rev": "7ac151875ffb48b9f3ccce9ea20f020b0c1596c8"
 		}
 	]
 }

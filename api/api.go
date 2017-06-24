@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/context"
 	gzip "github.com/lidashuang/goji-gzip"
+	"github.com/patrickmn/go-cache"
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/auth"
 	"github.com/twitchscience/blueprint/bpdb"
@@ -18,10 +19,10 @@ import (
 	"github.com/zenazn/goji/web/middleware"
 )
 
-type schemaResult struct {
-	allSchemas []bpdb.AnnotatedSchema
-	err        error
-}
+const (
+	allSchemasCache    = "allSchemas"
+	eventMetadataCache = "eventMetadata"
+)
 
 type server struct {
 	docRoot                string
@@ -33,9 +34,7 @@ type server struct {
 	configFilename         string
 	ingesterController     ingester.Controller
 	slackbotURL            string
-	cacheSynchronizer      chan func()
-	cachedResult           *schemaResult
-	cachedVersion          int
+	goCache                *cache.Cache
 	cacheTimeout           time.Duration
 	blacklistRe            []*regexp.Regexp
 	readonly               bool
@@ -88,19 +87,12 @@ func New(
 		configFilename:         configFilename,
 		ingesterController:     ingCont,
 		slackbotURL:            slackbotURL,
-		cacheSynchronizer:      make(chan func()),
-		cachedResult:           nil,
-		cachedVersion:          0,
+		goCache:                cache.New(5*time.Minute, 10*time.Minute),
 		readonly:               readonly,
 	}
 	if err := s.loadConfig(); err != nil {
 		logger.WithError(err).Fatal("failed to load config")
 	}
-	logger.Go(func() {
-		for f := range s.cacheSynchronizer {
-			f()
-		}
-	})
 	return s
 }
 

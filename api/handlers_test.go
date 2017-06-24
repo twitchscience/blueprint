@@ -61,9 +61,6 @@ func TestAllSchemasCache(t *testing.T) {
 	if backend.GetAllSchemasCalls() != 3 {
 		t.Errorf("AllSchemas() called %v times, expected 3", backend.GetAllSchemasCalls())
 	}
-	if getCachedVersion(s) != 3 {
-		t.Errorf("Cached version is %v, expected 3", getCachedVersion(s))
-	}
 }
 
 func repeatAllSchema(t *testing.T, s *server, backend *test.MockBpSchemaBackend) {
@@ -71,7 +68,7 @@ func repeatAllSchema(t *testing.T, s *server, backend *test.MockBpSchemaBackend)
 	for i := 0; i < 3; i++ {
 		getAllRecorder := httptest.NewRecorder()
 		s.allSchemas(getAllRecorder, getAllReq)
-		if getCachedResult(s) == nil {
+		if getCachedSchemaResult(s) == nil {
 			t.Error("Failed to cache result")
 		}
 		assertRequestOK(t, "allSchemas", getAllRecorder, "")
@@ -90,7 +87,7 @@ func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	createRecorder := httptest.NewRecorder()
 	s.createSchema(c, createRecorder, createReq)
 	assertRequestOK(t, "createSchema", createRecorder, "")
-	if getCachedResult(s) != nil {
+	if getCachedSchemaResult(s) != nil {
 		t.Error("Failed to invalidate cache")
 	}
 	printTotalAllSchemasCalls(t, backend)
@@ -124,22 +121,18 @@ func updateSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	updateRecorder := httptest.NewRecorder()
 	s.updateSchema(c, updateRecorder, updateReq)
 	assertRequestOK(t, "updateSchema", updateRecorder, "")
-	if getCachedResult(s) != nil {
+	if getCachedSchemaResult(s) != nil {
 		t.Error("Failed to invalidate cache")
 	}
 	printTotalAllSchemasCalls(t, backend)
 }
 
-func getCachedResult(s *server) *schemaResult {
-	c := make(chan *schemaResult)
-	s.cacheSynchronizer <- func() { c <- s.cachedResult }
-	return <-c
-}
-
-func getCachedVersion(s *server) int {
-	c := make(chan int)
-	s.cacheSynchronizer <- func() { c <- s.cachedVersion }
-	return <-c
+func getCachedSchemaResult(s *server) []bpdb.AnnotatedSchema {
+	cachedSchemas, found := s.goCache.Get(allSchemasCache)
+	if found {
+		return cachedSchemas.([]bpdb.AnnotatedSchema)
+	}
+	return nil
 }
 
 func printTotalAllSchemasCalls(t *testing.T, backend *test.MockBpSchemaBackend) {
@@ -301,6 +294,92 @@ func TestUpdateEventComment(t *testing.T) {
 	assertRequestOK(t, "TestUpdateEventComment", createRecorder, "")
 }
 
+func getCachedEventMetadataResult(s *server, eventName string) *bpdb.EventMetadata {
+	cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))
+	if found {
+		return cachedEventMetadata.(*bpdb.EventMetadata)
+	}
+	return nil
+}
+
+func printTotalEventMetadataCalls(t *testing.T, backend *test.MockBpEventMetadataBackend) {
+	t.Logf("EventMetadata() calls seen: %v", backend.GetAllEventMetadataCalls())
+}
+
+func getEventMetadata(c web.C, t *testing.T, s *server, backend *test.MockBpEventMetadataBackend, eventName string) {
+	getReq, _ := http.NewRequest("GET", "/metadata/1", strings.NewReader(""))
+	for i := 0; i < 3; i++ {
+		getRecorder := httptest.NewRecorder()
+		s.eventMetadata(c, getRecorder, getReq)
+		if getCachedEventMetadataResult(s, eventName) == nil {
+			t.Error("Failed to cache result")
+		}
+		assertRequestOK(t, "getEventMetadata", getRecorder, "")
+		printTotalEventMetadataCalls(t, backend)
+	}
+}
+
+func updateEventMetadata(t *testing.T, s *server, c web.C, backend *test.MockBpEventMetadataBackend, eventName string) {
+	updateEventMetadataReq := core.ClientUpdateEventMetadataRequest{
+		EventName:     eventName,
+		MetadataType:  "comment",
+		MetadataValue: "Test comment",
+	}
+	updateEventMetadataReqBytes, err := json.Marshal(updateEventMetadataReq)
+	if err != nil {
+		t.Fatal("unable to marshal scoop config, bailing")
+	}
+
+	updateReq, _ := http.NewRequest("POST", "/metadata/1", bytes.NewReader(updateEventMetadataReqBytes))
+	updateRecorder := httptest.NewRecorder()
+	s.updateEventMetadata(c, updateRecorder, updateReq)
+	assertRequestOK(t, "updateEventMetadata", updateRecorder, "")
+	if getCachedEventMetadataResult(s, eventName) != nil {
+		t.Error("Failed to invalidate cache")
+	}
+	printTotalEventMetadataCalls(t, backend)
+}
+
+func TestEventMetadataCache(t *testing.T) {
+	eventMetadataMap := make(map[string]bpdb.EventMetadata)
+	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{}
+	eventMetadataMap["this-event-exists"] = bpdb.EventMetadata{}
+	schemaBackend := test.NewMockBpSchemaBackend()
+	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	configFile := createJSONFile(t, "testCache")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+	s := New("", nil, schemaBackend, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+
+	if s.cacheTimeout != time.Minute {
+		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
+	}
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
+	}
+	c2 := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"username": "", "event": "this-event-exists"},
+	}
+
+	printTotalEventMetadataCalls(t, eventMetadataBackend)
+	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+	getEventMetadata(c2, t, s, eventMetadataBackend, "this-event-exists")
+	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
+	getEventMetadata(c2, t, s, eventMetadataBackend, "this-event-exists")
+	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+	updateEventMetadata(t, s, c2, eventMetadataBackend, "this-event-exists")
+	getEventMetadata(c2, t, s, eventMetadataBackend, "this-event-exists")
+	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
+	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+
+	if eventMetadataBackend.GetAllEventMetadataCalls() != 5 {
+		t.Errorf("EventMetadata() called %v times, expected 5", eventMetadataBackend.GetAllEventMetadataCalls())
+	}
+}
+
 // Tests trying to get metadata for an event with no schema
 // Expected result is a 404 not found
 func TestGetEventMetadataNotFound(t *testing.T) {
@@ -355,8 +434,8 @@ func TestGetEventMetadata(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/metadata/this-table-exists", nil)
 
 	s.eventMetadata(c, recorder, req)
-	expectedBody := "[{\"EventName\":\"event\",\"Metadata\":[{\"MetadataType\":\"comment\",\"MetadataValue\":" +
-		"\"Test comment\",\"TS\":\"0001-01-01T00:00:00Z\",\"UserName\":\"legacy\",\"Version\":2}]}]"
+	expectedBody := "{\"EventName\":\"event\",\"Metadata\":[{\"MetadataType\":\"comment\",\"MetadataValue\":" +
+		"\"Test comment\",\"TS\":\"0001-01-01T00:00:00Z\",\"UserName\":\"legacy\",\"Version\":2}]}"
 	assertRequestOK(t, "TestGetEventMetadata", recorder, expectedBody)
 }
 
@@ -364,7 +443,6 @@ func TestGetEventMetadata(t *testing.T) {
 // Expected result is a 400 bad request
 func TestUpdateEventMetadataNoSchema(t *testing.T) {
 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
-	eventMetadataMap["this-table-does-not-exist"] = bpdb.EventMetadata{}
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	configFile := createJSONFile(t, "TestUpdateEventMetadataNoSchema")
 
@@ -426,6 +504,7 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 // Expected result is a 200 OK response
 func TestUpdateEventMetadata(t *testing.T) {
 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
+	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{}
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	configFile := createJSONFile(t, "TestUpdateEventMetadata")
 
