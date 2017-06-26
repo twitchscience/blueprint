@@ -322,8 +322,8 @@ func getEventMetadata(c web.C, t *testing.T, s *server, backend *test.MockBpEven
 func updateEventMetadata(t *testing.T, s *server, c web.C, backend *test.MockBpEventMetadataBackend, eventName string) {
 	updateEventMetadataReq := core.ClientUpdateEventMetadataRequest{
 		EventName:     eventName,
-		MetadataType:  "comment",
-		MetadataValue: "Test comment",
+		MetadataType:  "edge_type",
+		MetadataValue: "internal",
 	}
 	updateEventMetadataReqBytes, err := json.Marshal(updateEventMetadataReq)
 	if err != nil {
@@ -455,7 +455,7 @@ func TestUpdateEventMetadataNoSchema(t *testing.T) {
 		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
 	}
 
-	cfg := core.ClientUpdateEventMetadataRequest{EventName: "this-table-does-not-exist", MetadataType: "comment", MetadataValue: "Test comment"}
+	cfg := core.ClientUpdateEventMetadataRequest{EventName: "this-table-does-not-exist", MetadataType: "edge_type", MetadataValue: "internal"}
 	cfgBytes, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatal("unable to marshal scoop config, bailing")
@@ -497,7 +497,7 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 	req, _ := http.NewRequest("PUT", "/metadata/test-event", bytes.NewReader(cfgBytes))
 
 	s.updateEventMetadata(c, recorder, req)
-	assertRequestInternalError(t, "TestUpdateEventMetadataInvalidMetadataType", recorder, "Internal error: Invalid event metadata type")
+	assertRequestInternalError(t, "TestUpdateEventMetadataInvalidMetadataType", recorder, "Internal error: Update event metadata validation error")
 }
 
 // Tests trying to update metadata for an event with a schema

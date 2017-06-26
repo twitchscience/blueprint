@@ -1,6 +1,6 @@
 var app = angular.module('blueprint')
-  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventComment, Column, auth) {
-    var types, schema, dropMessage, cancelDropMessage, eventComment;
+  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventComment, EventMetadata, Column, auth) {
+    var types, schema, dropMessage, cancelDropMessage, eventComment, rawEventMetadata;
     var typeRequest = Types.get(function(data) {
       if (data) {
         types = data.result;
@@ -16,6 +16,11 @@ var app = angular.module('blueprint')
     $scope.isCommentCollapsed = true;
     $scope.isEventCommentEditable = false;
     $scope.isEventCommentInPreviewMode = false;
+    // Default values are set for $scope.eventMetadata since not all metadata types may have values associated with them in the database
+    $scope.eventMetadata = {
+      "edge_type": {"metadataType": "edge_type", "editable": false, "value": "", "savedValue": ""},
+      "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": ""}
+    };
     auth.isEditable($scope);
 
     $scope.forceLoadTable = function(schema){
@@ -24,6 +29,14 @@ var app = angular.module('blueprint')
       }).error(function(data,status){
           store.setError("Force load failed");
       });
+    }
+
+    $scope.setEventMetadata = function(data) {
+      data.Metadata.forEach(function(row) {
+          $scope.eventMetadata[row.MetadataType].metadataType = row.MetadataType;
+          $scope.eventMetadata[row.MetadataType].value = row.MetadataValue;
+          $scope.eventMetadata[row.MetadataType].savedValue = row.MetadataValue;
+      })
     }
 
     var schemaRequest = Schema.get($routeParams, function(data) {
@@ -70,7 +83,7 @@ var app = angular.module('blueprint')
       if (data) {
         eventComment = data[0];
       } else {
-        store.setError('Failed to fetch event comment', undefined);
+        store.setError('Failed to fetch event comment');
       }
     }, function(err) {
       var msg;
@@ -82,7 +95,23 @@ var app = angular.module('blueprint')
       store.setError(msg);
     }).$promise;
 
-    $q.all([typeRequest, schemaRequest, droppableRequest, eventCommentRequest]).then(function() {
+    var eventMetadataRequest = EventMetadata.get($routeParams, function(data) {
+      if (data) {
+        rawEventMetadata = data;
+      } else {
+        store.setError('Failed to fetch event metadata');
+      }
+    }, function(err) {
+      var msg;
+      if (err.data) {
+        msg = 'API Error: ' + err.data;
+      } else {
+        msg = 'Schema not found or threw an error when retrieving event metadata';
+      }
+      store.setError(msg);
+    }).$promise;
+
+    $q.all([typeRequest, schemaRequest, droppableRequest, eventCommentRequest, eventMetadataRequest]).then(function() {
       if (!schema || !types) {
         store.setError('API Error', '/schemas');
       }
@@ -96,6 +125,7 @@ var app = angular.module('blueprint')
       $scope.eventComment = eventComment;
       $scope.savedEventCommentText = $scope.eventComment.Comment;
       $scope.displayedComment = $scope.eventComment.Comment;
+      $scope.setEventMetadata(rawEventMetadata);
       $scope.schema = schema;
       $scope.additions = {Columns: []}; // Used to hold new columns
       $scope.deletes = {ColInds: []}; // Used to hold dropped columns
@@ -223,9 +253,38 @@ var app = angular.module('blueprint')
             $scope.isEventCommentInPreviewMode = false;
           },
           function(err) {
-            store.setError(err, undefined);
+            store.setError(err);
             $scope.isEventCommentEditable = true;
           });
+      };
+      $scope.cancelEditEventMetadata = function(metadataType) {
+        $scope.eventMetadata[metadataType].editable = false;
+        // Reset event metadata to saved version
+        $scope.eventMetadata[metadataType].value = $scope.eventMetadata[metadataType].savedValue;
+      }
+      $scope.editEventMetadata = function(metadataType) {
+        $scope.eventMetadata[metadataType].editable = true;
+      }
+      $scope.updateEventMetadata = function(metadataType) {
+        var metadataRow = $scope.eventMetadata[metadataType];
+        metadataRow.editable = false;
+
+        if (metadataRow.value != metadataRow.savedValue) {
+          EventMetadata.update(
+            {event: $scope.schema.EventName},
+            {MetadataType: metadataType,
+             MetadataValue: metadataRow.value
+            },
+            function() {
+              store.setMessage("Successfully updated " + metadataType + " for " +  schema.EventName);
+              metadataRow.savedValue = metadataRow.value;
+              metadataRow.editable = false;
+            },
+            function(err) {
+              store.setError(err);
+              metadataRow.editable = true;
+            });
+        }
       };
       $scope.blacklistedOutboundNames = ["date"];
       $scope.updateSchema = function() {

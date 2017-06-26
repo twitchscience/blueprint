@@ -76,6 +76,34 @@
   </div>
 </div>
 
+<div>
+  <div class="form-group" style="margin-left: 10px; padding-right: 10px; width: 100%">
+    <div ng-if="!eventMetadata.edge_type.editable" style="display: inline-block; width: 20%">
+      <strong style="margin-right: 10px;">Origin of Data</strong>
+      <a href="http://docs.google.com/a/justin.tv/document/d/1SG1r-H8H0W7WR7vf5irIG06GGkVDldFmQb95yklnv6U/edit?usp=sharing" target="_blank"><i class="fa fa-question-circle"></i></a>
+    </div>
+    <div ng-if="eventMetadata.edge_type.editable" style="display: inline-block; width: 20%; vertical-align: middle; margin-top:2px">
+      <strong style="margin-right: 10px;">Origin of Data</strong>
+      <a href="http://docs.google.com/a/justin.tv/document/d/1SG1r-H8H0W7WR7vf5irIG06GGkVDldFmQb95yklnv6U/edit?usp=sharing" target="_blank"><i class="fa fa-question-circle"></i></a>
+    </div>
+    <div ng-if="!eventMetadata.edge_type.editable" style="margin-top: 7px; margin-bottom: 7px; display: inline-block">
+      {{eventMetadata.edge_type.value == "internal" ? "Internal" : "External"}}
+    </div>
+    <div style="display:inline-block; float: right">
+      <button class="btn btn-primary" ng-if="isEditable && !eventMetadata.edge_type.editable" ng-click="editEventMetadata(eventMetadata.edge_type.metadataType)">Edit</button>
+    </div>
+    <div class="input-group-btn" ng-if="isEditable && eventMetadata.edge_type.editable" style="display: inline">
+      <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.edge_type.value" ng-disabled="!eventMetadata.edge_type.editable" value="internal">Internal</label>
+      <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.edge_type.value" ng-disabled="!eventMetadata.edge_type.editable" value="external">External</label>
+      <div class="input-group" style="float: right">
+        <button class="btn btn-success" ng-if="isEditable &&eventMetadata.edge_type.editable" ng-click="updateEventMetadata(eventMetadata.edge_type.metadataType)" style="margin-right: 15px">Update</button>
+        <button class="btn btn-danger" ng-if="isEditable && eventMetadata.edge_type.editable" ng-click="cancelEditEventMetadata(eventMetadata.edge_type.metadataType)">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <form ng-show="!loading && (!showDropTable || !dropMessage)" name="updateSchemaForm" ng-submit="updateSchema()">
 <span ng-show="isEditable">Note: any changes to the schema will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.</span>
 <table class="table table-hover">

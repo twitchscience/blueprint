@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -388,9 +387,9 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 	}
 
 	req.EventName = eventName
-	if req.MetadataType != scoop_protocol.COMMENT && req.MetadataType != scoop_protocol.EDGE_TYPE {
-		err = errors.New("Invalid event metadata type")
-		core.NewServerWebError(err).ReportError(w, "Invalid event metadata type")
+	err = validateEventMetadataUpdate(req.MetadataType, req.MetadataValue)
+	if err != nil {
+		core.NewServerWebError(err).ReportError(w, "Update event metadata validation error")
 		return
 	}
 

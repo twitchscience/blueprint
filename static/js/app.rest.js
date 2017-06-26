@@ -44,6 +44,14 @@ angular.module('blueprint')
       }
     );
   })
+  .factory('EventMetadata', function($resource) {
+    return $resource(
+      '/metadata/:scope', null,
+      {get:    {url: '/metadata/:scope', method: 'GET'},
+       update: {url: '/metadata/:event', method: 'POST'},
+      }
+    );
+  })
   .factory('Suggestions', function($resource) {
     return $resource(
       '/suggestions', null,

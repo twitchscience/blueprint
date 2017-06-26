@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/twitchscience/aws_utils/logger"
+	"github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
 // SchemaSuggestion indicates a schema for an event that has occurred a certain number of times.
@@ -109,6 +111,21 @@ func validSuggestion(suggestion, docRoot string) bool {
 		}
 	}
 	return false
+}
+
+func validateEventMetadataUpdate(metadataType scoop_protocol.EventMetadataType, metadataValue string) error {
+	var notImplementedError = errors.New("This metadata type has not yet been implemented")
+	var invalidValueError = errors.New("Invalid metadata value")
+
+	switch metadataType {
+	case scoop_protocol.EDGE_TYPE:
+		if metadataValue == "internal" || metadataValue == "external" {
+			return nil
+		}
+		return invalidValueError
+	default:
+		return notImplementedError
+	}
 }
 
 func (s *server) requestTableDeletion(schemaName string, reason string, username string) (err error) {
