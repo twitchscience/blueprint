@@ -29,7 +29,6 @@ type server struct {
 	bpdbBackend            bpdb.Bpdb
 	bpSchemaBackend        bpdb.BpSchemaBackend
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend
-	// bpEventCommentBackend  bpdb.BpEventCommentBackend
 	bpEventMetadataBackend bpdb.BpEventMetadataBackend
 	configFilename         string
 	ingesterController     ingester.Controller
@@ -71,17 +70,15 @@ func New(
 	bpdbBackend bpdb.Bpdb,
 	bpSchemaBackend bpdb.BpSchemaBackend,
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend,
-	// bpEventCommentBackend bpdb.BpEventCommentBackend,
 	bpEventMetadataBackend bpdb.BpEventMetadataBackend,
 	configFilename string,
 	ingCont ingester.Controller,
 	slackbotURL string,
 	readonly bool) core.Subprocess {
 	s := &server{
-		docRoot:         docRoot,
-		bpdbBackend:     bpdbBackend,
-		bpSchemaBackend: bpSchemaBackend,
-		// bpEventCommentBackend:  bpEventCommentBackend,
+		docRoot:                docRoot,
+		bpdbBackend:            bpdbBackend,
+		bpSchemaBackend:        bpSchemaBackend,
 		bpEventMetadataBackend: bpEventMetadataBackend,
 		bpKinesisConfigBackend: bpKinesisConfigBackend,
 		configFilename:         configFilename,
@@ -118,7 +115,6 @@ func (s *server) setupReadonlyAPI() {
 	roAPI.Get("/suggestions", s.listSuggestions)
 	roAPI.Get("/suggestion/:id", s.suggestion)
 	roAPI.Get("/stats", s.stats)
-	// roAPI.Get("/comment/:event", s.eventComment)
 	roAPI.Get("/metadata/:event", s.eventMetadata)
 
 	goji.Get("/schemas", roAPI)
@@ -130,7 +126,6 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
 	goji.Get("/stats", roAPI)
-	// goji.Get("/comment/*", roAPI)
 	goji.Get("/metadata/*", roAPI)
 
 	roAPI.Get("/kinesisconfigs", s.allKinesisConfigs)
@@ -152,7 +147,6 @@ func (s *server) authWriteAPI() *web.Mux {
 	authWriteAPI.Post("/schema/:id", s.updateSchema)
 	authWriteAPI.Post("/drop/schema", s.dropSchema)
 	authWriteAPI.Post("/removesuggestion/:id", s.removeSuggestion)
-	// authWriteAPI.Post("/comment/:event", s.updateEventComment)
 	authWriteAPI.Post("/metadata/:event", s.updateEventMetadata)
 
 	goji.Post("/force_load", authWriteAPI)
@@ -160,7 +154,6 @@ func (s *server) authWriteAPI() *web.Mux {
 	goji.Post("/schema/*", authWriteAPI)
 	goji.Post("/drop/schema", authWriteAPI)
 	goji.Post("/removesuggestion/*", authWriteAPI)
-	// goji.Post("/comment/*", authWriteAPI)
 	goji.Post("/metadata/*", authWriteAPI)
 
 	return authWriteAPI

@@ -66,7 +66,6 @@ func main() {
 	}
 	bpSchemaBackend := bpdb.NewSchemaBackend(db)
 	bpKinesisConfigBackend := bpdb.NewKinesisConfigBackend(db)
-	// bpEventCommentBackend := bpdb.NewEventCommentBackend(db)
 	bpEventMetadataBackend := bpdb.NewEventMetadataBackend(db)
 
 	ingCont := ingester.NewController(*ingesterURL)

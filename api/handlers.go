@@ -309,45 +309,6 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 	respondWithJSONBool(w, "Droppable", !exists)
 }
 
-// func (s *server) eventComment(c web.C, w http.ResponseWriter, r *http.Request) {
-// 	schema, err := s.bpSchemaBackend.Schema(c.URLParams["event"])
-// 	if err != nil {
-// 		logger.WithError(err).WithField("schema", c.URLParams["event"]).Error("Error retrieving schema")
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	if schema == nil {
-// 		fourOhFour(w, r)
-// 		return
-// 	}
-// 	eventComment, err := s.bpEventCommentBackend.EventComment(c.URLParams["event"])
-// 	if err != nil {
-// 		logger.WithError(err).WithField("eventComment", c.URLParams["event"]).Error("Error retrieving event comment")
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	writeStructToResponse(w, []*bpdb.EventComment{eventComment})
-// }
-
-// func (s *server) updateEventComment(c web.C, w http.ResponseWriter, r *http.Request) {
-// 	eventName := c.URLParams["event"]
-// 	webErr := s.updateEventCommentHelper(eventName, c.Env["username"].(string), r.Body)
-// 	if webErr != nil {
-// 		webErr.ReportError(w, "Error updating event comment")
-// 	}
-// }
-
-// func (s *server) updateEventCommentHelper(eventName string, username string, body io.ReadCloser) *core.WebError {
-// 	var req core.ClientUpdateEventCommentRequest
-// 	err := decodeBody(body, &req)
-// 	if err != nil {
-// 		return core.NewServerWebError(err)
-// 	}
-// 	req.EventName = eventName
-
-// 	return s.bpEventCommentBackend.UpdateEventComment(&req, username)
-// }
-
 func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName := c.URLParams["event"]
 	cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))

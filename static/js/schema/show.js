@@ -12,11 +12,6 @@ var app = angular.module('blueprint')
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
     $scope.loginName = auth.getLoginName();
-    // Event comment variables
-    // $scope.isCommentCollapsed = true;
-    // $scope.isEventCommentEditable = false;
-    // $scope.isEventCommentInPreviewMode = false;
-    // Default values are set for $scope.eventMetadata since not all metadata types may have values associated with them in the database
     $scope.eventMetadata = {
       "edge_type": {"metadataType": "edge_type", "editable": false, "value": "", "savedValue": ""},
       "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": "",
@@ -41,7 +36,6 @@ var app = angular.module('blueprint')
             $scope.eventMetadata[row.MetadataType].displayedValue = row.MetadataValue;
           }
       })
-      console.log($scope.eventMetadata)
     }
 
     var schemaRequest = Schema.get($routeParams, function(data) {
@@ -84,22 +78,6 @@ var app = angular.module('blueprint')
       store.setError(msg);
     }).$promise;
 
-    // var eventCommentRequest = EventComment.get($routeParams, function(data) {
-    //   if (data) {
-    //     eventComment = data[0];
-    //   } else {
-    //     store.setError('Failed to fetch event comment');
-    //   }
-    // }, function(err) {
-    //   var msg;
-    //   if (err.data) {
-    //     msg = 'API Error: ' + err.data;
-    //   } else {
-    //     msg = 'Schema not found or threw an error when retrieving event comment';
-    //   }
-    //   store.setError(msg);
-    // }).$promise;
-
     var eventMetadataRequest = EventMetadata.get($routeParams, function(data) {
       if (data) {
         rawEventMetadata = data;
@@ -127,9 +105,6 @@ var app = angular.module('blueprint')
       $scope.executingDrop = false;
       $scope.cancelDropMessage = cancelDropMessage;
       $scope.successDropMessage = successDropMessage;
-      // $scope.eventComment = eventComment;
-      // $scope.savedEventCommentText = $scope.eventComment.Comment;
-      // $scope.displayedComment = $scope.eventComment.Comment;
       $scope.setEventMetadata(rawEventMetadata);
       $scope.schema = schema;
       $scope.additions = {Columns: []}; // Used to hold new columns
@@ -237,35 +212,7 @@ var app = angular.module('blueprint')
         var comment = $scope.eventMetadata.comment;
         comment.previewMode = !comment.previewMode;
         comment.previewValue = comment.value;
-        // $scope.isEventCommentInPreviewMode = !$scope.isEventCommentInPreviewMode;
-        // $scope.previewComment = $scope.eventComment.Comment;
       }
-      // $scope.cancelEditEventComment = function() {
-      //   var comment = $scope.eventMetadata.comment;
-      //   comment.editable = false;
-      //   comment.previewMode = false;
-      //   // Reset event comment to saved version
-      //   comment.value = comment.savedValue;
-      // }
-      // $scope.editEventComment = function() {
-      //   $scope.isEventCommentEditable = true;
-      // }
-      // $scope.updateEventComment = function() {
-      //   EventComment.update(
-      //     {event: $scope.schema.EventName},
-      //     {EventComment: $scope.eventComment.Comment},
-      //     function() {
-      //       store.setMessage("Successfully updated comment for " +  schema.EventName);
-      //       $scope.savedEventCommentText = $scope.eventComment.Comment;
-      //       $scope.displayedComment = $scope.eventComment.Comment;
-      //       $scope.isEventCommentEditable = false;
-      //       $scope.isEventCommentInPreviewMode = false;
-      //     },
-      //     function(err) {
-      //       store.setError(err);
-      //       $scope.isEventCommentEditable = true;
-      //     });
-      // };
       $scope.cancelEditEventMetadata = function(metadataType) {
         if (metadataType == "comment") {
           $scope.eventMetadata[metadataType].previewMode = false;
@@ -280,8 +227,7 @@ var app = angular.module('blueprint')
       $scope.updateEventMetadata = function(metadataType) {
         var metadataRow = $scope.eventMetadata[metadataType];
         metadataRow.editable = false;
-        console.log("Hi")
-        console.log(metadataRow);
+
         if (metadataRow.value != metadataRow.savedValue) {
           EventMetadata.update(
             {event: $scope.schema.EventName},

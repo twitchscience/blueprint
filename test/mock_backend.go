@@ -28,11 +28,6 @@ type MockBpSchemaBackend struct {
 type MockBpKinesisConfigBackend struct {
 }
 
-// // MockBpEventCommentBackend is a mock for the bpdb/BpEventCommentBackend interface
-// type MockBpEventCommentBackend struct {
-// 	returnMap map[string]bpdb.EventComment
-// }
-
 // MockBpEventMetadataBackend is a mock for the bpdb/BpEventMetadataBackend interface
 type MockBpEventMetadataBackend struct {
 	returnMap             map[string]bpdb.EventMetadata
@@ -54,11 +49,6 @@ func NewMockBpSchemaBackend() *MockBpSchemaBackend {
 func NewMockBpKinesisConfigBackend() *MockBpKinesisConfigBackend {
 	return &MockBpKinesisConfigBackend{}
 }
-
-// // NewMockBpEventCommentBackend creates a mock event comment backend.
-// func NewMockBpEventCommentBackend(returnMap map[string]bpdb.EventComment) *MockBpEventCommentBackend {
-// 	return &MockBpEventCommentBackend{returnMap}
-// }
 
 // NewMockBpEventMetadataBackend creates a mock event metadata backend.
 func NewMockBpEventMetadataBackend(returnMap map[string]bpdb.EventMetadata) *MockBpEventMetadataBackend {
@@ -107,22 +97,6 @@ func (m *MockBpSchemaBackend) Migration(table string, to int) ([]*scoop_protocol
 func (m *MockBpSchemaBackend) DropSchema(schema *bpdb.AnnotatedSchema, reason string, exists bool, user string) error {
 	return nil
 }
-
-// // EventComment returns nils except when the event name is "this-table-exists-and-has-a-comment".
-// func (m *MockBpEventCommentBackend) EventComment(name string) (*bpdb.EventComment, error) {
-// 	if eventComment, exists := m.returnMap[name]; exists {
-// 		return &eventComment, nil
-// 	}
-// 	return nil, fmt.Errorf("no comment found for event %s", name)
-// }
-
-// // UpdateEventComment returns nil except when the event name is "this-table-does-not-exist"
-// func (m *MockBpEventCommentBackend) UpdateEventComment(update *core.ClientUpdateEventCommentRequest, user string) *core.WebError {
-// 	if _, exists := m.returnMap[update.EventName]; exists {
-// 		return core.NewUserWebError(errors.New("schema does not exist"))
-// 	}
-// 	return nil
-// }
 
 // GetAllEventMetadataCalls returns the number of times EventMetadata() has been called.
 func (m *MockBpEventMetadataBackend) GetAllEventMetadataCalls() int32 {
