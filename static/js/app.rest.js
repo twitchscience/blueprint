@@ -36,14 +36,14 @@ angular.module('blueprint')
   .factory('Droppable', function($resource) {
     return $resource('/droppable/schema/:scope', null, null);
   })
-  .factory('EventComment', function($resource) {
-    return $resource(
-      '/comments/:scope', null,
-      {get:    {url: '/comment/:scope', method: 'GET', isArray: true},
-       update: {url: '/comment/:event', method: 'POST'},
-      }
-    );
-  })
+  // .factory('EventComment', function($resource) {
+  //   return $resource(
+  //     '/comments/:scope', null,
+  //     {get:    {url: '/comment/:scope', method: 'GET', isArray: true},
+  //      update: {url: '/comment/:event', method: 'POST'},
+  //     }
+  //   );
+  // })
   .factory('EventMetadata', function($resource) {
     return $resource(
       '/metadata/:scope', null,
