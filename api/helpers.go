@@ -123,6 +123,8 @@ func validateEventMetadataUpdate(metadataType scoop_protocol.EventMetadataType, 
 			return nil
 		}
 		return invalidValueError
+	case scoop_protocol.COMMENT:
+		return nil
 	default:
 		return notImplementedError
 	}

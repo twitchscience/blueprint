@@ -45,15 +45,6 @@ type DailyChange struct {
 	Users   int
 }
 
-// EventComment is the comment associated with an event schema
-type EventComment struct {
-	EventName string
-	Comment   string
-	TS        time.Time
-	UserName  string
-	Version   int
-}
-
 // EventMetadataRow stores the data of one row of event_metadata
 type EventMetadataRow struct {
 	MetadataType  string
@@ -94,12 +85,6 @@ type BpKinesisConfigBackend interface {
 	UpdateKinesisConfig(update *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError
 	CreateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError
 	DropKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, reason string, user string) error
-}
-
-// BpEventCommentBackend is the interface of the blueprint db backend that stores event comment state
-type BpEventCommentBackend interface {
-	EventComment(name string) (*EventComment, error)
-	UpdateEventComment(req *core.ClientUpdateEventCommentRequest, user string) *core.WebError
 }
 
 // BpEventMetadataBackend is the interface of the blueprint db backend that stores event metadata

@@ -66,12 +66,11 @@ func main() {
 	}
 	bpSchemaBackend := bpdb.NewSchemaBackend(db)
 	bpKinesisConfigBackend := bpdb.NewKinesisConfigBackend(db)
-	bpEventCommentBackend := bpdb.NewEventCommentBackend(db)
 	bpEventMetadataBackend := bpdb.NewEventMetadataBackend(db)
 
 	ingCont := ingester.NewController(*ingesterURL)
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, bpEventCommentBackend, bpEventMetadataBackend, *configFilename, ingCont, *slackbotURL, *readonly)
+	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, bpEventMetadataBackend, *configFilename, ingCont, *slackbotURL, *readonly)
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,

@@ -1,6 +1,6 @@
 var app = angular.module('blueprint')
-  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventComment, EventMetadata, Column, auth) {
-    var types, schema, dropMessage, cancelDropMessage, eventComment, rawEventMetadata;
+  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventMetadata, Column, auth) {
+    var types, schema, dropMessage, cancelDropMessage, rawEventMetadata;
     var typeRequest = Types.get(function(data) {
       if (data) {
         types = data.result;
@@ -12,14 +12,10 @@ var app = angular.module('blueprint')
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
     $scope.loginName = auth.getLoginName();
-    // Event comment variables
-    $scope.isCommentCollapsed = true;
-    $scope.isEventCommentEditable = false;
-    $scope.isEventCommentInPreviewMode = false;
-    // Default values are set for $scope.eventMetadata since not all metadata types may have values associated with them in the database
     $scope.eventMetadata = {
       "edge_type": {"metadataType": "edge_type", "editable": false, "value": "", "savedValue": ""},
-      "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": ""}
+      "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": "",
+                  "previewMode": false, "displayedValue": "", "previewValue": "", "collapsed": true}
     };
     auth.isEditable($scope);
 
@@ -36,6 +32,9 @@ var app = angular.module('blueprint')
           $scope.eventMetadata[row.MetadataType].metadataType = row.MetadataType;
           $scope.eventMetadata[row.MetadataType].value = row.MetadataValue;
           $scope.eventMetadata[row.MetadataType].savedValue = row.MetadataValue;
+          if (row.MetadataType == "comment") {
+            $scope.eventMetadata[row.MetadataType].displayedValue = row.MetadataValue;
+          }
       })
     }
 
@@ -79,22 +78,6 @@ var app = angular.module('blueprint')
       store.setError(msg);
     }).$promise;
 
-    var eventCommentRequest = EventComment.get($routeParams, function(data) {
-      if (data) {
-        eventComment = data[0];
-      } else {
-        store.setError('Failed to fetch event comment');
-      }
-    }, function(err) {
-      var msg;
-      if (err.data) {
-        msg = 'API Error: ' + err.data;
-      } else {
-        msg = 'Schema not found or threw an error when retrieving event comment';
-      }
-      store.setError(msg);
-    }).$promise;
-
     var eventMetadataRequest = EventMetadata.get($routeParams, function(data) {
       if (data) {
         rawEventMetadata = data;
@@ -111,7 +94,7 @@ var app = angular.module('blueprint')
       store.setError(msg);
     }).$promise;
 
-    $q.all([typeRequest, schemaRequest, droppableRequest, eventCommentRequest, eventMetadataRequest]).then(function() {
+    $q.all([typeRequest, schemaRequest, droppableRequest, eventMetadataRequest]).then(function() {
       if (!schema || !types) {
         store.setError('API Error', '/schemas');
       }
@@ -122,9 +105,6 @@ var app = angular.module('blueprint')
       $scope.executingDrop = false;
       $scope.cancelDropMessage = cancelDropMessage;
       $scope.successDropMessage = successDropMessage;
-      $scope.eventComment = eventComment;
-      $scope.savedEventCommentText = $scope.eventComment.Comment;
-      $scope.displayedComment = $scope.eventComment.Comment;
       $scope.setEventMetadata(rawEventMetadata);
       $scope.schema = schema;
       $scope.additions = {Columns: []}; // Used to hold new columns
@@ -229,35 +209,14 @@ var app = angular.module('blueprint')
         return i;
       }
       $scope.togglePreviewEventComment = function() {
-        $scope.isEventCommentInPreviewMode = !$scope.isEventCommentInPreviewMode;
-        $scope.previewComment = $scope.eventComment.Comment;
+        var comment = $scope.eventMetadata.comment;
+        comment.previewMode = !comment.previewMode;
+        comment.previewValue = comment.value;
       }
-      $scope.cancelEditEventComment = function() {
-        $scope.isEventCommentEditable = false;
-        $scope.isEventCommentInPreviewMode = false;
-        // Reset event comment to saved version
-        $scope.eventComment.Comment = $scope.savedEventCommentText;
-      }
-      $scope.editEventComment = function() {
-        $scope.isEventCommentEditable = true;
-      }
-      $scope.updateEventComment = function() {
-        EventComment.update(
-          {event: $scope.schema.EventName},
-          {EventComment: $scope.eventComment.Comment},
-          function() {
-            store.setMessage("Successfully updated comment for " +  schema.EventName);
-            $scope.savedEventCommentText = $scope.eventComment.Comment;
-            $scope.displayedComment = $scope.eventComment.Comment;
-            $scope.isEventCommentEditable = false;
-            $scope.isEventCommentInPreviewMode = false;
-          },
-          function(err) {
-            store.setError(err);
-            $scope.isEventCommentEditable = true;
-          });
-      };
       $scope.cancelEditEventMetadata = function(metadataType) {
+        if (metadataType == "comment") {
+          $scope.eventMetadata[metadataType].previewMode = false;
+        }
         $scope.eventMetadata[metadataType].editable = false;
         // Reset event metadata to saved version
         $scope.eventMetadata[metadataType].value = $scope.eventMetadata[metadataType].savedValue;
@@ -279,6 +238,10 @@ var app = angular.module('blueprint')
               store.setMessage("Successfully updated " + metadataType + " for " +  schema.EventName);
               metadataRow.savedValue = metadataRow.value;
               metadataRow.editable = false;
+              if (metadataType == "comment") {
+                metadataRow.displayedValue = metadataRow.value;
+                metadataRow.previewMode = false;
+              }
             },
             function(err) {
               store.setError(err);

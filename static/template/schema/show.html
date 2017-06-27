@@ -41,32 +41,32 @@
 
 <div class="container col-md-12 github" style="padding-left: 0px; padding-right: 0px;">
   <div class="panel-group" style="padding: 15px 0px">
-    <div class="panel" ng-class="isEventCommentInPreviewMode ? 'panel-info' : 'panel-default'">
-      <div class="panel-heading" ng-click="isCommentCollapsed = !isCommentCollapsed" style="cursor:pointer">
+    <div class="panel" ng-class="eventMetadata.comment.previewMode ? 'panel-info' : 'panel-default'">
+      <div class="panel-heading" ng-click="eventMetadata.comment.collapsed = !eventMetadata.comment.collapsed" style="cursor:pointer">
         <div class="panel-title" style="font-size: 24px;">
-          <span class="glyphicon glyphicon-plus" ng-show="isCommentCollapsed"></span>
-          <span class="glyphicon glyphicon-minus" ng-show="!isCommentCollapsed"></span>
-          {{isEventCommentInPreviewMode ? 'Notes (Preview)' : 'Notes'}}
+          <span class="glyphicon glyphicon-plus" ng-show="eventMetadata.comment.collapsed"></span>
+          <span class="glyphicon glyphicon-minus" ng-show="!eventMetadata.comment.collapsed"></span>
+          {{eventMetadata.comment.previewMode ? 'Notes (Preview)' : 'Notes'}}
         </div>
       </div>
       <div id="collapseOne" class="panel-collapse collapse in">
-        <div class="panel-body" ng-show="!isCommentCollapsed">
-          <p markdown-to-html="displayedComment" ng-if="(!isEditable || !isEventCommentEditable) && !isEventCommentInPreviewMode"></p>
-          <p markdown-to-html="previewComment" ng-if="isEditable && isEventCommentInPreviewMode"></p>
+        <div class="panel-body" ng-show="!eventMetadata.comment.collapsed">
+          <p markdown-to-html="eventMetadata.comment.displayedValue" ng-if="(!isEditable || !eventMetadata.comment.editable) && !eventMetadata.comment.previewMode"></p>
+          <p markdown-to-html="eventMetadata.comment.previewValue" ng-if="isEditable && eventMetadata.comment.previewMode"></p>
           <div class="row col-md-12" style="padding-bottom: 15px;">
-            <textarea ng-model="eventComment.Comment" ng-if="isEditable && isEventCommentEditable && !isEventCommentInPreviewMode" rows="25" cols="110"></textarea>
+            <textarea ng-model="eventMetadata.comment.value" ng-if="isEditable && eventMetadata.comment.editable && !eventMetadata.comment.previewMode" rows="25" cols="110"></textarea>
           </div>
           <div style="padding-right: 0px;">
-            <div ng-if="isEditable && !isEventCommentEditable">
-              <button class="btn btn-primary pull-right" ng-click="editEventComment()">Edit Comment</button>
+            <div ng-if="isEditable && !eventMetadata.comment.editable">
+              <button class="btn btn-primary pull-right" ng-click="editEventMetadata(eventMetadata.comment.metadataType)">Edit Comment</button>
             </div>
-            <div ng-if="isEditable && isEventCommentEditable">
-              <button class="btn btn-danger pull-right" ng-click="cancelEditEventComment()">Cancel</button>
+            <div ng-if="isEditable && eventMetadata.comment.editable">
+              <button class="btn btn-danger pull-right" ng-click="cancelEditEventMetadata(eventMetadata.comment.metadataType)">Cancel</button>
             </div>
-            <div ng-if="isEditable && isEventCommentEditable">
-              <button class="btn btn-success pull-right" ng-click="updateEventComment()" style="margin-right:15px;">Update Comment</button>
+            <div ng-if="isEditable && eventMetadata.comment.editable">
+              <button class="btn btn-success pull-right" ng-click="updateEventMetadata(eventMetadata.comment.metadataType)" style="margin-right:15px;">Update Comment</button>
             </div>
-            <div ng-if="isEditable && isEventCommentEditable">
+            <div ng-if="isEditable && eventMetadata.comment.editable">
               <button class="btn btn-info pull-right" ng-click="togglePreviewEventComment()" style="margin-right:15px;">Toggle Preview</button>
             </div>
           </div>

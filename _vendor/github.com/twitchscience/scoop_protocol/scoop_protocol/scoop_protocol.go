@@ -152,12 +152,6 @@ type AuthScoopSigner struct {
 	Exp        time.Duration
 }
 
-type EventComment struct {
-	EventName    string
-	EventComment string
-	UserName     string
-}
-
 var (
 	BadVerified error = errors.New("Bad Signature")
 )

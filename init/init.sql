@@ -59,16 +59,6 @@ CREATE TABLE IF NOT EXISTS kinesis_config
   PRIMARY KEY(stream_name, stream_type, aws_account, version)
 );
 
-CREATE TABLE IF NOT EXISTS event_comment
-(
-  event varchar,
-  comment varchar,
-  ts timestamp without time zone default NOW(),
-  user_name varchar,
-  comment_version int,
-  PRIMARY KEY (event, comment_version)
-);
-
 DO $$
   BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_metadata_type') THEN
