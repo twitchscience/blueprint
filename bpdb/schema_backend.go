@@ -151,17 +151,16 @@ func (p *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *c
 		case err != nil:
 			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
-		// Add default comment for event
-		err = insertOperations(tx, ops, newVersion, req.EventName, user)
-		if err != nil {
-			return err
-		}
+		return insertOperations(tx, ops, newVersion, req.EventName, user)
+		// if err != nil {
+		// 	return err
+		// }
 
-		newVersion, err = getNextEventCommentVersion(tx, req.EventName)
-		if err != nil {
-			return err
-		}
-		return insertEventComment(tx, "", newVersion, req.EventName, user)
+		// newVersion, err = getNextEventCommentVersion(tx, req.EventName)
+		// if err != nil {
+		// 	return err
+		// }
+		// return insertEventComment(tx, "", newVersion, req.EventName, user)
 	}, p.db))
 }
 

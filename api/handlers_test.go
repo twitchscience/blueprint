@@ -25,7 +25,7 @@ func TestMigrationNegativeTo(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)
@@ -43,7 +43,7 @@ func TestAllSchemasCache(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, backend, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, backend, nil, nil, configFile.Name(), nil, "", false).(*server)
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}
@@ -184,115 +184,115 @@ func assertRequestInternalError(t *testing.T, testedName string, w *httptest.Res
 
 // Tests trying to get a comment for an event with no schema
 // Expected result is a 404 not found
-func TestGetEventCommentNotFound(t *testing.T) {
-	eventCommentMap := make(map[string]bpdb.EventComment)
-	schemaBackend := test.NewMockBpSchemaBackend()
-	eventCommentBackend := test.NewMockBpEventCommentBackend(eventCommentMap)
-	configFile := createJSONFile(t, "TestGetEventCommentNotFound")
+// func TestGetEventCommentNotFound(t *testing.T) {
+// 	eventCommentMap := make(map[string]bpdb.EventComment)
+// 	schemaBackend := test.NewMockBpSchemaBackend()
+// 	eventCommentBackend := test.NewMockBpEventCommentBackend(eventCommentMap)
+// 	configFile := createJSONFile(t, "TestGetEventCommentNotFound")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
+// 	defer deleteJSONFile(t, configFile)
+// 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, eventCommentBackend, nil, configFile.Name(), nil, "", false).(*server)
-	recorder := httptest.NewRecorder()
-	c := web.C{
-		Env:       map[interface{}]interface{}{"username": ""},
-		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
-	}
-	req, _ := http.NewRequest("GET", "/comment/this-table-does-not-exist", nil)
-	s.eventComment(c, recorder, req)
+// 	s := New("", nil, schemaBackend, nil, eventCommentBackend, nil, configFile.Name(), nil, "", false).(*server)
+// 	recorder := httptest.NewRecorder()
+// 	c := web.C{
+// 		Env:       map[interface{}]interface{}{"username": ""},
+// 		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
+// 	}
+// 	req, _ := http.NewRequest("GET", "/comment/this-table-does-not-exist", nil)
+// 	s.eventComment(c, recorder, req)
 
-	assertRequest404(t, "TestGetEventCommentNotFound", recorder)
-}
+// 	assertRequest404(t, "TestGetEventCommentNotFound", recorder)
+// }
 
-// Tests trying to get a comment for an event with a schema
-// Expected result is a 200 OK response
-func TestGetEventComment(t *testing.T) {
-	schemaBackend := test.NewMockBpSchemaBackend()
-	eventCommentMap := make(map[string]bpdb.EventComment)
-	eventCommentMap["this-table-exists"] = bpdb.EventComment{
-		EventName: "event",
-		Comment:   "Test Comment",
-		UserName:  "unknown",
-		Version:   1,
-	}
-	eventCommentBackend := test.NewMockBpEventCommentBackend(eventCommentMap)
-	configFile := createJSONFile(t, "TestGetEventComment")
+// // Tests trying to get a comment for an event with a schema
+// // Expected result is a 200 OK response
+// func TestGetEventComment(t *testing.T) {
+// 	schemaBackend := test.NewMockBpSchemaBackend()
+// 	eventCommentMap := make(map[string]bpdb.EventComment)
+// 	eventCommentMap["this-table-exists"] = bpdb.EventComment{
+// 		EventName: "event",
+// 		Comment:   "Test Comment",
+// 		UserName:  "unknown",
+// 		Version:   1,
+// 	}
+// 	eventCommentBackend := test.NewMockBpEventCommentBackend(eventCommentMap)
+// 	configFile := createJSONFile(t, "TestGetEventComment")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
+// 	defer deleteJSONFile(t, configFile)
+// 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, eventCommentBackend, nil, configFile.Name(), nil, "", false).(*server)
-	recorder := httptest.NewRecorder()
-	c := web.C{
-		Env:       map[interface{}]interface{}{"username": ""},
-		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
-	}
-	req, _ := http.NewRequest("GET", "/comment/this-table-exists", nil)
+// 	s := New("", nil, schemaBackend, nil, eventCommentBackend, nil, configFile.Name(), nil, "", false).(*server)
+// 	recorder := httptest.NewRecorder()
+// 	c := web.C{
+// 		Env:       map[interface{}]interface{}{"username": ""},
+// 		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
+// 	}
+// 	req, _ := http.NewRequest("GET", "/comment/this-table-exists", nil)
 
-	s.eventComment(c, recorder, req)
-	expectedBody := "[{\"EventName\":\"event\",\"Comment\":\"Test Comment\",\"TS\":\"0001-01-01T00:00:00Z\",\"UserName\":\"unknown\",\"Version\":1}]"
-	assertRequestOK(t, "TestGetEventComment", recorder, expectedBody)
-}
+// 	s.eventComment(c, recorder, req)
+// 	expectedBody := "[{\"EventName\":\"event\",\"Comment\":\"Test Comment\",\"TS\":\"0001-01-01T00:00:00Z\",\"UserName\":\"unknown\",\"Version\":1}]"
+// 	assertRequestOK(t, "TestGetEventComment", recorder, expectedBody)
+// }
 
-// Tests trying to update a comment for an event with no schema
-// Expected result is a 400 bad request
-func TestUpdateEventCommentNoSchema(t *testing.T) {
-	eventCommentMap := make(map[string]bpdb.EventComment)
-	eventCommentMap["this-table-does-not-exist"] = bpdb.EventComment{}
-	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
-	configFile := createJSONFile(t, "TestUpdateEventCommentNoSchema")
+// // Tests trying to update a comment for an event with no schema
+// // Expected result is a 400 bad request
+// func TestUpdateEventCommentNoSchema(t *testing.T) {
+// 	eventCommentMap := make(map[string]bpdb.EventComment)
+// 	eventCommentMap["this-table-does-not-exist"] = bpdb.EventComment{}
+// 	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+// 	configFile := createJSONFile(t, "TestUpdateEventCommentNoSchema")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
+// 	defer deleteJSONFile(t, configFile)
+// 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, nil, configFile.Name(), nil, "", false).(*server)
-	c := web.C{
-		Env:       map[interface{}]interface{}{"username": ""},
-		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
-	}
+// 	s := New("", nil, nil, nil, backend, nil, configFile.Name(), nil, "", false).(*server)
+// 	c := web.C{
+// 		Env:       map[interface{}]interface{}{"username": ""},
+// 		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
+// 	}
 
-	cfg := scoop.EventComment{EventName: "this-table-does-not-exist", EventComment: "Test Comment", UserName: ""}
-	cfgBytes, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatal("unable to marshal scoop config, bailing")
-	}
+// 	cfg := scoop.EventComment{EventName: "this-table-does-not-exist", EventComment: "Test Comment", UserName: ""}
+// 	cfgBytes, err := json.Marshal(cfg)
+// 	if err != nil {
+// 		t.Fatal("unable to marshal scoop config, bailing")
+// 	}
 
-	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/comment/this-table-does-not-exist", bytes.NewReader(cfgBytes))
+// 	recorder := httptest.NewRecorder()
+// 	req, _ := http.NewRequest("PUT", "/comment/this-table-does-not-exist", bytes.NewReader(cfgBytes))
 
-	s.updateEventComment(c, recorder, req)
-	assertRequestBad(t, "TestUpdateEventCommentNoSchema", recorder, "Error updating event comment: schema does not exist")
-}
+// 	s.updateEventComment(c, recorder, req)
+// 	assertRequestBad(t, "TestUpdateEventCommentNoSchema", recorder, "Error updating event comment: schema does not exist")
+// }
 
-// Tests trying to update a comment for an event with a schema
-// Expected result is a 200 OK response
-func TestUpdateEventComment(t *testing.T) {
-	eventCommentMap := make(map[string]bpdb.EventComment)
-	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
-	configFile := createJSONFile(t, "TestUpdateEventComment")
+// // Tests trying to update a comment for an event with a schema
+// // Expected result is a 200 OK response
+// func TestUpdateEventComment(t *testing.T) {
+// 	eventCommentMap := make(map[string]bpdb.EventComment)
+// 	backend := test.NewMockBpEventCommentBackend(eventCommentMap)
+// 	configFile := createJSONFile(t, "TestUpdateEventComment")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
+// 	defer deleteJSONFile(t, configFile)
+// 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, nil, configFile.Name(), nil, "", false).(*server)
-	c := web.C{
-		Env:       map[interface{}]interface{}{"username": ""},
-		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
-	}
+// 	s := New("", nil, nil, nil, backend, nil, configFile.Name(), nil, "", false).(*server)
+// 	c := web.C{
+// 		Env:       map[interface{}]interface{}{"username": ""},
+// 		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
+// 	}
 
-	cfg := scoop.EventComment{EventName: "this-table-exists", EventComment: "Test Comment", UserName: ""}
-	cfgBytes, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatal("unable to marshal scoop config, bailing")
-	}
+// 	cfg := scoop.EventComment{EventName: "this-table-exists", EventComment: "Test Comment", UserName: ""}
+// 	cfgBytes, err := json.Marshal(cfg)
+// 	if err != nil {
+// 		t.Fatal("unable to marshal scoop config, bailing")
+// 	}
 
-	createRecorder := httptest.NewRecorder()
-	createReq, _ := http.NewRequest("PUT", "/comment/this-table-exists", bytes.NewReader(cfgBytes))
+// 	createRecorder := httptest.NewRecorder()
+// 	createReq, _ := http.NewRequest("PUT", "/comment/this-table-exists", bytes.NewReader(cfgBytes))
 
-	s.updateEventComment(c, createRecorder, createReq)
-	assertRequestOK(t, "TestUpdateEventComment", createRecorder, "")
-}
+// 	s.updateEventComment(c, createRecorder, createReq)
+// 	assertRequestOK(t, "TestUpdateEventComment", createRecorder, "")
+// }
 
 func getCachedEventMetadataResult(s *server, eventName string) *bpdb.EventMetadata {
 	cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))
@@ -349,7 +349,7 @@ func TestEventMetadataCache(t *testing.T) {
 	configFile := createJSONFile(t, "testCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
-	s := New("", nil, schemaBackend, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
 
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
@@ -391,7 +391,7 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -425,7 +425,7 @@ func TestGetEventMetadata(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -449,7 +449,7 @@ func TestUpdateEventMetadataNoSchema(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
@@ -481,7 +481,7 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "test-event"},
@@ -511,7 +511,7 @@ func TestUpdateEventMetadata(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
