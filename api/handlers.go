@@ -309,6 +309,23 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 	respondWithJSONBool(w, "Droppable", !exists)
 }
 
+func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
+	cachedMetadata, found := s.goCache.Get(allMetadataCache)
+	if found {
+		writeStructToResponse(w, cachedMetadata.([]bpdb.EventMetadata))
+		return
+	}
+
+	metadata, err := s.bpEventMetadataBackend.AllEventMetadata()
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve all metadata")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
+	writeStructToResponse(w, metadata)
+}
+
 func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName := c.URLParams["event"]
 	cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))
@@ -355,6 +372,7 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 	}
 
 	defer s.goCache.Delete(getCacheKey(eventMetadataCache, eventName))
+	defer s.goCache.Delete(allMetadataCache)
 	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating event metadata")

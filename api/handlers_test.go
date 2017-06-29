@@ -182,6 +182,14 @@ func assertRequestInternalError(t *testing.T, testedName string, w *httptest.Res
 	}
 }
 
+func getCachedAllEventMetadataResult(s *server) []bpdb.EventMetadata {
+	cachedAllEventMetadata, found := s.goCache.Get(allMetadataCache)
+	if found {
+		return cachedAllEventMetadata.([]bpdb.EventMetadata)
+	}
+	return nil
+}
+
 func getCachedEventMetadataResult(s *server, eventName string) *bpdb.EventMetadata {
 	cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))
 	if found {
@@ -225,7 +233,53 @@ func updateEventMetadata(t *testing.T, s *server, c web.C, backend *test.MockBpE
 	if getCachedEventMetadataResult(s, eventName) != nil {
 		t.Error("Failed to invalidate cache")
 	}
+	if getCachedAllEventMetadataResult(s) != nil {
+		t.Error("Failed to invalidate cache")
+	}
 	printTotalEventMetadataCalls(t, backend)
+}
+
+func repeatAllEventMetadata(t *testing.T, s *server, backend *test.MockBpEventMetadataBackend) {
+	getAllReq, _ := http.NewRequest("GET", "/allmetadata", strings.NewReader(""))
+	for i := 0; i < 3; i++ {
+		getAllRecorder := httptest.NewRecorder()
+		s.allEventMetadata(getAllRecorder, getAllReq)
+		if getCachedAllEventMetadataResult(s) == nil {
+			t.Error("Failed to cache result")
+		}
+		assertRequestOK(t, "allMetadata", getAllRecorder, "")
+		printTotalEventMetadataCalls(t, backend)
+	}
+}
+
+func TestAllEventMetadataCache(t *testing.T) {
+	eventMetadataMap := make(map[string]bpdb.EventMetadata)
+	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{}
+	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	configFile := createJSONFile(t, "TestAllEventMetadataCache")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+	s := New("", nil, nil, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+
+	if s.cacheTimeout != time.Minute {
+		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
+	}
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
+	}
+
+	printTotalEventMetadataCalls(t, eventMetadataBackend)
+	repeatAllEventMetadata(t, s, eventMetadataBackend)
+	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
+	repeatAllEventMetadata(t, s, eventMetadataBackend)
+	repeatAllEventMetadata(t, s, eventMetadataBackend)
+	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
+	repeatAllEventMetadata(t, s, eventMetadataBackend)
+
+	if eventMetadataBackend.GetAllEventMetadataCalls() != 3 {
+		t.Errorf("EventMetadata() called %v times, expected 3", eventMetadataBackend.GetAllEventMetadataCalls())
+	}
 }
 
 func TestEventMetadataCache(t *testing.T) {
@@ -234,7 +288,7 @@ func TestEventMetadataCache(t *testing.T) {
 	eventMetadataMap["this-event-exists"] = bpdb.EventMetadata{}
 	schemaBackend := test.NewMockBpSchemaBackend()
 	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
-	configFile := createJSONFile(t, "testCache")
+	configFile := createJSONFile(t, "TestEventMetadataCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)

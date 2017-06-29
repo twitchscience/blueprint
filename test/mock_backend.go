@@ -98,6 +98,14 @@ func (m *MockBpSchemaBackend) DropSchema(schema *bpdb.AnnotatedSchema, reason st
 	return nil
 }
 
+// AllEventMetadata increments the number of AllEventMetadata calls and return nils.
+func (m *MockBpEventMetadataBackend) AllEventMetadata() ([]bpdb.EventMetadata, error) {
+	m.allEventMetadataMutex.Lock()
+	m.allEventMetadataCalls++
+	m.allEventMetadataMutex.Unlock()
+	return make([]bpdb.EventMetadata, 0), nil
+}
+
 // GetAllEventMetadataCalls returns the number of times EventMetadata() has been called.
 func (m *MockBpEventMetadataBackend) GetAllEventMetadataCalls() int32 {
 	m.allEventMetadataMutex.RLock()

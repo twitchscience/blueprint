@@ -12,6 +12,17 @@ import (
 )
 
 var (
+	allMetadataQuery = `
+		SELECT DISTINCT em.event, em.metadata_type, em.metadata_value, em.ts, em.user_name, em.version
+		  FROM (
+				SELECT event, metadata_type, MAX(version) OVER (PARTITION BY event, metadata_type) AS version
+				  FROM event_metadata
+			   ) v
+		  JOIN event_metadata em
+		    ON v.event = em.event
+		   AND v.metadata_type = em.metadata_type
+		   AND v.version = em.version;`
+
 	eventMetadataQuery = `
 		SELECT DISTINCT em.event, em.metadata_type, em.metadata_value, em.ts, em.user_name, em.version
 		  FROM (
@@ -50,6 +61,48 @@ func insertEventMetadata(tx *sql.Tx, eventName string, metadataType scoop_protoc
 		return fmt.Errorf("INSERTing event_metadata row on %s: %v", eventName, err)
 	}
 	return nil
+}
+
+// AllEventMetadata returns all of the current event metadata
+func (p *eventMetadataBackend) AllEventMetadata() ([]EventMetadata, error) {
+	allMetadata := make(map[string]*EventMetadata)
+	rows, err := p.db.Query(allMetadataQuery)
+	if err != nil {
+		return nil, fmt.Errorf("querying for all metadata: %v", err)
+	}
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			logger.WithError(err).Error("closing rows in postgres backend AllEventMetadata")
+		}
+	}()
+
+	for rows.Next() {
+		var row EventMetadataRow
+		var eventName string
+
+		err := rows.Scan(&eventName, &row.MetadataType, &row.MetadataValue, &row.TS, &row.UserName, &row.Version)
+		if err != nil {
+			return nil, fmt.Errorf("parsing EventMetadata row: %v", err)
+		}
+
+		_, exists := allMetadata[eventName]
+		if exists {
+			allMetadata[eventName].Metadata = append(allMetadata[eventName].Metadata, row)
+		} else {
+			var metadata = EventMetadata{
+				EventName: eventName,
+				Metadata:  []EventMetadataRow{row},
+			}
+			allMetadata[eventName] = &metadata
+		}
+	}
+
+	ret := make([]EventMetadata, 0, len(allMetadata))
+	for _, val := range allMetadata {
+		ret = append(ret, *val)
+	}
+	return ret, nil
 }
 
 // EventMetadata returns the current metadata for an event

@@ -89,6 +89,7 @@ type BpKinesisConfigBackend interface {
 
 // BpEventMetadataBackend is the interface of the blueprint db backend that stores event metadata
 type BpEventMetadataBackend interface {
+	AllEventMetadata() ([]EventMetadata, error)
 	EventMetadata(eventName string) (*EventMetadata, error)
 	UpdateEventMetadata(req *core.ClientUpdateEventMetadataRequest, user string) *core.WebError
 }
