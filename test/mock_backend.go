@@ -106,11 +106,6 @@ func (m *MockBpEventMetadataBackend) AllEventMetadata() (*bpdb.AllEventMetadata,
 		metadata := map[string]map[string]bpdb.EventMetadataRow{"this-table-exists": eventMetadata.Metadata}
 		return &bpdb.AllEventMetadata{Metadata: metadata}, nil
 	}
-	// ret := make(map[string]map[string]bpdb.EventMetadataRow)
-	// ret["rare-event"] = make(map[string]bpdb.EventMetadataRow)
-	// ret["rare-event"]["comment"] = bpdb.EventMetadataRow{
-	// 	MetadataValue: "Test comment",
-	// }
 	return &bpdb.AllEventMetadata{}, nil
 }
 
@@ -120,17 +115,6 @@ func (m *MockBpEventMetadataBackend) GetAllEventMetadataCalls() int32 {
 	defer m.allEventMetadataMutex.RUnlock()
 	return m.allEventMetadataCalls
 }
-
-// // EventMetadata returns nil except when update.EventName is in the returnMap
-// func (m *MockBpEventMetadataBackend) EventMetadata(name string) (*bpdb.EventMetadata, error) {
-// 	if eventMetadata, exists := m.returnMap[name]; exists {
-// 		m.allEventMetadataMutex.Lock()
-// 		m.allEventMetadataCalls++
-// 		m.allEventMetadataMutex.Unlock()
-// 		return &eventMetadata, nil
-// 	}
-// 	return nil, fmt.Errorf("no metadata found for event %s", name)
-// }
 
 // UpdateEventMetadata returns nil if update.EventName is in the returnMap
 func (m *MockBpEventMetadataBackend) UpdateEventMetadata(update *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {

@@ -28,9 +28,7 @@ var app = angular.module('blueprint')
     }
 
     $scope.setEventMetadata = function(data) {
-      console.log(data)
       Object.keys(data.Metadata).forEach(function(metadataType) {
-          console.log(metadataType)
           $scope.eventMetadata[metadataType].metadataType = metadataType;
           $scope.eventMetadata[metadataType].value = data.Metadata[metadataType].MetadataValue;
           $scope.eventMetadata[metadataType].savedValue = data.Metadata[metadataType].MetadataValue;
@@ -38,7 +36,6 @@ var app = angular.module('blueprint')
             $scope.eventMetadata[metadataType].displayedValue = data.Metadata[metadataType].MetadataValue;
           }
       })
-      console.log($scope.eventMetadata)
     }
 
     var schemaRequest = Schema.get($routeParams, function(data) {

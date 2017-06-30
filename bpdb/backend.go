@@ -45,9 +45,8 @@ type DailyChange struct {
 	Users   int
 }
 
-// EventMetadataRow stores the data of one row of event_metadata
+// EventMetadataRow stores the data of one row of event_metadata (excluding MetadataType)
 type EventMetadataRow struct {
-	// MetadataType  string
 	MetadataValue string
 	TS            time.Time
 	UserName      string
@@ -57,7 +56,7 @@ type EventMetadataRow struct {
 // EventMetadata is the metadata associated with an event schema
 type EventMetadata struct {
 	EventName string
-	Metadata  map[string]EventMetadataRow
+	Metadata  map[string]EventMetadataRow // The key in the map is a MetadataType
 }
 
 // AllEventMetadata is the metadata for all events
@@ -95,7 +94,6 @@ type BpKinesisConfigBackend interface {
 // BpEventMetadataBackend is the interface of the blueprint db backend that stores event metadata
 type BpEventMetadataBackend interface {
 	AllEventMetadata() (*AllEventMetadata, error)
-	// EventMetadata(eventName string) (*EventMetadata, error)
 	UpdateEventMetadata(req *core.ClientUpdateEventMetadataRequest, user string) *core.WebError
 }
 

@@ -200,7 +200,6 @@ func getCachedEventMetadataResult(s *server, eventName string) *bpdb.EventMetada
 				Metadata:  eventMetadata,
 			}
 		}
-		// return cachedEventMetadata.(*bpdb.EventMetadata)
 		return nil
 	}
 	return nil
@@ -238,9 +237,6 @@ func updateEventMetadata(t *testing.T, s *server, c web.C, backend *test.MockBpE
 	updateRecorder := httptest.NewRecorder()
 	s.updateEventMetadata(c, updateRecorder, updateReq)
 	assertRequestOK(t, "updateEventMetadata", updateRecorder, "")
-	// if getCachedEventMetadataResult(s, eventName) != nil {
-	// 	t.Error("Failed to invalidate cache")
-	// }
 	if len(getCachedAllEventMetadataResult(s)) > 0 {
 		t.Error("Failed to invalidate cache")
 	}
@@ -285,10 +281,6 @@ func TestAllEventMetadataCache(t *testing.T) {
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
 	}
-	// c2 := web.C{
-	// 	Env:       map[interface{}]interface{}{"username": ""},
-	// 	URLParams: map[string]string{"username": "", "event": "this-event-exists"},
-	// }
 
 	printTotalEventMetadataCalls(t, eventMetadataBackend)
 	repeatAllEventMetadata(t, s, eventMetadataBackend)
@@ -307,54 +299,6 @@ func TestAllEventMetadataCache(t *testing.T) {
 		t.Errorf("EventMetadata() called %v times, expected 4", eventMetadataBackend.GetAllEventMetadataCalls())
 	}
 }
-
-// func TestEventMetadataCache(t *testing.T) {
-// 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
-// 	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{
-// 		Metadata: map[string]bpdb.EventMetadataRow{
-// 			"comment": bpdb.EventMetadataRow{
-// 				MetadataValue: "Test comment",
-// 				UserName:      "legacy",
-// 				Version:       2,
-// 			},
-// 		},
-// 	}
-// 	eventMetadataMap["this-event-exists"] = bpdb.EventMetadata{}
-// 	schemaBackend := test.NewMockBpSchemaBackend()
-// 	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
-// 	configFile := createJSONFile(t, "TestEventMetadataCache")
-// 	defer deleteJSONFile(t, configFile)
-// 	writeConfig(t, configFile)
-// 	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
-
-// 	if s.cacheTimeout != time.Minute {
-// 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
-// 	}
-// 	c := web.C{
-// 		Env:       map[interface{}]interface{}{"username": ""},
-// 		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
-// 	}
-// 	// c2 := web.C{
-// 	// 	Env:       map[interface{}]interface{}{"username": ""},
-// 	// 	URLParams: map[string]string{"username": "", "event": "this-event-exists"},
-// 	// }
-
-// 	printTotalEventMetadataCalls(t, eventMetadataBackend)
-// 	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
-// 	// getEventMetadata(c2, t, s, eventMetadataBackend, "this-event-exists")
-// 	// updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
-// 	// getEventMetadata(c2, t, s, eventMetadataBackend, "this-event-exists")
-// 	// getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
-// 	// getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
-// 	// updateEventMetadata(t, s, c2, eventMetadataBackend, "this-event-exists")
-// 	// getEventMetadata(c2, t, s, eventMetadataBackend, "this-event-exists")
-// 	// updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
-// 	// getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
-
-// 	if eventMetadataBackend.GetAllEventMetadataCalls() != 5 {
-// 		t.Errorf("EventMetadata() called %v times, expected 5", eventMetadataBackend.GetAllEventMetadataCalls())
-// 	}
-// }
 
 // Tests trying to get metadata for an event with no schema
 // Expected result is a 404 not found

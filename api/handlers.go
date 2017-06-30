@@ -225,7 +225,6 @@ func (s *server) dropSchemaHelper(username string, body io.ReadCloser) *core.Web
 	}
 
 	defer s.goCache.Delete(allSchemasCache)
-	// defer s.goCache.Delete(getCacheKey(eventMetadataCache, req.EventName))
 	err = s.bpSchemaBackend.DropSchema(schema, req.Reason, exists, username)
 	if err != nil {
 		return core.NewServerWebErrorf("dropping schema in operation table: %v", err)
@@ -312,7 +311,6 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 	cachedMetadata, found := s.goCache.Get(allMetadataCache)
 	if found {
-		// writeStructToResponse(w, cachedMetadata.([]bpdb.EventMetadata))
 		writeStructToResponse(w, cachedMetadata)
 		return
 	}
@@ -330,16 +328,8 @@ func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName := c.URLParams["event"]
-	// cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))
 	cachedEventMetadata, foundCache := s.goCache.Get(allMetadataCache)
 	if foundCache {
-		// abc, exists := (*cachedEventMetadata[eventName]).(map[string]EventMetadataRow{})
-		// if exists {
-		// 	ret2 := bpdb.EventMetadata{
-		// 		EventName: eventName,
-		// 		Metadata:  abc,
-		// 	}
-		// }
 		if metadata, exists := cachedEventMetadata.(map[string](map[string]bpdb.EventMetadataRow))[eventName]; exists {
 			ret := bpdb.EventMetadata{
 				EventName: eventName,
@@ -349,28 +339,18 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		writeStructToResponse(w, bpdb.EventMetadata{EventName: eventName})
-		// ret := bpdb.EventMetadata{
-		// 	EventName: eventName,
-		// 	Metadata:  cachedEventMetadata.(*bpdb.AllEventMetadata).Metadata[eventName],
-		// }
-		// writeStructToResponse(w, ret)
-		// return
 	}
 
-	logger.Info("asdfasdfasdf")
 	schema, err := s.bpSchemaBackend.Schema(eventName)
 	if err != nil {
 		logger.WithError(err).WithField("schema", eventName).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	logger.Info("ASewrqwerqwerqrweqwerDf")
 	if schema == nil {
 		fourOhFour(w, r)
 		return
 	}
-
-	logger.Info("ASDf")
 
 	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
 	if err != nil {
@@ -392,16 +372,6 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 
 	ret := bpdb.EventMetadata{EventName: eventName}
 	writeStructToResponse(w, ret)
-	// return
-
-	// eventMetadata, err := s.bpEventMetadataBackend.EventMetadata(eventName)
-	// if err != nil {
-	// 	logger.WithError(err).Error("Failed to retrieve event metadata")
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// }
-
-	// s.goCache.Set(getCacheKey(eventMetadataCache, eventName), eventMetadata, s.cacheTimeout)
-	// writeStructToResponse(w, eventMetadata)
 }
 
 func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -420,8 +390,6 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Undo later
-	// defer s.goCache.Delete(getCacheKey(eventMetadataCache, eventName))
 	defer s.goCache.Delete(allMetadataCache)
 	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
 	if webErr != nil {
