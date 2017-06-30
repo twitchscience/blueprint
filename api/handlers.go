@@ -225,7 +225,7 @@ func (s *server) dropSchemaHelper(username string, body io.ReadCloser) *core.Web
 	}
 
 	defer s.goCache.Delete(allSchemasCache)
-	defer s.goCache.Delete(getCacheKey(eventMetadataCache, req.EventName))
+	// defer s.goCache.Delete(getCacheKey(eventMetadataCache, req.EventName))
 	err = s.bpSchemaBackend.DropSchema(schema, req.Reason, exists, username)
 	if err != nil {
 		return core.NewServerWebErrorf("dropping schema in operation table: %v", err)
@@ -357,16 +357,20 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 		// return
 	}
 
+	logger.Info("asdfasdfasdf")
 	schema, err := s.bpSchemaBackend.Schema(eventName)
 	if err != nil {
 		logger.WithError(err).WithField("schema", eventName).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	logger.Info("ASewrqwerqwerqrweqwerDf")
 	if schema == nil {
 		fourOhFour(w, r)
 		return
 	}
+
+	logger.Info("ASDf")
 
 	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
 	if err != nil {
@@ -416,7 +420,8 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	defer s.goCache.Delete(getCacheKey(eventMetadataCache, eventName))
+	// Undo later
+	// defer s.goCache.Delete(getCacheKey(eventMetadataCache, eventName))
 	defer s.goCache.Delete(allMetadataCache)
 	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
 	if webErr != nil {

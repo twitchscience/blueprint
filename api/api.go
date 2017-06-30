@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	allSchemasCache    = "allSchemas"
-	allMetadataCache   = "allMetadata"
-	eventMetadataCache = "eventMetadata"
+	allSchemasCache  = "allSchemas"
+	allMetadataCache = "allMetadata"
+	// eventMetadataCache = "eventMetadata"
 )
 
 type server struct {
