@@ -200,7 +200,6 @@ func getCachedEventMetadataResult(s *server, eventName string) *bpdb.EventMetada
 				Metadata:  eventMetadata,
 			}
 		}
-		return nil
 	}
 	return nil
 }
