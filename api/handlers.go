@@ -329,16 +329,16 @@ func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName := c.URLParams["event"]
 	cachedEventMetadata, foundCache := s.goCache.Get(allMetadataCache)
+	ret := bpdb.EventMetadata{EventName: eventName}
 	if foundCache {
-		if metadata, exists := cachedEventMetadata.(map[string](map[string]bpdb.EventMetadataRow))[eventName]; exists {
-			ret := bpdb.EventMetadata{
-				EventName: eventName,
-				Metadata:  metadata,
-			}
-			writeStructToResponse(w, ret)
-			return
+		metadata, exists := cachedEventMetadata.(map[string](map[string]bpdb.EventMetadataRow))[eventName]
+		if exists {
+			ret.Metadata = metadata
+		} else {
+			ret.Metadata = map[string]bpdb.EventMetadataRow{}
 		}
-		writeStructToResponse(w, bpdb.EventMetadata{EventName: eventName})
+		writeStructToResponse(w, ret)
+		return
 	}
 
 	schema, err := s.bpSchemaBackend.Schema(eventName)
@@ -360,17 +360,11 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 
 	metadata := allMetadata.Metadata
 	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
-
 	if eventMetadata, exists := metadata[eventName]; exists {
-		ret := bpdb.EventMetadata{
-			EventName: eventName,
-			Metadata:  eventMetadata,
-		}
-		writeStructToResponse(w, ret)
-		return
+		ret.Metadata = eventMetadata
+	} else {
+		ret.Metadata = map[string]bpdb.EventMetadataRow{}
 	}
-
-	ret := bpdb.EventMetadata{EventName: eventName}
 	writeStructToResponse(w, ret)
 }
 

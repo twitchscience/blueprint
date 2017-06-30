@@ -45,7 +45,7 @@ type DailyChange struct {
 	Users   int
 }
 
-// EventMetadataRow stores the data of one row of event_metadata (excluding MetadataType)
+// EventMetadataRow stores the data of one row of event_metadata (excluding EventName and MetadataType)
 type EventMetadataRow struct {
 	MetadataValue string
 	TS            time.Time

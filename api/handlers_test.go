@@ -332,7 +332,6 @@ func TestGetEventMetadata(t *testing.T) {
 		EventName: "event",
 		Metadata: map[string]bpdb.EventMetadataRow{
 			"comment": bpdb.EventMetadataRow{
-				// MetadataType:  "comment",
 				MetadataValue: "Test comment",
 				UserName:      "legacy",
 				Version:       2,

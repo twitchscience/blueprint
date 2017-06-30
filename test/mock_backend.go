@@ -103,7 +103,7 @@ func (m *MockBpEventMetadataBackend) AllEventMetadata() (*bpdb.AllEventMetadata,
 	m.allEventMetadataCalls++
 	m.allEventMetadataMutex.Unlock()
 	if eventMetadata, exists := m.returnMap["this-table-exists"]; exists {
-		metadata := map[string]map[string]bpdb.EventMetadataRow{"this-table-exists": eventMetadata.Metadata}
+		metadata := map[string](map[string]bpdb.EventMetadataRow){"this-table-exists": eventMetadata.Metadata}
 		return &bpdb.AllEventMetadata{Metadata: metadata}, nil
 	}
 	return &bpdb.AllEventMetadata{}, nil
