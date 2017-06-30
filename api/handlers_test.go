@@ -259,7 +259,7 @@ func TestAllEventMetadataCache(t *testing.T) {
 	configFile := createJSONFile(t, "TestAllEventMetadataCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
-	s := New("", nil, nil, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
 
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)

@@ -312,26 +312,49 @@ func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request
 func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 	cachedMetadata, found := s.goCache.Get(allMetadataCache)
 	if found {
-		writeStructToResponse(w, cachedMetadata.([]bpdb.EventMetadata))
+		// writeStructToResponse(w, cachedMetadata.([]bpdb.EventMetadata))
+		writeStructToResponse(w, cachedMetadata)
 		return
 	}
 
-	metadata, err := s.bpEventMetadataBackend.AllEventMetadata()
+	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
+	metadata := allMetadata.Metadata
 	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
 	writeStructToResponse(w, metadata)
 }
 
 func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName := c.URLParams["event"]
-	cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))
-	if found {
-		writeStructToResponse(w, cachedEventMetadata.(*bpdb.EventMetadata))
-		return
+	// cachedEventMetadata, found := s.goCache.Get(getCacheKey(eventMetadataCache, eventName))
+	cachedEventMetadata, foundCache := s.goCache.Get(allMetadataCache)
+	if foundCache {
+		// abc, exists := (*cachedEventMetadata[eventName]).(map[string]EventMetadataRow{})
+		// if exists {
+		// 	ret2 := bpdb.EventMetadata{
+		// 		EventName: eventName,
+		// 		Metadata:  abc,
+		// 	}
+		// }
+		if metadata, exists := cachedEventMetadata.(map[string](map[string]bpdb.EventMetadataRow))[eventName]; exists {
+			ret := bpdb.EventMetadata{
+				EventName: eventName,
+				Metadata:  metadata,
+			}
+			writeStructToResponse(w, ret)
+			return
+		}
+		writeStructToResponse(w, bpdb.EventMetadata{EventName: eventName})
+		// ret := bpdb.EventMetadata{
+		// 	EventName: eventName,
+		// 	Metadata:  cachedEventMetadata.(*bpdb.AllEventMetadata).Metadata[eventName],
+		// }
+		// writeStructToResponse(w, ret)
+		// return
 	}
 
 	schema, err := s.bpSchemaBackend.Schema(eventName)
@@ -345,14 +368,36 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	eventMetadata, err := s.bpEventMetadataBackend.EventMetadata(eventName)
+	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
 	if err != nil {
-		logger.WithError(err).Error("Failed to retrieve event metadata")
+		logger.WithError(err).Error("Failed to retrieve all metadata")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	s.goCache.Set(getCacheKey(eventMetadataCache, eventName), eventMetadata, s.cacheTimeout)
-	writeStructToResponse(w, eventMetadata)
+	metadata := allMetadata.Metadata
+	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
+
+	if eventMetadata, exists := metadata[eventName]; exists {
+		ret := bpdb.EventMetadata{
+			EventName: eventName,
+			Metadata:  eventMetadata,
+		}
+		writeStructToResponse(w, ret)
+		return
+	}
+
+	ret := bpdb.EventMetadata{EventName: eventName}
+	writeStructToResponse(w, ret)
+	// return
+
+	// eventMetadata, err := s.bpEventMetadataBackend.EventMetadata(eventName)
+	// if err != nil {
+	// 	logger.WithError(err).Error("Failed to retrieve event metadata")
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// }
+
+	// s.goCache.Set(getCacheKey(eventMetadataCache, eventName), eventMetadata, s.cacheTimeout)
+	// writeStructToResponse(w, eventMetadata)
 }
 
 func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Request) {

@@ -64,8 +64,9 @@ func insertEventMetadata(tx *sql.Tx, eventName string, metadataType scoop_protoc
 }
 
 // AllEventMetadata returns all of the current event metadata
-func (p *eventMetadataBackend) AllEventMetadata() ([]EventMetadata, error) {
-	allMetadata := make(map[string]*EventMetadata)
+func (p *eventMetadataBackend) AllEventMetadata() (*AllEventMetadata, error) {
+	// allMetadata := AllEventMetadata{
+	allMetadata := make(map[string](map[string]EventMetadataRow))
 	rows, err := p.db.Query(allMetadataQuery)
 	if err != nil {
 		return nil, fmt.Errorf("querying for all metadata: %v", err)
@@ -80,63 +81,67 @@ func (p *eventMetadataBackend) AllEventMetadata() ([]EventMetadata, error) {
 	for rows.Next() {
 		var row EventMetadataRow
 		var eventName string
+		var metadataType string
 
-		err := rows.Scan(&eventName, &row.MetadataType, &row.MetadataValue, &row.TS, &row.UserName, &row.Version)
+		err := rows.Scan(&eventName, &metadataType, &row.MetadataValue, &row.TS, &row.UserName, &row.Version)
 		if err != nil {
 			return nil, fmt.Errorf("parsing EventMetadata row: %v", err)
 		}
 
 		_, exists := allMetadata[eventName]
-		if exists {
-			allMetadata[eventName].Metadata = append(allMetadata[eventName].Metadata, row)
-		} else {
-			var metadata = EventMetadata{
-				EventName: eventName,
-				Metadata:  []EventMetadataRow{row},
-			}
-			allMetadata[eventName] = &metadata
+		if !exists {
+			allMetadata[eventName] = make(map[string]EventMetadataRow)
 		}
+		// } else {
+		// var metadata = EventMetadata{
+		// 	EventName: eventName,
+		// 	Metadata:  []EventMetadataRow{row},
+		// }
+		// allMetadata[eventName] = &metadata
+
+		allMetadata[eventName][metadataType] = row
 	}
 
-	ret := make([]EventMetadata, 0, len(allMetadata))
-	for _, val := range allMetadata {
-		ret = append(ret, *val)
-	}
-	return ret, nil
+	// ret := make([]EventMetadata, 0, len(allMetadata))
+	// for _, val := range allMetadata {
+	// 	ret = append(ret, *val)
+	// }
+	return &AllEventMetadata{Metadata: allMetadata}, nil
 }
 
 // EventMetadata returns the current metadata for an event
-func (p *eventMetadataBackend) EventMetadata(eventName string) (*EventMetadata, error) {
-	rows, err := p.db.Query(eventMetadataQuery, eventName)
-	if err != nil {
-		return nil, fmt.Errorf("querying metadata for event %s: %v", eventName, err)
-	}
+// func (p *eventMetadataBackend) EventMetadata(eventName string) (*EventMetadata, error) {
+// 	rows, err := p.db.Query(eventMetadataQuery, eventName)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("querying metadata for event %s: %v", eventName, err)
+// 	}
 
-	defer func() {
-		defererr := rows.Close()
-		if defererr != nil {
-			logger.WithError(defererr).Error("closing rows in postgres backend Migration")
-		}
-	}()
+// 	defer func() {
+// 		defererr := rows.Close()
+// 		if defererr != nil {
+// 			logger.WithError(defererr).Error("closing rows in postgres backend Migration")
+// 		}
+// 	}()
 
-	metadata := []EventMetadataRow{}
-	for rows.Next() {
-		var row EventMetadataRow
-		var event string
+// 	metadata := []EventMetadataRow{}
+// 	for rows.Next() {
+// 		var row EventMetadataRow
+// 		var event string
+// 		var metadataType string
 
-		err := rows.Scan(&event, &row.MetadataType, &row.MetadataValue, &row.TS, &row.UserName, &row.Version)
-		if err != nil {
-			return nil, fmt.Errorf("parsing operation row: %v", err)
-		}
-		metadata = append(metadata, row)
-	}
+// 		err := rows.Scan(&event, &metadataType, &row.MetadataValue, &row.TS, &row.UserName, &row.Version)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("parsing operation row: %v", err)
+// 		}
+// 		metadata = append(metadata, row)
+// 	}
 
-	eventMetadata := EventMetadata{
-		EventName: eventName,
-		Metadata:  metadata,
-	}
-	return &eventMetadata, nil
-}
+// 	eventMetadata := EventMetadata{
+// 		EventName: eventName,
+// 		Metadata:  metadata,
+// 	}
+// 	return &eventMetadata, nil
+// }
 
 func getNextEventMetadataVersion(tx *sql.Tx, eventName string, metadataType scoop_protocol.EventMetadataType) (int, error) {
 	var newVersion int
