@@ -28,12 +28,12 @@ var app = angular.module('blueprint')
     }
 
     $scope.setEventMetadata = function(data) {
-      data.Metadata.forEach(function(row) {
-          $scope.eventMetadata[row.MetadataType].metadataType = row.MetadataType;
-          $scope.eventMetadata[row.MetadataType].value = row.MetadataValue;
-          $scope.eventMetadata[row.MetadataType].savedValue = row.MetadataValue;
-          if (row.MetadataType == "comment") {
-            $scope.eventMetadata[row.MetadataType].displayedValue = row.MetadataValue;
+      Object.keys(data.Metadata).forEach(function(metadataType) {
+          $scope.eventMetadata[metadataType].metadataType = metadataType;
+          $scope.eventMetadata[metadataType].value = data.Metadata[metadataType].MetadataValue;
+          $scope.eventMetadata[metadataType].savedValue = data.Metadata[metadataType].MetadataValue;
+          if (metadataType == "comment") {
+            $scope.eventMetadata[metadataType].displayedValue = data.Metadata[metadataType].MetadataValue;
           }
       })
     }

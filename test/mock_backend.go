@@ -2,7 +2,6 @@ package test
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/twitchscience/blueprint/bpdb"
@@ -98,22 +97,23 @@ func (m *MockBpSchemaBackend) DropSchema(schema *bpdb.AnnotatedSchema, reason st
 	return nil
 }
 
+// AllEventMetadata increments the number of AllEventMetadata calls
+func (m *MockBpEventMetadataBackend) AllEventMetadata() (*bpdb.AllEventMetadata, error) {
+	m.allEventMetadataMutex.Lock()
+	m.allEventMetadataCalls++
+	m.allEventMetadataMutex.Unlock()
+	if eventMetadata, exists := m.returnMap["this-table-exists"]; exists {
+		metadata := map[string](map[string]bpdb.EventMetadataRow){"this-table-exists": eventMetadata.Metadata}
+		return &bpdb.AllEventMetadata{Metadata: metadata}, nil
+	}
+	return &bpdb.AllEventMetadata{}, nil
+}
+
 // GetAllEventMetadataCalls returns the number of times EventMetadata() has been called.
 func (m *MockBpEventMetadataBackend) GetAllEventMetadataCalls() int32 {
 	m.allEventMetadataMutex.RLock()
 	defer m.allEventMetadataMutex.RUnlock()
 	return m.allEventMetadataCalls
-}
-
-// EventMetadata returns nil except when update.EventName is in the returnMap
-func (m *MockBpEventMetadataBackend) EventMetadata(name string) (*bpdb.EventMetadata, error) {
-	if eventMetadata, exists := m.returnMap[name]; exists {
-		m.allEventMetadataMutex.Lock()
-		m.allEventMetadataCalls++
-		m.allEventMetadataMutex.Unlock()
-		return &eventMetadata, nil
-	}
-	return nil, fmt.Errorf("no metadata found for event %s", name)
 }
 
 // UpdateEventMetadata returns nil if update.EventName is in the returnMap

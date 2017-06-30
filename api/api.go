@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	allSchemasCache    = "allSchemas"
-	eventMetadataCache = "eventMetadata"
+	allSchemasCache  = "allSchemas"
+	allMetadataCache = "allMetadata"
 )
 
 type server struct {
@@ -115,6 +115,7 @@ func (s *server) setupReadonlyAPI() {
 	roAPI.Get("/suggestions", s.listSuggestions)
 	roAPI.Get("/suggestion/:id", s.suggestion)
 	roAPI.Get("/stats", s.stats)
+	roAPI.Get("/allmetadata", s.allEventMetadata)
 	roAPI.Get("/metadata/:event", s.eventMetadata)
 
 	goji.Get("/schemas", roAPI)
@@ -126,6 +127,7 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/suggestions", roAPI)
 	goji.Get("/suggestion/*", roAPI)
 	goji.Get("/stats", roAPI)
+	goji.Get("/allmetadata", roAPI)
 	goji.Get("/metadata/*", roAPI)
 
 	roAPI.Get("/kinesisconfigs", s.allKinesisConfigs)
