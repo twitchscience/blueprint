@@ -17,7 +17,7 @@ var app = angular.module('blueprint')
       "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": "",
                   "previewMode": false, "displayedValue": "", "previewValue": "", "collapsed": true}
     };
-    auth.isEditable($scope);
+    auth.globalIsEditable($scope);
 
     $scope.forceLoadTable = function(schema){
       $http.post("/force_load", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){

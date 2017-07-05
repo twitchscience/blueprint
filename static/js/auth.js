@@ -9,7 +9,7 @@ angular.module('blueprint')
       isAdmin: function() {
         return isAdmin;
       },
-      isEditableContinuation: function(f) {
+      globalIsEditableContinuation: function(f) {
         if (!loginName) {
           f(false);
           return;
@@ -21,10 +21,10 @@ angular.module('blueprint')
           f(false);
         });
       },
-      isEditable: function(scope) {
-        scope.isEditable = false;
-        this.isEditableContinuation(function(isEditable) {
-          scope.isEditable = isEditable;
+      globalIsEditable: function(scope) {
+        scope.globalIsEditable = false;
+        this.globalIsEditableContinuation(function(globalIsEditable) {
+          scope.globalIsEditable = globalIsEditable;
         });
       }
     };

@@ -2,11 +2,11 @@
 </h1>
 <div class="row">
   <div class="col-md-5">
-    <button id="button-{{schema.EventName}}" ng-click="forceLoadTable(schema)" ng-if="isEditable && !schema.DropRequested" class="btn btn-primary"
+    <button id="button-{{schema.EventName}}" ng-click="forceLoadTable(schema)" ng-if="globalIsEditable && !schema.DropRequested" class="btn btn-primary"
       >Force Load</button>
     <button ng-click="showDropTable = !showDropTable"
             type="button" class="btn" ng-class="{'btn-danger': !showDropTable, 'btn-success': showDropTable}"
-            ng-show="isEditable && dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
+            ng-show="globalIsEditable && dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
   </div>
   <div class="col-md-6 col-md-offset-1">
     <span class="pull-right">
@@ -22,7 +22,7 @@
     <i class="fa fa-spinner fa-spin" style="font-size:24px; margin-top: 30px"></i>
   </div>
 </div>
-<form ng-show="isEditable && showDropTable && dropMessage && !loading" ng-submit="dropTable()">
+<form ng-show="globalIsEditable && showDropTable && dropMessage && !loading" ng-submit="dropTable()">
 <div class="row form-group" style="margin-top: 35px">
   <div class="col-xs-3">
     <label for="reason">Reason for dropping: </label>
@@ -51,22 +51,22 @@
       </div>
       <div id="collapseOne" class="panel-collapse collapse in">
         <div class="panel-body" ng-show="!eventMetadata.comment.collapsed">
-          <p markdown-to-html="eventMetadata.comment.displayedValue" ng-if="(!isEditable || !eventMetadata.comment.editable) && !eventMetadata.comment.previewMode"></p>
-          <p markdown-to-html="eventMetadata.comment.previewValue" ng-if="isEditable && eventMetadata.comment.previewMode"></p>
+          <p markdown-to-html="eventMetadata.comment.displayedValue" ng-if="(!globalIsEditable || !eventMetadata.comment.editable) && !eventMetadata.comment.previewMode"></p>
+          <p markdown-to-html="eventMetadata.comment.previewValue" ng-if="globalIsEditable && eventMetadata.comment.previewMode"></p>
           <div class="row col-md-12" style="padding-bottom: 15px;">
-            <textarea ng-model="eventMetadata.comment.value" ng-if="isEditable && eventMetadata.comment.editable && !eventMetadata.comment.previewMode" rows="25" cols="110"></textarea>
+            <textarea ng-model="eventMetadata.comment.value" ng-if="globalIsEditable && eventMetadata.comment.editable && !eventMetadata.comment.previewMode" rows="25" cols="110"></textarea>
           </div>
           <div style="padding-right: 0px;">
-            <div ng-if="isEditable && !eventMetadata.comment.editable">
+            <div ng-if="globalIsEditable && !eventMetadata.comment.editable">
               <button class="btn btn-primary pull-right" ng-click="editEventMetadata(eventMetadata.comment.metadataType)">Edit Comment</button>
             </div>
-            <div ng-if="isEditable && eventMetadata.comment.editable">
+            <div ng-if="globalIsEditable && eventMetadata.comment.editable">
               <button class="btn btn-danger pull-right" ng-click="cancelEditEventMetadata(eventMetadata.comment.metadataType)">Cancel</button>
             </div>
-            <div ng-if="isEditable && eventMetadata.comment.editable">
+            <div ng-if="globalIsEditable && eventMetadata.comment.editable">
               <button class="btn btn-success pull-right" ng-click="updateEventMetadata(eventMetadata.comment.metadataType)" style="margin-right:15px;">Update Comment</button>
             </div>
-            <div ng-if="isEditable && eventMetadata.comment.editable">
+            <div ng-if="globalIsEditable && eventMetadata.comment.editable">
               <button class="btn btn-info pull-right" ng-click="togglePreviewEventComment()" style="margin-right:15px;">Toggle Preview</button>
             </div>
           </div>
@@ -90,14 +90,14 @@
       {{eventMetadata.edge_type.value == "internal" ? "Internal" : "External"}}
     </div>
     <div style="display:inline-block; float: right">
-      <button class="btn btn-primary" ng-if="isEditable && !eventMetadata.edge_type.editable" ng-click="editEventMetadata(eventMetadata.edge_type.metadataType)">Edit</button>
+      <button class="btn btn-primary" ng-if="globalIsEditable && !eventMetadata.edge_type.editable" ng-click="editEventMetadata(eventMetadata.edge_type.metadataType)">Edit</button>
     </div>
-    <div class="input-group-btn" ng-if="isEditable && eventMetadata.edge_type.editable" style="display: inline">
+    <div class="input-group-btn" ng-if="globalIsEditable && eventMetadata.edge_type.editable" style="display: inline">
       <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.edge_type.value" ng-disabled="!eventMetadata.edge_type.editable" value="internal">Internal</label>
       <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.edge_type.value" ng-disabled="!eventMetadata.edge_type.editable" value="external">External</label>
       <div class="input-group" style="float: right">
-        <button class="btn btn-success" ng-if="isEditable &&eventMetadata.edge_type.editable" ng-click="updateEventMetadata(eventMetadata.edge_type.metadataType)" style="margin-right: 15px">Update</button>
-        <button class="btn btn-danger" ng-if="isEditable && eventMetadata.edge_type.editable" ng-click="cancelEditEventMetadata(eventMetadata.edge_type.metadataType)">Cancel</button>
+        <button class="btn btn-success" ng-if="globalIsEditable &&eventMetadata.edge_type.editable" ng-click="updateEventMetadata(eventMetadata.edge_type.metadataType)" style="margin-right: 15px">Update</button>
+        <button class="btn btn-danger" ng-if="globalIsEditable && eventMetadata.edge_type.editable" ng-click="cancelEditEventMetadata(eventMetadata.edge_type.metadataType)">Cancel</button>
       </div>
     </div>
   </div>
@@ -105,7 +105,7 @@
 
 
 <form ng-show="!loading && (!showDropTable || !dropMessage)" name="updateSchemaForm" ng-submit="updateSchema()">
-<span ng-show="isEditable">Note: any changes to the schema will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.</span>
+<span ng-show="globalIsEditable">Note: any changes to the schema will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.</span>
 <table class="table table-hover">
   <thead>
     <tr>
@@ -114,20 +114,20 @@
       <th>Column Type <a href="https://git-aws.internal.justin.tv/twitch/docs/blob/master/scieng/api.md#transformations" target="_blank" rel="noopener noreferrer"><i class="fa fa-question-circle"></i></a></th>
       <th class="text-center">Column Options</th>
       <th class="text-center">Mapping Column</th>
-      <th ng-if="isEditable">&nbsp;</th>
+      <th ng-if="globalIsEditable">&nbsp;</th>
     </tr>
   </thead>
   <tbody>
     <tr ng-repeat="c in schema.Columns">
       <td>{{c.InboundName}}</td>
       <td ng-class="outboundColumnStyle(c.OutboundName)">
-        <input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)" ng-if="isEditable">
-        <span ng-if="!isEditable">{{nameMap[c.OutboundName]}}</span>
+        <input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)" ng-if="globalIsEditable">
+        <span ng-if="!globalIsEditable">{{nameMap[c.OutboundName]}}</span>
       </td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
       <td class="text-center">{{c.SupportingColumns}}</td>
-      <td class="text-center" ng-if="isEditable">
+      <td class="text-center" ng-if="globalIsEditable">
         <button
           ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index) && !outboundColumnEdited(c.OutboundName)"
           ng-click="deleteColumnFromSchema($index)"
@@ -145,7 +145,7 @@
         class="btn btn-info">Undo Rename</button>
       </td>
     </tr>
-    <tr ng-repeat="c in additions.Columns" ng-if="isEditable">
+    <tr ng-repeat="c in additions.Columns" ng-if="globalIsEditable">
       <td>{{c.InboundName}}</td>
       <td>{{c.OutboundName}}</td>
       <td>{{c.Transformer}}</td>
@@ -158,7 +158,7 @@
       </td>
     </tr>
   </tbody>
-  <tfoot ng-if="isEditable">
+  <tfoot ng-if="globalIsEditable">
     <tr>
       <td>
         <input type="text"
