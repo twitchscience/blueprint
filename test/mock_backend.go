@@ -12,8 +12,8 @@ import (
 // MockBpdb is a mock for the bpdb/Bpdb interface which tracks whether the DB is in maintenance mode.
 type MockBpdb struct {
 	maintenanceMutex *sync.RWMutex
-
-	maintenanceMode bool
+	maintenanceMode  bpdb.MaintenanceMode
+	maintenanceModes map[string]bpdb.MaintenanceMode
 }
 
 // MockBpSchemaBackend is a mock for the bpdb/BpSchemaBackend interface which tracks how many times AllSchemas has been called
@@ -35,8 +35,8 @@ type MockBpEventMetadataBackend struct {
 }
 
 // NewMockBpdb creates a new mock backend.
-func NewMockBpdb() *MockBpdb {
-	return &MockBpdb{&sync.RWMutex{}, false}
+func NewMockBpdb(mm map[string]bpdb.MaintenanceMode) *MockBpdb {
+	return &MockBpdb{&sync.RWMutex{}, bpdb.MaintenanceMode{IsInMaintenanceMode: false, User: ""}, mm}
 }
 
 // NewMockBpSchemaBackend creates a new mock schema backend.
@@ -149,17 +149,17 @@ func (m *MockBpKinesisConfigBackend) DropKinesisConfig(config *scoop_protocol.An
 	return nil
 }
 
-// IsInMaintenanceMode returns current value (starts as false, can be set by SetMaintenanceMode).
-func (m *MockBpdb) IsInMaintenanceMode() bool {
+// GetMaintenanceMode returns current value (starts as false, can be set by SetMaintenanceMode).
+func (m *MockBpdb) GetMaintenanceMode() bpdb.MaintenanceMode {
 	m.maintenanceMutex.RLock()
 	defer m.maintenanceMutex.RUnlock()
 	return m.maintenanceMode
 }
 
 // SetMaintenanceMode sets the maintenance mode in memory and returns nil.
-func (m *MockBpdb) SetMaintenanceMode(switchingOn bool, reason string) error {
+func (m *MockBpdb) SetMaintenanceMode(switchingOn bool, user, reason string) error {
 	m.maintenanceMutex.Lock()
-	m.maintenanceMode = switchingOn
+	m.maintenanceMode = bpdb.MaintenanceMode{IsInMaintenanceMode: switchingOn, User: user}
 	m.maintenanceMutex.Unlock()
 	return nil
 }
@@ -172,4 +172,18 @@ func (m *MockBpdb) ActiveUsersLast30Days() ([]*bpdb.ActiveUser, error) {
 // DailyChangesLast30Days returns nils.
 func (m *MockBpdb) DailyChangesLast30Days() ([]*bpdb.DailyChange, error) {
 	return nil, nil
+}
+
+// GetSchemaMaintenanceMode returns false, ""
+func (m *MockBpdb) GetSchemaMaintenanceMode(schema string) bpdb.MaintenanceMode {
+	mm, e := m.maintenanceModes[schema]
+	if !e {
+		return bpdb.MaintenanceMode{IsInMaintenanceMode: false, User: ""}
+	}
+	return mm
+}
+
+// SetSchemaMaintenanceMode returns nil
+func (m *MockBpdb) SetSchemaMaintenanceMode(schema string, switchingOn bool, user, reason string) error {
+	return nil
 }

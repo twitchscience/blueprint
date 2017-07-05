@@ -15,7 +15,7 @@ angular.module('blueprint')
           return;
         }
         Maintenance.get(function(data) {
-          f(!data.is_maintenance);
+          f(!data.is_maintenance, data.user);
         }, function(err) {
           store.setError('Error loading maintenance mode: ' + err);
           f(false);
@@ -23,8 +23,9 @@ angular.module('blueprint')
       },
       globalIsEditable: function(scope) {
         scope.globalIsEditable = false;
-        this.globalIsEditableContinuation(function(globalIsEditable) {
+        this.globalIsEditableContinuation(function(globalIsEditable, user) {
           scope.globalIsEditable = globalIsEditable;
+          scope.globalMaintenanceModeUser = user;
         });
       }
     };

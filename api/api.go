@@ -110,6 +110,7 @@ func (s *server) setupReadonlyAPI() {
 	roAPI.Get("/schema/:id", s.schema)
 	roAPI.Get("/droppable/schema/:id", s.droppableSchema)
 	roAPI.Get("/maintenance", s.getMaintenanceMode)
+	roAPI.Get("/maintenance/:schema", s.getMaintenanceMode)
 	roAPI.Get("/migration/:schema", s.migration)
 	roAPI.Get("/types", s.types)
 	roAPI.Get("/suggestions", s.listSuggestions)
@@ -122,6 +123,7 @@ func (s *server) setupReadonlyAPI() {
 	goji.Get("/schema/*", roAPI)
 	goji.Get("/droppable/schema/*", roAPI)
 	goji.Get("/maintenance", roAPI)
+	goji.Get("/maintenance/*", roAPI)
 	goji.Get("/migration/*", roAPI)
 	goji.Get("/types", roAPI)
 	goji.Get("/suggestions", roAPI)
@@ -162,13 +164,15 @@ func (s *server) authWriteAPI() *web.Mux {
 }
 
 // Create the write API available only to admins. Currently limited to toggling maintenance
-// mode and modifying Kinesis configs.
+// modes and modifying Kinesis configs.
 func (s *server) authAdminAPI() *web.Mux {
 	adminAPI := web.New()
 	adminAPI.Use(context.ClearHandler)
 
 	adminAPI.Post("/maintenance", s.setMaintenanceMode)
+	adminAPI.Post("/maintenance/:schema", s.setMaintenanceMode)
 	goji.Post("/maintenance", adminAPI)
+	goji.Post("/maintenance/*", adminAPI)
 
 	adminAPI.Put("/kinesisconfig", s.createKinesisConfig)
 	adminAPI.Post("/kinesisconfig/:account/:type/:name", s.updateKinesisConfig)

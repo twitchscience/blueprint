@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS operation
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'maintenance') THEN
   IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'global_maintenance') THEN
     CREATE TABLE global_maintenance
     (
@@ -29,8 +28,8 @@ BEGIN
       "user" text,
       reason varchar
     );
-    CREATE INDEX maintenance_ts_index ON maintenance(ts);
-    INSERT INTO maintenance (is_maintenance, reason) VALUES
+    CREATE INDEX global_maintenance_ts_index ON global_maintenance(ts);
+    INSERT INTO global_maintenance (is_maintenance, reason) VALUES
       (false, 'initializing table');
   END IF;
 END $$;

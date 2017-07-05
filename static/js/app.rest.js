@@ -63,6 +63,14 @@ angular.module('blueprint')
           }
       );
   })
+  .factory('SchemaMaintenance', function($resource) {
+      return $resource(
+          '/maintenance/:schema', null,
+          {get:  {method:'GET', url: '/maintenance/:schema'},
+            post: {method:'POST', url: '/maintenance/:schema'}
+          }
+      );
+  })
   .factory('Stats', function($resource) {
       return $resource('/stats', null, null);
   });

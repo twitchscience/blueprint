@@ -59,17 +59,26 @@ type EventMetadata struct {
 	Metadata  map[string]EventMetadataRow // The key in the map is a MetadataType
 }
 
+// MaintenanceMode represents a maintenance mode state and user that created
+// that state
+type MaintenanceMode struct {
+	IsInMaintenanceMode bool
+	User                string
+}
+
 // AllEventMetadata is the metadata for all events
 type AllEventMetadata struct {
 	Metadata map[string](map[string]EventMetadataRow)
 }
 
-// Bpdb is the interface of the blueprint db backend that interacts with maintenance mode and stats
+// Bpdb is the interface of the blueprint db backend that interacts with global maintenance mode and stats
 type Bpdb interface {
-	IsInMaintenanceMode() bool
+	GetMaintenanceMode() MaintenanceMode
 	SetMaintenanceMode(switchingOn bool, user, reason string) error
 	ActiveUsersLast30Days() ([]*ActiveUser, error)
 	DailyChangesLast30Days() ([]*DailyChange, error)
+	GetSchemaMaintenanceMode(string) MaintenanceMode
+	SetSchemaMaintenanceMode(schema string, switchingOn bool, user, reason string) error
 }
 
 // BpSchemaBackend is the interface of the blueprint db backend that stores schema state

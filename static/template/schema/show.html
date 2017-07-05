@@ -1,14 +1,20 @@
+<div class="alert alert-info" role="alert" ng-if="loginName && !schemaIsEditable">
+  {{ schema.EventName }} is currently in maintenance mode; no modifications are possible. Triggered by {{ schemaMaintenanceModeUser }}.
+</div>
 <h1><a href="#/schemas">&#x21e6</a> Published Schema for {{eventName}}
 </h1>
 <div class="row">
-  <div class="col-md-5">
+  <div class="col-md-6">
     <button id="button-{{schema.EventName}}" ng-click="forceLoadTable(schema)" ng-if="globalIsEditable && !schema.DropRequested" class="btn btn-primary"
       >Force Load</button>
     <button ng-click="showDropTable = !showDropTable"
             type="button" class="btn" ng-class="{'btn-danger': !showDropTable, 'btn-success': showDropTable}"
             ng-show="globalIsEditable && dropMessage">{{ showDropTable ? cancelDropMessage : dropMessage }}</button>
+    <button ng-show="isAdmin" ng-click="showSchemaMaintenance = !showSchemaMaintenance" type="button" class="btn btn-danger">
+     Maintenance {{ schemaMaintenanceDirection }}
+  </button>
   </div>
-  <div class="col-md-6 col-md-offset-1">
+  <div class="col-md-5 col-md-offset-1">
     <span class="pull-right">
       <span ng-if="schema.DropRequested">Deletion requested {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
       <span ng-if="!schema.DropRequested && schema.Version == 0">Created {{::schema.TS | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>
@@ -16,6 +22,26 @@
       by {{::schema.UserName}}<span ng-if="schema.DropRequested"> because "{{::schema.Reason}}"
     </span>
   </div>
+
+  <form ng-show="loginName && isAdmin && showSchemaMaintenance" ng-submit="toggleSchemaMaintenanceMode()">
+  <div class="row form-group" style="margin-top: 55px">
+    <div class="col-xs-3">
+      <label for="reason">Reason for toggling schema maintenance mode: </label>
+    </div>
+    <div class="col-xs-6">
+      <textarea name="reason" ng-model="toggleSchemaMaintenanceModeReason" class="form-control"></textarea>
+    </div>
+    <div class="col-xs-2">
+      <button type="submit" class="btn btn-danger" ng-disabled="togglingSchemaMaintenanceMode">
+        Turn Schema Maintenance Mode {{ schemaMaintenanceDirection }}
+      </button>
+    </div>
+    <div class="col-xs-1">
+      <i class="fa fa-spinner fa-spin" style="font-size:24px" ng-show="togglingSchemaMaintenanceMode"></i>
+    </div>
+  </div>
+  </form>
+
 </div>
 <div class="row" ng-if="loading">
   <div class="col-md-1 col-md-offset-6">
@@ -92,12 +118,12 @@
     <div style="display:inline-block; float: right">
       <button class="btn btn-primary" ng-if="globalIsEditable && !eventMetadata.edge_type.editable" ng-click="editEventMetadata(eventMetadata.edge_type.metadataType)">Edit</button>
     </div>
-    <div class="input-group-btn" ng-if="globalIsEditable && eventMetadata.edge_type.editable" style="display: inline">
+    <div class="input-group-btn" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.edge_type.editable" style="display: inline">
       <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.edge_type.value" ng-disabled="!eventMetadata.edge_type.editable" value="internal">Internal</label>
       <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.edge_type.value" ng-disabled="!eventMetadata.edge_type.editable" value="external">External</label>
       <div class="input-group" style="float: right">
-        <button class="btn btn-success" ng-if="globalIsEditable &&eventMetadata.edge_type.editable" ng-click="updateEventMetadata(eventMetadata.edge_type.metadataType)" style="margin-right: 15px">Update</button>
-        <button class="btn btn-danger" ng-if="globalIsEditable && eventMetadata.edge_type.editable" ng-click="cancelEditEventMetadata(eventMetadata.edge_type.metadataType)">Cancel</button>
+        <button class="btn btn-success" ng-if="schemaIsEditable && globalIsEditable &&eventMetadata.edge_type.editable" ng-click="updateEventMetadata(eventMetadata.edge_type.metadataType)" style="margin-right: 15px">Update</button>
+        <button class="btn btn-danger" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.edge_type.editable" ng-click="cancelEditEventMetadata(eventMetadata.edge_type.metadataType)">Cancel</button>
       </div>
     </div>
   </div>
@@ -105,7 +131,7 @@
 
 
 <form ng-show="!loading && (!showDropTable || !dropMessage)" name="updateSchemaForm" ng-submit="updateSchema()">
-<span ng-show="globalIsEditable">Note: any changes to the schema will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak.</span>
+<span ng-show="schemaIsEditable && globalIsEditable">Note: any changes to the schema will be queued until offpeak hours - Redshift data for this table will be delayed from when said change is queued until it is executed offpeak. However, kinesis streams will receive the changes within 10 minutes.</span>
 <table class="table table-hover">
   <thead>
     <tr>
@@ -114,20 +140,20 @@
       <th>Column Type <a href="https://git-aws.internal.justin.tv/twitch/docs/blob/master/scieng/api.md#transformations" target="_blank" rel="noopener noreferrer"><i class="fa fa-question-circle"></i></a></th>
       <th class="text-center">Column Options</th>
       <th class="text-center">Mapping Column</th>
-      <th ng-if="globalIsEditable">&nbsp;</th>
+      <th ng-if="schemaIsEditable && globalIsEditable">&nbsp;</th>
     </tr>
   </thead>
   <tbody>
     <tr ng-repeat="c in schema.Columns">
       <td>{{c.InboundName}}</td>
       <td ng-class="outboundColumnStyle(c.OutboundName)">
-        <input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)" ng-if="globalIsEditable">
-        <span ng-if="!globalIsEditable">{{nameMap[c.OutboundName]}}</span>
+        <input type="text" ng-model="nameMap[c.OutboundName]" ng-change="outboundColumnChanged(c.OutboundName)" ng-readonly="columnAlreadyStagedForDelete($index)" ng-if="schemaIsEditable && globalIsEditable">
+        <span ng-if="!globalIsEditable || !schemaIsEditable">{{nameMap[c.OutboundName]}}</span>
       </td>
       <td>{{c.Transformer}}</td>
       <td class="text-center">{{c.ColumnCreationOptions}}</td>
       <td class="text-center">{{c.SupportingColumns}}</td>
-      <td class="text-center" ng-if="globalIsEditable">
+      <td class="text-center" ng-if="globalIsEditable && schemaIsEdtiable">
         <button
           ng-if="!columnAlreadyStagedForDelete($index) && columnIsDeletable($index) && !outboundColumnEdited(c.OutboundName)"
           ng-click="deleteColumnFromSchema($index)"
@@ -145,7 +171,7 @@
         class="btn btn-info">Undo Rename</button>
       </td>
     </tr>
-    <tr ng-repeat="c in additions.Columns" ng-if="globalIsEditable">
+    <tr ng-repeat="c in additions.Columns" ng-if="schemaIsEdtiable && globalIsEditable">
       <td>{{c.InboundName}}</td>
       <td>{{c.OutboundName}}</td>
       <td>{{c.Transformer}}</td>
@@ -158,7 +184,7 @@
       </td>
     </tr>
   </tbody>
-  <tfoot ng-if="globalIsEditable">
+  <tfoot ng-if="globalIsEditable && schemaIsEditable">
     <tr>
       <td>
         <input type="text"

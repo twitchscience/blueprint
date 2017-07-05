@@ -1,5 +1,5 @@
 var app = angular.module('blueprint')
-  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventMetadata, Column, auth) {
+  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventMetadata, SchemaMaintenance, Column, auth) {
     var types, schema, dropMessage, cancelDropMessage, rawEventMetadata;
     var typeRequest = Types.get(function(data) {
       if (data) {
@@ -9,6 +9,7 @@ var app = angular.module('blueprint')
         types = [];
       }
     }).$promise;
+    $scope.isAdmin = auth.isAdmin();
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
     $scope.loginName = auth.getLoginName();
@@ -16,6 +17,28 @@ var app = angular.module('blueprint')
       "edge_type": {"metadataType": "edge_type", "editable": false, "value": "", "savedValue": ""},
       "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": "",
                   "previewMode": false, "displayedValue": "", "previewValue": "", "collapsed": true}
+    };
+    $scope.toggleSchemaMaintenanceMode = function() {
+      if (!$scope.toggleSchemaMaintenanceModeReason) {
+        store.setError("Please enter a reason for turning schema maintenance mode " + $scope.schemaMaintenanceDirection);
+        return
+      }
+      $scope.togglingSchemaMaintenanceMode = true;
+      SchemaMaintenance.post({schema: $scope.schema.EventName},
+        {is_maintenance: $scope.schemaIsEditable,
+         reason: $scope.toggleSchemaMaintenanceModeReason},
+        function() {
+          store.setMessage("Schema Maintenance Mode Turned " + $scope.schemaMaintenanceDirection);
+          $scope.schemaIsEditable = !$scope.schemaIsEditable;
+          $scope.schemaMaintenanceDirection = $scope.schemaIsEditable ? "On" : "Off";
+          $scope.showSchemaMaintenance = false;
+          $scope.togglingSchemaMaintenanceMode = false;
+        },
+        function(err) {
+          store.setError(err, undefined);
+          $scope.showSchemaMaintenance = false;
+          $scope.togglingSchemaMaintenanceMode = false;
+        });
     };
     auth.globalIsEditable($scope);
 
@@ -94,7 +117,25 @@ var app = angular.module('blueprint')
       store.setError(msg);
     }).$promise;
 
-    $q.all([typeRequest, schemaRequest, droppableRequest, eventMetadataRequest]).then(function() {
+    var schemaMaintenanceRequest = SchemaMaintenance.get({schema: $routeParams['scope']}, function(data) {
+      if (data) {
+        schemaIsEditable = !data['is_maintenance'];
+        schemaMaintenanceModeUser = data['user'];
+      } else {
+        store.setError('Failed to fetch schema maintenance status');
+      }
+    }, function(err) {
+      var msg;
+      if (err.data) {
+        msg = 'API Error: ' + err.data;
+      } else {
+        msg = 'threw an error when retrieving schema maintenance status';
+      }
+      store.setError(msg);
+    }).$promise;
+
+
+    $q.all([typeRequest, schemaRequest, droppableRequest, eventMetadataRequest, schemaMaintenanceRequest]).then(function() {
       if (!schema || !types) {
         store.setError('API Error', '/schemas');
       }
@@ -106,6 +147,10 @@ var app = angular.module('blueprint')
       $scope.cancelDropMessage = cancelDropMessage;
       $scope.successDropMessage = successDropMessage;
       $scope.setEventMetadata(rawEventMetadata);
+      $scope.schemaIsEditable = schemaIsEditable;
+      $scope.schemaMaintenanceModeUser = schemaMaintenanceModeUser;
+      $scope.schemaMaintenanceDirection = $scope.schemaIsEditable ? "On" : "Off";
+      $scope.showSchemaMaintenance = false;
       $scope.schema = schema;
       $scope.additions = {Columns: []}; // Used to hold new columns
       $scope.deletes = {ColInds: []}; // Used to hold dropped columns

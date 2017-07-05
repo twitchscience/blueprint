@@ -64,9 +64,12 @@ func main() {
 	if err != nil {
 		logger.WithError(err).Fatal("Error setting up blueprint db backend")
 	}
-	bpSchemaBackend := bpdb.NewSchemaBackend(db)
+	bpSchemaBackend, err := bpdb.NewSchemaBackend(db)
+	if err != nil {
+		logger.WithError(err).Fatal("Error setting up blueprint schema backend")
+	}
 	bpKinesisConfigBackend := bpdb.NewKinesisConfigBackend(db)
-	bpEventMetadataBackend := bpdb.NewEventMetadataBackend(db)
+	bpEventMetadataBackend := bpdb.NewEventMetadataBackend(db, bpSchemaBackend)
 
 	ingCont := ingester.NewController(*ingesterURL)
 

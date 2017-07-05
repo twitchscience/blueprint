@@ -3,8 +3,9 @@ angular.module('blueprint')
     $scope.loginName = auth.getLoginName();
     $scope.isAdmin = auth.isAdmin();
     $scope.isEditable = false;
-    auth.globalIsEditableContinuation(function(globalIsEditable) {
+    auth.globalIsEditableContinuation(function(globalIsEditable, user) {
       $scope.globalIsEditable = globalIsEditable;
+      $scope.globalMaintenanceModeUser = user;
       if (globalIsEditable) {
         $scope.maintenanceDirection = "on";
       } else {
@@ -55,6 +56,7 @@ angular.module('blueprint')
           store.setMessage("Maintenance mode turned " + $scope.maintenanceDirection);
           $location.path('/schemas');
           $scope.globalIsEditable = !$scope.globalIsEditable;
+          $scope.globalMaintenanceModeUser = $scope.loginName;
           $scope.maintenanceDirection = $scope.globalIsEditable ? "on" : "off";
           $scope.showMaintenance = false;
           $scope.togglingMaintenanceMode = false;
