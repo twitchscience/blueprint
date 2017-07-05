@@ -13,7 +13,7 @@ import (
 var (
 	getMaintenanceModeQuery = `SELECT is_maintenance FROM maintenance ORDER BY ts DESC LIMIT 1`
 
-	setMaintenanceModeQuery = `INSERT INTO maintenance (is_maintenance, reason) VALUES ($1, $2)`
+	setMaintenanceModeQuery = `INSERT INTO maintenance (is_maintenance, "user", reason) VALUES ($1, $2, $3)`
 
 	dailyChangesLast30Days = `
 WITH changes AS (
@@ -67,11 +67,11 @@ func (p *postgresBackend) IsInMaintenanceMode() bool {
 	return p.inMaintenanceMode
 }
 
-func (p *postgresBackend) SetMaintenanceMode(switchingOn bool, reason string) error {
+func (p *postgresBackend) SetMaintenanceMode(switchingOn bool, user, reason string) error {
 	p.maintenanceMutex.Lock()
 	defer p.maintenanceMutex.Unlock()
 
-	if _, err := p.db.Exec(setMaintenanceModeQuery, switchingOn, reason); err != nil {
+	if _, err := p.db.Exec(setMaintenanceModeQuery, switchingOn, user, reason); err != nil {
 		return fmt.Errorf("setting maintenance mode: %v", err)
 	}
 

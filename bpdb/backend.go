@@ -67,7 +67,7 @@ type AllEventMetadata struct {
 // Bpdb is the interface of the blueprint db backend that interacts with maintenance mode and stats
 type Bpdb interface {
 	IsInMaintenanceMode() bool
-	SetMaintenanceMode(switchingOn bool, reason string) error
+	SetMaintenanceMode(switchingOn bool, user, reason string) error
 	ActiveUsersLast30Days() ([]*ActiveUser, error)
 	DailyChangesLast30Days() ([]*DailyChange, error)
 }

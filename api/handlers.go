@@ -575,6 +575,7 @@ func (s *server) statsHelper(w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("getting daily changes from bpdb: %v", err)
 	}
+	user := c.Env["username"].(string)
 
 	activeUsers, err := s.bpdbBackend.ActiveUsersLast30Days()
 	if err != nil {

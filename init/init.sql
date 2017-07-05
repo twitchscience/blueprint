@@ -21,10 +21,12 @@ CREATE TABLE IF NOT EXISTS operation
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'maintenance') THEN
-    CREATE TABLE maintenance
+  IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'global_maintenance') THEN
+    CREATE TABLE global_maintenance
     (
       ts timestamp without time zone default NOW(),
       is_maintenance boolean,
+      "user" text,
       reason varchar
     );
     CREATE INDEX maintenance_ts_index ON maintenance(ts);
@@ -33,6 +35,20 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'schema_maintenance') THEN
+    CREATE TABLE schema_maintenance
+    (
+      ts timestamp without time zone default NOW(),
+      schema text,
+      is_maintenance boolean,
+      "user" text,
+      reason varchar
+    );
+    CREATE INDEX schema_maintenance_ts_index ON schema_maintenance(ts);
+  END IF;
+END $$;
 
 DO $$
 BEGIN
