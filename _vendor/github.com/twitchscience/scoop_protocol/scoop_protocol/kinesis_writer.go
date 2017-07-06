@@ -97,14 +97,17 @@ func (c *KinesisWriterConfig) Validate() error {
 }
 
 var filterFuncs = map[string]func(map[string]string) bool{
-	"isVod": func(fields map[string]string) bool {
-		return fields["vod_id"] != "" && fields["vod_type"] != "clip"
+	"isAGSEvent": func(fields map[string]string) bool {
+		return fields["adg_product_id"] == "600505cc-de2f-4b99-9960-c47ee5d23f04"
+	},
+	"isChannelIDSet": func(fields map[string]string) bool {
+		return fields["channel_id"] != ""
 	},
 	"isUserIDSet": func(fields map[string]string) bool {
 		return fields["user_id"] != ""
 	},
-	"isChannelIDSet": func(fields map[string]string) bool {
-		return fields["channel_id"] != ""
+	"isVod": func(fields map[string]string) bool {
+		return fields["vod_id"] != "" && fields["vod_type"] != "clip"
 	},
 }
 
