@@ -43,13 +43,15 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS kinesis_config
 (
+  id serial,
   stream_name text,
   stream_type stream_type,
+  stream_region text,
+  aws_account bigint,
   team text,
   version int,
   contact text,
   usage text,
-  aws_account bigint,
   consuming_library text,
   spade_config jsonb,
   last_edited_at timestamp without time zone default NOW(),

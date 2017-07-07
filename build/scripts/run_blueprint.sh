@@ -9,8 +9,9 @@ source /etc/environment
 cd -- "$(dirname -- "$0")"
 export HOST="$(curl --silent 169.254.169.254/latest/meta-data/hostname)"
 export CONFIG_PREFIX="s3://$S3_CONFIG_BUCKET/$VPC_SUBNET_TAG/$CLOUD_APP/$CLOUD_ENVIRONMENT"
-aws s3 cp --region us-west-2 "$CONFIG_PREFIX/conf.sh" conf.sh
-aws s3 cp --region us-west-2 "$CONFIG_PREFIX/conf.json" $CONFIG_DIR/conf.json
+export AWS_REGION=us-west-2
+aws s3 cp --region "$AWS_REGION" "$CONFIG_PREFIX/conf.sh" conf.sh
+aws s3 cp --region "$AWS_REGION" "$CONFIG_PREFIX/conf.json" "$CONFIG_DIR/conf.json"
 source conf.sh
 
 exec ./blueprint "$@"                                        \

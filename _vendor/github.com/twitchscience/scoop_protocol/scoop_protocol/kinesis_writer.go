@@ -9,6 +9,7 @@ import (
 
 // AnnotatedKinesisConfig is a Kinesis configuration annotated with meta information.
 type AnnotatedKinesisConfig struct {
+	ID               int
 	AWSAccount       int64
 	Team             string
 	Version          int
@@ -37,6 +38,7 @@ type KinesisWriterConfig struct {
 	StreamName             string
 	StreamRole             string
 	StreamType             string // StreamType should be either "stream" or "firehose"
+	StreamRegion           string // AWS region to write to. Blank to use default region.
 	Compress               bool   // true if compress data with flate, false to output json
 	FirehoseRedshiftStream bool   // true if JSON destined for Firehose->Redshift streaming
 	EventNameTargetField   string // Field name to write the event's name to (useful for uncompressed streams)
@@ -51,6 +53,11 @@ type KinesisWriterConfig struct {
 	Batcher BatcherConfig
 }
 
+var allowedRegions = map[string]struct{}{
+	"us-east-1": {},
+	"us-west-2": {},
+}
+
 // Validate returns an error if the Kinesis Writer config is not valid, or nil if it is.
 // It also sets the FilterFunc on Events with Filters and populates FullFieldMap.
 func (c *KinesisWriterConfig) Validate() error {
@@ -60,19 +67,23 @@ func (c *KinesisWriterConfig) Validate() error {
 
 	err := c.Globber.Validate()
 	if err != nil {
-		return fmt.Errorf("globber config invalid: %s", err)
+		return fmt.Errorf("globber config invalid: %v", err)
 	}
 
 	err = c.Batcher.Validate()
 	if err != nil {
-		return fmt.Errorf("batcher config invalid: %s", err)
+		return fmt.Errorf("batcher config invalid: %v", err)
+	}
+
+	if _, ok := allowedRegions[c.StreamRegion]; c.StreamRegion != "" && !ok {
+		return fmt.Errorf("invalid region: %s", c.StreamRegion)
 	}
 
 	for _, e := range c.Events {
 		if e.Filter != "" {
 			e.FilterFunc = filterFuncs[e.Filter]
 			if e.FilterFunc == nil {
-				return fmt.Errorf("batcher config invalid: %s", err)
+				return fmt.Errorf("unknown filter: %s", e.Filter)
 			}
 		}
 		e.FullFieldMap = make(map[string]string, len(e.Fields))

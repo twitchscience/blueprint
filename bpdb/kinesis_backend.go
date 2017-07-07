@@ -7,6 +7,7 @@ import (
 
 	"encoding/json"
 
+	"github.com/aws/aws-sdk-go/aws/session"
 	_ "github.com/lib/pq" // to include the 'postgres' driver
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
@@ -20,14 +21,18 @@ WITH latest_version AS (
 	FROM kinesis_config
 	GROUP BY stream_name, stream_type, aws_account
 )
-SELECT kc.stream_name, kc.stream_type, kc.team, kc.version, kc.contact, kc.usage, kc.aws_account, kc.consuming_library, kc.spade_config, kc.last_edited_at, kc.last_changed_by, kc.dropped, kc.dropped_reason
+SELECT
+	kc.id, kc.team, kc.version, kc.contact, kc.usage, kc.aws_account, kc.consuming_library,
+	kc.spade_config, kc.last_edited_at, kc.last_changed_by, kc.dropped, kc.dropped_reason
 FROM kinesis_config kc
 	JOIN latest_version lv
 		ON kc.stream_name = lv.stream_name AND kc.stream_type = lv.stream_type AND kc.aws_account = lv.aws_account AND kc.version = lv.version
 WHERE NOT dropped
 `
 	kinesisConfigQuery = `
-SELECT stream_name, stream_type, team, version, contact, usage, aws_account, consuming_library, spade_config, last_edited_at, last_changed_by, dropped, dropped_reason
+SELECT
+	id, team, version, contact, usage, aws_account, consuming_library,
+	spade_config, last_edited_at, last_changed_by, dropped, dropped_reason
 FROM kinesis_config
 WHERE aws_account = $1 AND stream_type = $2 AND stream_name = $3 AND NOT dropped
 ORDER BY version DESC
@@ -41,13 +46,18 @@ GROUP BY aws_account, stream_type, stream_name
 `
 	insertKinesisConfigQuery = `
 INSERT INTO kinesis_config
-(stream_name, stream_type, team, version, contact, usage, aws_account, consuming_library, spade_config, last_changed_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+(stream_name, stream_type, stream_region, team, version, contact, usage, aws_account, consuming_library, spade_config, last_changed_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+`
+	updateKinesisConfigQuery = `
+INSERT INTO kinesis_config
+(id, stream_name, stream_type, stream_region, team, version, contact, usage, aws_account, consuming_library, spade_config, last_changed_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 `
 	dropKinesisConfigQuery = `
 INSERT INTO kinesis_config
-(stream_name, stream_type, aws_account, version, last_changed_by, dropped, dropped_reason)
-VALUES ($1, $2, $3, $4, $5, true, $6)
+(id, stream_name, stream_type, stream_region, aws_account, version, last_changed_by, dropped, dropped_reason)
+VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
 `
 )
 
@@ -77,10 +87,8 @@ func (p *kinesisConfigBackend) AllKinesisConfigs() ([]scoop_protocol.AnnotatedKi
 	for rows.Next() {
 		var config scoop_protocol.AnnotatedKinesisConfig
 		var b []byte
-		var streamName, streamType string
 		err := rows.Scan(
-			&streamName,
-			&streamType,
+			&config.ID,
 			&config.Team,
 			&config.Version,
 			&config.Contact,
@@ -116,8 +124,7 @@ func (p *kinesisConfigBackend) KinesisConfig(account int64, streamType string, n
 	var config scoop_protocol.AnnotatedKinesisConfig
 	var b []byte
 	err = row.Scan(
-		&name,
-		&streamType,
+		&config.ID,
 		&config.Team,
 		&config.Version,
 		&config.Contact,
@@ -168,9 +175,11 @@ func (p *kinesisConfigBackend) UpdateKinesisConfig(req *scoop_protocol.Annotated
 		if err != nil {
 			return fmt.Errorf("marshalling %s config to json: %v", req.SpadeConfig.StreamName, err)
 		}
-		_, err = tx.Exec(insertKinesisConfigQuery,
+		_, err = tx.Exec(updateKinesisConfigQuery,
+			req.ID,
 			req.SpadeConfig.StreamName,
 			req.SpadeConfig.StreamType,
+			req.SpadeConfig.StreamRegion,
 			req.Team,
 			newVersion,
 			req.Contact,
@@ -198,6 +207,14 @@ func (p *kinesisConfigBackend) CreateKinesisConfig(req *scoop_protocol.Annotated
 	if requestErr != nil {
 		return core.NewUserWebError(requestErr)
 	}
+	// Set empty region to default region.
+	if req.SpadeConfig.StreamRegion == "" {
+		sess, err := session.NewSession()
+		if err != nil {
+			return core.NewServerWebErrorf("creating AWS session: %v", err)
+		}
+		req.SpadeConfig.StreamRegion = *sess.Config.Region
+	}
 
 	return core.NewServerWebError(execFnInTransaction(func(tx *sql.Tx) error {
 		var b []byte
@@ -208,6 +225,7 @@ func (p *kinesisConfigBackend) CreateKinesisConfig(req *scoop_protocol.Annotated
 		_, err = tx.Exec(insertKinesisConfigQuery,
 			req.SpadeConfig.StreamName,
 			req.SpadeConfig.StreamType,
+			req.SpadeConfig.StreamRegion,
 			req.Team,
 			0, // first version is always 0
 			req.Contact,
@@ -231,8 +249,10 @@ func (p *kinesisConfigBackend) DropKinesisConfig(config *scoop_protocol.Annotate
 			return fmt.Errorf("parsing response for version number for %s: %v", config.SpadeConfig.StreamName, err)
 		}
 		_, err = tx.Exec(dropKinesisConfigQuery,
+			config.ID,
 			config.SpadeConfig.StreamName,
 			config.SpadeConfig.StreamType,
+			config.SpadeConfig.StreamRegion,
 			config.AWSAccount,
 			newVersion,
 			user,
