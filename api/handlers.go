@@ -244,6 +244,7 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	s.goCache.Set(allSchemasCache, schemas, s.cacheTimeout)
@@ -319,6 +320,7 @@ func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	metadata := allMetadata.Metadata
@@ -356,6 +358,7 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	metadata := allMetadata.Metadata
@@ -600,6 +603,7 @@ func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
 	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
 	if err != nil {
 		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
+		return
 	}
 	writeStructToResponse(w, schemas)
 }
