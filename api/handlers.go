@@ -124,7 +124,7 @@ func (s *server) forceLoad(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	err = s.ingesterController.ForceLoad(tableArg.Table, requester)
 	if err != nil {
-		logger.WithError(err).Error("Failed to issue ForceLoad to ingester")
+		logger.WithError(err).Warning("Failed to issue ForceLoad to ingester")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

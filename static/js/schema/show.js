@@ -23,7 +23,7 @@ var app = angular.module('blueprint')
       $http.post("/force_load", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
           store.setMessage("Force load successful");
       }).error(function(data,status){
-          store.setError("Force load failed");
+          store.setError("Force load failed, try again in a couple of minutes. If the problem persists, please report in #scieng.");
       });
     }
 
