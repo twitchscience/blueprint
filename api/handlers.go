@@ -401,7 +401,7 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 		respondWithJSONError(w, "Error, 'to_version' argument must be non-negative integer.", http.StatusBadRequest)
 		logger.WithError(err).
 			WithField("to_version", args.Get("to_version")).
-			Error("'to_version' must be non-negative integer")
+			Warning("'to_version' must be non-negative integer")
 		return
 	}
 	operations, err := s.bpSchemaBackend.Migration(
