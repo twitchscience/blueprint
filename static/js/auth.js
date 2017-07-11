@@ -9,22 +9,23 @@ angular.module('blueprint')
       isAdmin: function() {
         return isAdmin;
       },
-      isEditableContinuation: function(f) {
+      globalIsEditableContinuation: function(f) {
         if (!loginName) {
           f(false);
           return;
         }
         Maintenance.get(function(data) {
-          f(!data.is_maintenance);
+          f(!data.is_maintenance, data.user);
         }, function(err) {
           store.setError('Error loading maintenance mode: ' + err);
           f(false);
         });
       },
-      isEditable: function(scope) {
-        scope.isEditable = false;
-        this.isEditableContinuation(function(isEditable) {
-          scope.isEditable = isEditable;
+      globalIsEditable: function(scope) {
+        scope.globalIsEditable = false;
+        this.globalIsEditableContinuation(function(globalIsEditable, user) {
+          scope.globalIsEditable = globalIsEditable;
+          scope.globalMaintenanceModeUser = user;
         });
       }
     };

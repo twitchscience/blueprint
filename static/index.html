@@ -51,8 +51,8 @@
             </button>
             {{ getMessage() }}
           </div>
-          <div class="alert alert-info" role="alert" ng-if="loginName && !isEditable">
-            Blueprint is currently in maintenance mode; no modifications are possible.
+          <div class="alert alert-info" role="alert" ng-if="loginName && !globalIsEditable">
+            Blueprint is currently in maintenance mode; no modifications are possible. Triggered by {{ globalMaintenanceModeUser }}.
           </div>
         </div>
         <div class="col-md-9 col-md-offset-1" ng-view></div>

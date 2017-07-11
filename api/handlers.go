@@ -82,17 +82,17 @@ func respondWithJSONError(w http.ResponseWriter, text string, responseCode int) 
 	}
 }
 
-// maintenanceHandler sends an error if Blueprint is in maintenance mode and otherwise yields to
-// the given http.Handler.
+// maintenanceHandler sends an error if Blueprint is in global maintenance mode and otherwise
+// yields to the given http.Handler.
 func (s *server) maintenanceHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.WithFields(map[string]interface{}{
 			"http_method": r.Method,
 			"url":         r.URL,
 		}).Info("Maintenance middleware invoked")
-		isInMaintenanceMode := s.bpdbBackend.IsInMaintenanceMode()
-		logger.WithField("is_maintenance", isInMaintenanceMode).Info("Checked maintenance mode")
-		if isInMaintenanceMode {
+		mm := s.bpdbBackend.GetMaintenanceMode()
+		logger.WithField("is_maintenance", mm.IsInMaintenanceMode).Info("Checked maintenance mode")
+		if mm.IsInMaintenanceMode {
 			respondWithJSONError(
 				w,
 				"Blueprint is in maintenance mode; no modifications are allowed",
@@ -102,6 +102,19 @@ func (s *server) maintenanceHandler(h http.Handler) http.Handler {
 
 		h.ServeHTTP(w, r)
 	})
+}
+
+// maintenanceModeGuard writes a 503 error if the given schema is in maintenance mode
+// and returns true, otherwise just returns false
+func (s *server) maintenanceModeGuard(schema string, w http.ResponseWriter) bool {
+	mm := s.bpdbBackend.GetSchemaMaintenanceMode(schema)
+	if mm.IsInMaintenanceMode {
+		respondWithJSONError(
+			w,
+			fmt.Sprintf("Schema %s is in maintenance mode; no modifications are allowed", schema),
+			http.StatusServiceUnavailable)
+	}
+	return mm.IsInMaintenanceMode
 }
 
 // forceLoad proxies the request through to the ingester
@@ -166,6 +179,9 @@ func (s *server) isBlacklisted(name string) bool {
 
 func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName := c.URLParams["id"]
+	if s.maintenanceModeGuard(eventName, w) {
+		return // error written by maintenanceModeGuard
+	}
 
 	webErr := s.updateSchemaHelper(eventName, c.Env["username"].(string), r.Body)
 	if webErr != nil {
@@ -186,51 +202,54 @@ func (s *server) updateSchemaHelper(eventName string, username string, body io.R
 }
 
 func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
-	webErr := s.dropSchemaHelper(c.Env["username"].(string), r.Body)
-	if webErr != nil {
-		webErr.ReportError(w, "Error dropping schema")
-	}
-}
-
-func (s *server) dropSchemaHelper(username string, body io.ReadCloser) *core.WebError {
+	username := c.Env["username"].(string)
 	var req core.ClientDropSchemaRequest
-	err := decodeBody(body, &req)
+	err := decodeBody(r.Body, &req)
 	if err != nil {
-		return core.NewServerWebError(err)
+		core.NewServerWebError(err).ReportError(w, "decoding drop schema request")
+		return
+	}
+
+	if s.maintenanceModeGuard(req.EventName, w) {
+		return // error written by maintenanceModeGuard
 	}
 
 	schema, err := s.bpSchemaBackend.Schema(req.EventName)
 	if err != nil {
-		return core.NewServerWebErrorf("retrieving schema: %v", err)
+		core.NewServerWebError(err).ReportError(w, "retrieving schema")
+		return
 	}
 	if schema == nil {
-		return core.NewUserWebErrorf("unknown schema")
+		core.NewUserWebErrorf("unknown schema")
+		return
 	}
 
 	exists, err := s.ingesterController.TableExists(schema.EventName)
 	if err != nil {
-		return core.NewServerWebErrorf("determining if schema exists: %v", err)
+		core.NewServerWebError(err).ReportError(w, "determining if schema exists")
+		return
 	}
 
 	if exists {
 		err = s.requestTableDeletion(schema.EventName, req.Reason, username)
 		if err != nil {
-			return core.NewServerWebErrorf("making slackbot deletion request: %v", err)
+			core.NewServerWebError(err).ReportError(w, "making slackbot deletion request")
+			return
 		}
 	} else {
 		err = s.ingesterController.IncrementVersion(schema.EventName)
 		if err != nil {
-			return core.NewServerWebErrorf("incrementing version in ingester: %v", err)
+			core.NewServerWebError(err).ReportError(w, "incrementing version in ingester")
+			return
 		}
 	}
 
 	defer s.goCache.Delete(allSchemasCache)
 	err = s.bpSchemaBackend.DropSchema(schema, req.Reason, exists, username)
 	if err != nil {
-		return core.NewServerWebErrorf("dropping schema in operation table: %v", err)
+		core.NewServerWebError(err).ReportError(w, "dropping schema in operation table")
+		return
 	}
-	return nil
-
 }
 
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
@@ -529,32 +548,54 @@ func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func (s *server) getMaintenanceMode(w http.ResponseWriter, r *http.Request) {
-	isInMaintenanceMode := s.bpdbBackend.IsInMaintenanceMode()
-	logger.WithField("is_maintenance", isInMaintenanceMode).Info("Serving GetMaintenanceMode request")
-	respondWithJSONBool(w, "is_maintenance", isInMaintenanceMode)
-}
-
-func (s *server) setMaintenanceMode(w http.ResponseWriter, r *http.Request) {
-	webErr := s.setMaintenanceModeHelper(r.Body)
-	if webErr != nil {
-		webErr.ReportError(w, "Error setting maintenance mode")
+func (s *server) getMaintenanceMode(c web.C, w http.ResponseWriter, r *http.Request) {
+	eventName, present := c.URLParams["schema"]
+	var mm bpdb.MaintenanceMode
+	if present {
+		mm = s.bpdbBackend.GetSchemaMaintenanceMode(eventName)
+		logger.WithField("schema", eventName).WithField("is_maintenance", mm.IsInMaintenanceMode).Info("Serving get schema maintenance mode request")
+	} else {
+		mm = s.bpdbBackend.GetMaintenanceMode()
+		logger.WithField("is_maintenance", mm.IsInMaintenanceMode).Info("Serving get maintenance mode request")
 	}
-
-}
-
-func (s *server) setMaintenanceModeHelper(body io.ReadCloser) *core.WebError {
-	var mm maintenanceMode
-	err := decodeBody(body, &mm)
+	js, err := json.Marshal(map[string]interface{}{"is_maintenance": mm.IsInMaintenanceMode, "user": mm.User})
 	if err != nil {
-		return core.NewServerWebError(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(js)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
 
-	if err = s.bpdbBackend.SetMaintenanceMode(mm.IsMaintenance, mm.Reason); err != nil {
-		return core.NewServerWebErrorf("setting maintenance mode: %v", err)
+func (s *server) setMaintenanceMode(c web.C, w http.ResponseWriter, r *http.Request) {
+	var mm maintenanceMode
+	err := decodeBody(r.Body, &mm)
+	if err != nil {
+		core.NewServerWebError(err).ReportError(w, "error parsing set maintenance mode request")
+		return
 	}
-	logger.WithField("is_maintenance", mm.IsMaintenance).WithField("reason", mm.Reason).Info("Maintenance mode set")
-	return nil
+	user := c.Env["username"].(string)
+
+	eventName, present := c.URLParams["schema"]
+	if present {
+		err = s.bpdbBackend.SetSchemaMaintenanceMode(eventName, mm.IsMaintenance, user, mm.Reason)
+		if err != nil {
+			core.NewServerWebError(err).ReportError(w, "error setting schema maintenance mode")
+			return
+		}
+		logger.WithField("schema", eventName).WithField("is_maintenance", mm.IsMaintenance).WithField("reason", mm.Reason).Info("Schema maintenance mode set")
+	} else {
+		err = s.bpdbBackend.SetMaintenanceMode(mm.IsMaintenance, user, mm.Reason)
+		if err != nil {
+			core.NewServerWebError(err).ReportError(w, "error setting maintenance mode")
+			return
+		}
+		logger.WithField("is_maintenance", mm.IsMaintenance).WithField("reason", mm.Reason).Info("Maintenance mode set")
+	}
 }
 
 func (s *server) healthCheck(c web.C, w http.ResponseWriter, r *http.Request) {

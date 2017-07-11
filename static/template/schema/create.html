@@ -11,9 +11,9 @@
           <th>Column Type <a href="https://git-aws.internal.justin.tv/twitch/docs/blob/master/scieng/api.md#transformations" target="_blank" rel="noopener noreferrer"><i class="fa fa-question-circle"></i></a></th>
           <th class="text-center">Column Size</th>
           <th class="text-center">Mapping Column</th>
-          <th class="text-center" ng-if="isEditable">Distribution Key</th>
+          <th class="text-center" ng-if="globalIsEditable">Distribution Key</th>
           <th class="text-center">Occurrence Rate</th>
-          <th ng-if="isEditable">&nbsp;</th>
+          <th ng-if="globalIsEditable">&nbsp;</th>
         </tr>
       </thead>
       <tbody>
@@ -21,33 +21,33 @@
           <td><input type="text"
                      value="{{p.InboundName}}"
                      ng-model="p.InboundName"
-                     ng-disabled="!isEditable"
+                     ng-disabled="!globalIsEditable"
                      required/></td>
           <td><input type="text"
                      value="{{p.OutboundName}}"
                      ng-model="p.OutboundName"
-                     ng-disabled="!isEditable"
+                     ng-disabled="!globalIsEditable"
                      required/></td>
           <td>
             <select ng-options="type for type in types"
-                    ng-disabled="!isEditable"
+                    ng-disabled="!globalIsEditable"
                     ng-model="p.Transformer"/>
           </td>
           <td class="text-center">
             <input ng-if="p.Transformer == 'varchar'"
                    value="{{p.size}}"
                    ng-model="p.size"
-                   ng-disabled="!isEditable"
+                   ng-disabled="!globalIsEditable"
                    required/>
           </td>
           <td class="text-center">
             <select ng-if="usingMappingTransformer(p)"
                     ng-options="name as name for name in validInboundNames()"
                     ng-model="p.mappingColumn"
-                    ng-disabled="!isEditable"
+                    ng-disabled="!globalIsEditable"
                     required/>
           </td>
-          <td class="text-center" ng-if="isEditable">
+          <td class="text-center" ng-if="globalIsEditable">
             <input type="radio"
                    ng-model="event.distkey"
                    value="{{p.OutboundName}}"
@@ -56,7 +56,7 @@
           <td class="text-center">
             {{p.OccurrenceProbability | number : 4}}
           </td>
-          <td ng-if="p.InboundName !== 'time' && isEditable">
+          <td ng-if="p.InboundName !== 'time' && globalIsEditable">
             <button ng-click="dropColumnFromSchema($index)"
                     type="button"
                     class="btn btn-warning">
@@ -66,7 +66,7 @@
         </tr>
       </tbody>
       <tfoot>
-        <tr ng-if="isEditable">
+        <tr ng-if="globalIsEditable">
           <td>
             <input type="text"
                    id="newInboundName"
@@ -103,7 +103,7 @@
                     class="btn btn-primary">Add!</button>
           </td>
         </tr>
-        <tr ng-if="isEditable">
+        <tr ng-if="globalIsEditable">
           <td colspan="7"></td>
           <td class="text-center">
             <input type="hidden"

@@ -23,5 +23,5 @@ angular.module('blueprint')
     $scope.updateNavArea = function(newNavArea) {
       $scope.currentNavArea = newNavArea;
     };
-    auth.isEditable($scope);
+    auth.globalIsEditable($scope);
   });

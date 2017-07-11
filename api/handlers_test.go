@@ -37,29 +37,30 @@ func TestMigrationNegativeTo(t *testing.T) {
 }
 
 func TestAllSchemasCache(t *testing.T) {
-	backend := test.NewMockBpSchemaBackend()
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{})
+	schemaBackend := test.NewMockBpSchemaBackend()
 
 	configFile := createJSONFile(t, "testCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, backend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}
 	c := web.C{Env: map[interface{}]interface{}{"username": ""}}
 
-	printTotalAllSchemasCalls(t, backend)
-	repeatAllSchema(t, s, backend)
-	createSchema(t, s, c, backend)
-	repeatAllSchema(t, s, backend)
-	createSchemaBlacklisted(t, s, c, backend)
-	repeatAllSchema(t, s, backend)
-	updateSchema(t, s, c, backend)
-	repeatAllSchema(t, s, backend)
+	printTotalAllSchemasCalls(t, schemaBackend)
+	repeatAllSchema(t, s, schemaBackend)
+	createSchema(t, s, c, schemaBackend)
+	repeatAllSchema(t, s, schemaBackend)
+	createSchemaBlacklisted(t, s, c, schemaBackend)
+	repeatAllSchema(t, s, schemaBackend)
+	updateSchema(t, s, c, schemaBackend)
+	repeatAllSchema(t, s, schemaBackend)
 
-	if backend.GetAllSchemasCalls() != 3 {
-		t.Errorf("AllSchemas() called %v times, expected 3", backend.GetAllSchemasCalls())
+	if schemaBackend.GetAllSchemasCalls() != 3 {
+		t.Errorf("AllSchemas() called %v times, expected 3", schemaBackend.GetAllSchemasCalls())
 	}
 }
 
@@ -157,7 +158,12 @@ func assertRequest404(t *testing.T, testedName string, w *httptest.ResponseRecor
 	if errorMsg != "Not Found" {
 		t.Errorf("%v returned error message [%v] does not match expected error message [%v]", testedName, errorMsg, "Not Found")
 	}
+}
 
+func assertRequest503(t *testing.T, testedName string, w *httptest.ResponseRecorder) {
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("%v returned status code %v, want %v", testedName, w.Code, http.StatusServiceUnavailable)
+	}
 }
 
 func assertRequestBad(t *testing.T, testedName string, w *httptest.ResponseRecorder, expectedErrorMsg string) {
@@ -472,4 +478,107 @@ func TestDecodeBody(t *testing.T) {
 	assert.Equal(t, "name", config.EventNameTargetField)
 	assert.Equal(t, false, config.Compress)
 	assert.Equal(t, []string{"time"}, config.Events["minute-watched"].Fields)
+}
+
+func TestSchemaMaintenanceGet(t *testing.T) {
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
+		"in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
+	})
+	schemaBackend := test.NewMockBpSchemaBackend()
+	configFile := createJSONFile(t, "testSchemaMaintenanceGet")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+
+	recorder := httptest.NewRecorder()
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"schema": "in-maintenance"},
+	}
+	req, _ := http.NewRequest("GET", "/maintenance/in-maintenance", nil)
+	s.getMaintenanceMode(c, recorder, req)
+
+	assertRequestOK(t, "TestMaintenanceGet", recorder, `{"is_maintenance":true,"user":"bob"}`)
+}
+
+func TestSchemaMaintenanceSet(t *testing.T) {
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
+		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
+	})
+	schemaBackend := test.NewMockBpSchemaBackend()
+	configFile := createJSONFile(t, "testSchemaMaintenanceSet")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+
+	recorder := httptest.NewRecorder()
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"schema": "starts-in-maintenance"},
+	}
+
+	mm := maintenanceMode{IsMaintenance: false, Reason: "for testing"}
+	cfgBytes, err := json.Marshal(mm)
+	if err != nil {
+		t.Fatal("unable to marshal maintenance mode request body, bailing")
+	}
+	req, _ := http.NewRequest("POST", "/maintenance/starts-in-maintenance", bytes.NewReader(cfgBytes))
+	s.setMaintenanceMode(c, recorder, req)
+
+	assertRequestOK(t, "testSchemaMaintenanceSet", recorder, "")
+}
+
+func TestUpdateDuringSchemaMaintenance(t *testing.T) {
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
+		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
+	})
+	schemaBackend := test.NewMockBpSchemaBackend()
+	configFile := createJSONFile(t, "TestUpdateDuringSchemaMaintenance")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+
+	recorder := httptest.NewRecorder()
+	c := web.C{
+		Env:       map[interface{}]interface{}{"username": ""},
+		URLParams: map[string]string{"id": "starts-in-maintenance"},
+	}
+
+	req, _ := http.NewRequest("POST", "/schema/starts-in-maintenance", nil)
+	s.updateSchema(c, recorder, req)
+	assertRequest503(t, "TestUpdateDuringSchemaMaintenance", recorder)
+}
+
+func TestUpdateDuringGlobalMaintenance(t *testing.T) {
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{})
+	err := bpdbBackend.SetMaintenanceMode(true, "test", "because I'm an automated test.")
+	assert.NoError(t, err)
+	schemaBackend := test.NewMockBpSchemaBackend()
+	configFile := createJSONFile(t, "TestUpdateDuringGlobalMaintenance")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	ts := httptest.NewServer(s.maintenanceHandler(getTestHandler()))
+	defer ts.Close()
+	var u bytes.Buffer
+	u.WriteString(string(ts.URL))
+	u.WriteString("/schema/whatever")
+	res, err := http.Get(u.String())
+	assert.NoError(t, err)
+
+	if res.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("TestUpdateDuringGlobalMaintenance returned status code %v, want %v", res.StatusCode, http.StatusServiceUnavailable)
+	}
+}
+
+// GetTestHandler returns a http.HandlerFunc for testing http middleware
+func getTestHandler() http.HandlerFunc {
+	fn := func(rw http.ResponseWriter, req *http.Request) {
+		panic("test entered test handler, this should not happen")
+	}
+	return http.HandlerFunc(fn)
 }

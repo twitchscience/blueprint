@@ -61,13 +61,14 @@ type operationRow struct {
 
 // NewSchemaBackend creates a postgres bpdb backend to interface with
 // the kinesis configuration store
-func NewSchemaBackend(db *sql.DB) BpSchemaBackend {
-	return &schemaBackend{db: db}
+func NewSchemaBackend(db *sql.DB) (BpSchemaBackend, error) {
+	s := &schemaBackend{db: db}
+	return s, nil
 }
 
 // Migration returns the operations necessary to migration `table` from version `to -1` to version `to`
-func (p *schemaBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
-	rows, err := p.db.Query(migrationQuery, to, table)
+func (s *schemaBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
+	rows, err := s.db.Query(migrationQuery, to, table)
 	if err != nil {
 		return nil, fmt.Errorf("querying for migration (%s) to v%v: %v", table, to, err)
 	}
@@ -127,8 +128,8 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 
 // CreateSchema validates that the creation operation is valid and if so, stores
 // the schema as 'add' operations in bpdb
-func (p *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *core.WebError {
-	exists, err := p.SchemaExists(req.EventName)
+func (s *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *core.WebError {
+	exists, err := s.SchemaExists(req.EventName)
 	if err != nil {
 		return core.NewServerWebErrorf("checking for schema existence: %v", err)
 	}
@@ -151,15 +152,19 @@ func (p *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *c
 		case err != nil:
 			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
-		return insertOperations(tx, ops, newVersion, req.EventName, user)
-	}, p.db))
+		err = insertOperations(tx, ops, newVersion, req.EventName, user)
+		if err != nil {
+			return fmt.Errorf("inserting operations for %s: %v", req.EventName, err)
+		}
+		return nil
+	}, s.db))
 }
 
 // UpdateSchema validates that the update operation is valid and if so, stores
 // the operations for this migration to the schema as operations in bpdb. It
 // applies the operations in order of delete, add, then renames.
-func (p *schemaBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) *core.WebError {
-	schema, err := p.Schema(req.EventName)
+func (s *schemaBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) *core.WebError {
+	schema, err := s.Schema(req.EventName)
 	if err != nil {
 		return core.NewServerWebErrorf("error getting schema to validate schema update: %v", err)
 	}
@@ -184,11 +189,11 @@ func (p *schemaBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user s
 			return fmt.Errorf("parsing response for version number for %s: %v", req.EventName, err)
 		}
 		return insertOperations(tx, ops, newVersion, req.EventName, user)
-	}, p.db))
+	}, s.db))
 }
 
 // DropSchema drops or requests a drop for a schema, depending on whether it exists according to ingester.
-func (p *schemaBackend) DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error {
+func (s *schemaBackend) DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error {
 	return execFnInTransaction(func(tx *sql.Tx) error {
 		var newVersion int
 		row := tx.QueryRow(nextVersionQuery, schema.EventName)
@@ -203,12 +208,12 @@ func (p *schemaBackend) DropSchema(schema *AnnotatedSchema, reason string, exist
 			op = scoop_protocol.NewDropEventOperation(reason)
 		}
 		return insertOperations(tx, []scoop_protocol.Operation{op}, newVersion, schema.EventName, user)
-	}, p.db)
+	}, s.db)
 }
 
 // SchemaExists checks if a schema name exists in blueprint already
-func (p *schemaBackend) SchemaExists(eventName string) (bool, error) {
-	schema, err := p.Schema(eventName)
+func (s *schemaBackend) SchemaExists(eventName string) (bool, error) {
+	schema, err := s.Schema(eventName)
 	if err != nil {
 		return false, fmt.Errorf("querying existence of schema  %s: %v", eventName, err)
 	}
@@ -241,8 +246,8 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 }
 
 // Schema returns the current schema for the table `name`
-func (p *schemaBackend) Schema(name string) (*AnnotatedSchema, error) {
-	rows, err := p.db.Query(schemaQuery, name)
+func (s *schemaBackend) Schema(name string) (*AnnotatedSchema, error) {
+	rows, err := s.db.Query(schemaQuery, name)
 	if err != nil {
 		return nil, fmt.Errorf("querying for schema %s: %v", name, err)
 	}
@@ -265,8 +270,8 @@ func (p *schemaBackend) Schema(name string) (*AnnotatedSchema, error) {
 }
 
 // Schema returns all of the current schemas
-func (p *schemaBackend) AllSchemas() ([]AnnotatedSchema, error) {
-	rows, err := p.db.Query(allSchemasQuery)
+func (s *schemaBackend) AllSchemas() ([]AnnotatedSchema, error) {
+	rows, err := s.db.Query(allSchemasQuery)
 	if err != nil {
 		return nil, fmt.Errorf("querying for all schemas: %v", err)
 	}

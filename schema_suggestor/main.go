@@ -102,7 +102,10 @@ func main() {
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to connect to DB")
 	}
-	bpSchemaBackend := bpdb.NewSchemaBackend(db)
+	bpSchemaBackend, err := bpdb.NewSchemaBackend(db)
+	if err != nil {
+		logger.WithError(err).Fatal("Failed to create schema backend")
+	}
 
 	// SQS listener pools SQS queue and then kicks off a jobs to
 	// suggest the schemas.

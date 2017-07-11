@@ -35,13 +35,14 @@ var (
 )
 
 type eventMetadataBackend struct {
-	db *sql.DB
+	db              *sql.DB
+	bpSchemaBackend BpSchemaBackend
 }
 
 // NewEventMetadataBackend creates a postgres bpdb backend to interface with
 // the kinesis configuration store
-func NewEventMetadataBackend(db *sql.DB) BpEventMetadataBackend {
-	return &eventMetadataBackend{db: db}
+func NewEventMetadataBackend(db *sql.DB, schemaBackend BpSchemaBackend) BpEventMetadataBackend {
+	return &eventMetadataBackend{db: db, bpSchemaBackend: schemaBackend}
 }
 
 func insertEventMetadata(tx *sql.Tx, eventName string, metadataType scoop_protocol.EventMetadataType, value string, user string, version int) error {
@@ -96,8 +97,7 @@ func getNextEventMetadataVersion(tx *sql.Tx, eventName string, metadataType scoo
 }
 
 func (p *eventMetadataBackend) UpdateEventMetadata(req *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {
-	bpSchemaBackend := NewSchemaBackend(p.db)
-	schema, err := bpSchemaBackend.Schema(req.EventName)
+	schema, err := p.bpSchemaBackend.Schema(req.EventName)
 	if err != nil {
 		return core.NewServerWebErrorf("error getting schema to validate event metadata update: %v", err)
 	}
