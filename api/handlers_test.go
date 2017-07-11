@@ -551,3 +551,34 @@ func TestUpdateDuringSchemaMaintenance(t *testing.T) {
 	s.updateSchema(c, recorder, req)
 	assertRequest503(t, "TestUpdateDuringSchemaMaintenance", recorder)
 }
+
+func TestUpdateDuringGlobalMaintenance(t *testing.T) {
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{})
+	err := bpdbBackend.SetMaintenanceMode(true, "test", "because I'm an automated test.")
+	assert.NoError(t, err)
+	schemaBackend := test.NewMockBpSchemaBackend()
+	configFile := createJSONFile(t, "TestUpdateDuringGlobalMaintenance")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	ts := httptest.NewServer(s.maintenanceHandler(getTestHandler()))
+	defer ts.Close()
+	var u bytes.Buffer
+	u.WriteString(string(ts.URL))
+	u.WriteString("/schema/whatever")
+	res, err := http.Get(u.String())
+	assert.NoError(t, err)
+
+	if res.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("TestUpdateDuringGlobalMaintenance returned status code %v, want %v", res.StatusCode, http.StatusServiceUnavailable)
+	}
+}
+
+// GetTestHandler returns a http.HandlerFunc for testing http middleware
+func getTestHandler() http.HandlerFunc {
+	fn := func(rw http.ResponseWriter, req *http.Request) {
+		panic("test entered test handler, this should not happen")
+	}
+	return http.HandlerFunc(fn)
+}
