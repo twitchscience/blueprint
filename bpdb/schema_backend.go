@@ -63,7 +63,6 @@ type operationRow struct {
 // the kinesis configuration store
 func NewSchemaBackend(db *sql.DB) (BpSchemaBackend, error) {
 	s := &schemaBackend{db: db}
-	logger.Info("Got schema maintenance modes from DB")
 	return s, nil
 }
 
