@@ -40,21 +40,19 @@ ORDER BY event_changes DESC`
 )
 
 type postgresBackend struct {
-	db                       *sql.DB
-	globalMaintenanceMode    MaintenanceMode
-	maintenanceMutex         *sync.RWMutex
-	schemaMaintenanceMode    map[string]MaintenanceMode
-	schemaMaintenanceMutexes map[string]*sync.RWMutex
+	db                    *sql.DB
+	globalMaintenanceMode MaintenanceMode
+	maintenanceMutex      *sync.RWMutex
+	schemaMaintenanceMode map[string]MaintenanceMode
 }
 
 // NewPostgresBackend creates a postgres bpdb backend to interface with
 // the maintenance mode and stats store
 func NewPostgresBackend(db *sql.DB) (Bpdb, error) {
 	p := &postgresBackend{
-		db:                       db,
-		maintenanceMutex:         &sync.RWMutex{},
-		schemaMaintenanceMode:    make(map[string]MaintenanceMode),
-		schemaMaintenanceMutexes: make(map[string]*sync.RWMutex),
+		db:                    db,
+		maintenanceMutex:      &sync.RWMutex{},
+		schemaMaintenanceMode: make(map[string]MaintenanceMode),
 	}
 	logger.Info("Querying DB for maintenance mode")
 	if err := p.readMaintenanceMode(); err != nil {
@@ -68,16 +66,8 @@ func NewPostgresBackend(db *sql.DB) (Bpdb, error) {
 
 // readSchemaMaintenanceModes initializes the schema maintenance modes and mutexes by reading from the db
 func (p *postgresBackend) readSchemaMaintenanceModes() error {
-	initialMutexes := []*sync.RWMutex{}
-	for _, mutex := range p.schemaMaintenanceMutexes {
-		mutex.Lock()
-		initialMutexes = append(initialMutexes, mutex)
-	}
-	defer func() {
-		for _, mutex := range initialMutexes {
-			mutex.Unlock()
-		}
-	}()
+	p.maintenanceMutex.Lock()
+	defer p.maintenanceMutex.Unlock()
 
 	rows, err := p.db.Query(getSchemaMaintenanceModesQuery)
 	if err != nil {
@@ -100,7 +90,6 @@ func (p *postgresBackend) readSchemaMaintenanceModes() error {
 			return fmt.Errorf("scanning schema maintenance mode: %v", err)
 		}
 		p.schemaMaintenanceMode[mode.schema] = MaintenanceMode{IsInMaintenanceMode: mode.inMaintenanceMode, User: mode.user}
-		p.schemaMaintenanceMutexes[mode.schema] = &sync.RWMutex{}
 	}
 	return nil
 }
@@ -108,25 +97,15 @@ func (p *postgresBackend) readSchemaMaintenanceModes() error {
 // GetSchemaMaintenanceMode returns true and the user that triggered it if the schema is in
 // maintenance mode, else false and an empty string
 func (p *postgresBackend) GetSchemaMaintenanceMode(schema string) MaintenanceMode {
-	mutex, exists := p.schemaMaintenanceMutexes[schema]
-	if !exists {
-		mutex = &sync.RWMutex{}
-		p.schemaMaintenanceMutexes[schema] = mutex
-	}
-	mutex.RLock()
-	defer mutex.RUnlock()
+	p.maintenanceMutex.RLock()
+	defer p.maintenanceMutex.RUnlock()
 	return p.schemaMaintenanceMode[schema]
 }
 
 // SetSchemaMaintenanceMode sets the maintenance mode for the given schema
 func (p *postgresBackend) SetSchemaMaintenanceMode(schema string, switchingOn bool, user, reason string) error {
-	mutex, exists := p.schemaMaintenanceMutexes[schema]
-	if !exists {
-		mutex = &sync.RWMutex{}
-		p.schemaMaintenanceMutexes[schema] = mutex
-	}
-	mutex.Lock()
-	defer mutex.Unlock()
+	p.maintenanceMutex.Lock()
+	defer p.maintenanceMutex.Unlock()
 	if _, err := p.db.Exec(setSchemaMaintenanceModeQuery, schema, switchingOn, user, reason); err != nil {
 		return fmt.Errorf("storing schema maintenance mode for %s in db: %v", schema, err)
 	}
