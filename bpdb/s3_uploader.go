@@ -10,8 +10,9 @@ import (
 
 // Reconsider this file name/location when this code works
 
+// Buckets
 const (
-	EVENT_METADATA_BUCKET = "event-metadata-test"
+	EventMetadataBucket = "event-metadata-test"
 )
 
 // S3Uploader helps upload responses to S3
@@ -21,7 +22,7 @@ type S3Uploader struct {
 	Uploader *s3manager.Uploader
 }
 
-// New S3Uploader returns a new S3Uploader
+// NewS3Uploader returns a new S3Uploader
 func NewS3Uploader() *S3Uploader {
 	s := session.Must(session.NewSession())
 
