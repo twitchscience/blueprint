@@ -5,6 +5,9 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gorilla/context"
 	gzip "github.com/lidashuang/goji-gzip"
 	"github.com/patrickmn/go-cache"
@@ -37,6 +40,7 @@ type server struct {
 	cacheTimeout           time.Duration
 	blacklistRe            []*regexp.Regexp
 	readonly               bool
+	s3Uploader             *s3manager.Uploader
 }
 
 var (
@@ -86,11 +90,21 @@ func New(
 		slackbotURL:            slackbotURL,
 		goCache:                cache.New(5*time.Minute, 10*time.Minute),
 		readonly:               readonly,
+		s3Uploader:             NewS3Uploader(),
 	}
 	if err := s.loadConfig(); err != nil {
 		logger.WithError(err).Fatal("failed to load config")
 	}
 	return s
+}
+
+// NewS3Uploader returns a new S3Uploader
+func NewS3Uploader() *s3manager.Uploader {
+	s := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String("us-west-2"),
+	}))
+
+	return s3manager.NewUploader(s)
 }
 
 // Create a simple health check API which needs no special setup.
