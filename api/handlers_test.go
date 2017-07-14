@@ -25,7 +25,7 @@ func TestMigrationNegativeTo(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)
@@ -44,7 +44,7 @@ func TestAllSchemasCache(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}
@@ -277,7 +277,7 @@ func TestAllEventMetadataCache(t *testing.T) {
 	configFile := createJSONFile(t, "TestAllEventMetadataCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
-	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
@@ -316,7 +316,7 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -349,7 +349,7 @@ func TestGetEventMetadata(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -373,7 +373,7 @@ func TestUpdateEventMetadataNoSchema(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
@@ -405,7 +405,7 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "test-event"},
@@ -435,7 +435,7 @@ func TestUpdateEventMetadata(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
@@ -489,7 +489,7 @@ func TestSchemaMaintenanceGet(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -511,7 +511,7 @@ func TestSchemaMaintenanceSet(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -539,7 +539,7 @@ func TestUpdateDuringSchemaMaintenance(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -561,7 +561,7 @@ func TestUpdateDuringGlobalMaintenance(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	ts := httptest.NewServer(s.maintenanceHandler(getTestHandler()))
 	defer ts.Close()
 	var u bytes.Buffer

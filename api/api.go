@@ -2,12 +2,16 @@ package api
 
 import (
 	"flag"
+	"io"
 	"regexp"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	// "github.com/aws/aws-sdk-go/service/s3/s3manageriface"
 	"github.com/gorilla/context"
 	gzip "github.com/lidashuang/goji-gzip"
 	"github.com/patrickmn/go-cache"
@@ -40,7 +44,7 @@ type server struct {
 	cacheTimeout           time.Duration
 	blacklistRe            []*regexp.Regexp
 	readonly               bool
-	s3Uploader             *s3manager.Uploader
+	s3Uploader             s3manageriface.UploaderAPI
 }
 
 var (
@@ -57,6 +61,22 @@ var (
 	requiredOrg        string
 	adminTeam          string
 )
+
+// S3UploaderWrapper tests stuff
+type S3UploaderWrapper struct {
+	s3manageriface.UploaderAPI
+}
+
+// S3DownloaderWrapper tests stuff
+type S3DownloaderWrapper struct {
+	s3manageriface.DownloaderAPI
+}
+
+// S3ManagerMockInterface is mock interface for the S3Manager
+type S3ManagerMockInterface struct {
+	s3manageriface.UploaderAPI
+	s3manageriface.DownloaderAPI
+}
 
 func init() {
 	flag.BoolVar(&enableAuth, "enableAuth", true, "enable authentication when not in readonly mode")
@@ -78,7 +98,9 @@ func New(
 	configFilename string,
 	ingCont ingester.Controller,
 	slackbotURL string,
-	readonly bool) core.Subprocess {
+	readonly bool,
+	s3Uploader s3manageriface.UploaderAPI,
+) core.Subprocess {
 	s := &server{
 		docRoot:                docRoot,
 		bpdbBackend:            bpdbBackend,
@@ -90,7 +112,7 @@ func New(
 		slackbotURL:            slackbotURL,
 		goCache:                cache.New(5*time.Minute, 10*time.Minute),
 		readonly:               readonly,
-		s3Uploader:             NewS3Uploader(),
+		s3Uploader:             s3Uploader,
 	}
 	if err := s.loadConfig(); err != nil {
 		logger.WithError(err).Fatal("failed to load config")
@@ -103,8 +125,24 @@ func NewS3Uploader() *s3manager.Uploader {
 	s := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String("us-west-2"),
 	}))
-
 	return s3manager.NewUploader(s)
+}
+
+func NewMockS3Uploader() *S3UploaderWrapper {
+	// s := session.Must(session.NewSession(&aws.Config{
+	// 	Region: aws.String("us-west-2"),
+	// }))
+
+	// return s3manager.NewUploader(s)
+	return &S3UploaderWrapper{}
+}
+
+func (s *S3DownloaderWrapper) Download(io.WriterAt, *s3.GetObjectInput, ...func(*s3manager.Downloader)) (int64, error) {
+	return 0, nil
+}
+
+func (s *S3UploaderWrapper) Upload(*s3manager.UploadInput, ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
+	return &s3manager.UploadOutput{}, nil
 }
 
 // Create a simple health check API which needs no special setup.
