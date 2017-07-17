@@ -277,8 +277,7 @@ func TestAllEventMetadataCache(t *testing.T) {
 	configFile := createJSONFile(t, "TestAllEventMetadataCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
-	// CHANGE THIS BACK TO MOCK UPLOADER AFTER
-	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewS3Uploader()).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)

@@ -62,19 +62,13 @@ var (
 	adminTeam          string
 )
 
-// S3UploaderWrapper tests stuff
-type S3UploaderWrapper struct {
+// S3UploaderAPIWrapper is a wrapper for the S3 manager UploaderAPI
+type S3UploaderAPIWrapper struct {
 	s3manageriface.UploaderAPI
 }
 
-// S3DownloaderWrapper tests stuff
-type S3DownloaderWrapper struct {
-	s3manageriface.DownloaderAPI
-}
-
-// S3ManagerMockInterface is mock interface for the S3Manager
-type S3ManagerMockInterface struct {
-	s3manageriface.UploaderAPI
+// S3DownloaderAPIWrapper is a wrapper for the S3 manager DownloaderAPI
+type S3DownloaderAPIWrapper struct {
 	s3manageriface.DownloaderAPI
 }
 
@@ -129,22 +123,17 @@ func NewS3Uploader() *s3manager.Uploader {
 }
 
 // NewMockS3Uploader returns a new mock s3 uploader
-func NewMockS3Uploader() *S3UploaderWrapper {
-	// s := session.Must(session.NewSession(&aws.Config{
-	// 	Region: aws.String("us-west-2"),
-	// }))
-
-	// return s3manager.NewUploader(s)
-	return &S3UploaderWrapper{}
+func NewMockS3Uploader() *S3UploaderAPIWrapper {
+	return &S3UploaderAPIWrapper{}
 }
 
 // Download is a mock of S3Manager's Download function
-func (s *S3DownloaderWrapper) Download(io.WriterAt, *s3.GetObjectInput, ...func(*s3manager.Downloader)) (int64, error) {
+func (s *S3DownloaderAPIWrapper) Download(io.WriterAt, *s3.GetObjectInput, ...func(*s3manager.Downloader)) (int64, error) {
 	return 0, nil
 }
 
 // Upload is a mock of S3Manager's Upload function
-func (s *S3UploaderWrapper) Upload(*s3manager.UploadInput, ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
+func (s *S3UploaderAPIWrapper) Upload(*s3manager.UploadInput, ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
 	return &s3manager.UploadOutput{}, nil
 }
 
