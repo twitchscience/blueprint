@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-	// "github.com/aws/aws-sdk-go/service/s3/s3manageriface"
 	"github.com/gorilla/context"
 	gzip "github.com/lidashuang/goji-gzip"
 	"github.com/patrickmn/go-cache"
@@ -93,8 +92,7 @@ func New(
 	ingCont ingester.Controller,
 	slackbotURL string,
 	readonly bool,
-	s3Uploader s3manageriface.UploaderAPI,
-) core.Subprocess {
+	s3Uploader s3manageriface.UploaderAPI) core.Subprocess {
 	s := &server{
 		docRoot:                docRoot,
 		bpdbBackend:            bpdbBackend,
@@ -114,7 +112,7 @@ func New(
 	return s
 }
 
-// NewS3Uploader returns a new S3Uploader
+// NewS3Uploader returns a new S3 uploader
 func NewS3Uploader() *s3manager.Uploader {
 	s := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String("us-west-2"),
@@ -122,7 +120,7 @@ func NewS3Uploader() *s3manager.Uploader {
 	return s3manager.NewUploader(s)
 }
 
-// NewMockS3Uploader returns a new mock s3 uploader
+// NewMockS3Uploader returns a new mock S3 uploader
 func NewMockS3Uploader() *S3UploaderAPIWrapper {
 	return &S3UploaderAPIWrapper{}
 }
