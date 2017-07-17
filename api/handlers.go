@@ -192,7 +192,7 @@ func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, configS3Ke
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("Published %s to S3 with result: %s", configS3Key, result))
+	logger.Info(fmt.Sprintf("Published %s to S3 location %s, versionID %s and uploadID %s", configS3Key, result.Location, result.VersionID, result.UploadID))
 	return nil
 }
 
