@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -164,10 +163,16 @@ func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, configS3Ke
 	var compressedBytes bytes.Buffer
 	w, err := gzip.NewWriterLevel(&compressedBytes, gzip.BestCompression)
 	if err != nil {
-		return errors.New("Error creating new gzip writer")
+		return err
 	}
-	w.Write(b)
-	w.Close()
+	_, err = w.Write(b)
+	if err != nil {
+		return err
+	}
+	err = w.Close()
+	if err != nil {
+		return err
+	}
 
 	bucket := "science-blueprint-configs"
 	uploadParams := &s3manager.UploadInput{
