@@ -44,6 +44,7 @@ type server struct {
 	blacklistRe            []*regexp.Regexp
 	readonly               bool
 	s3Uploader             s3manageriface.UploaderAPI
+	s3BpConfigsBucketName  string
 }
 
 var (

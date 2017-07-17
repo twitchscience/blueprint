@@ -35,8 +35,9 @@ const (
 )
 
 type config struct {
-	CacheTimeoutSecs time.Duration
-	Blacklist        []string
+	CacheTimeoutSecs      time.Duration
+	S3BpConfigsBucketName string
+	Blacklist             []string
 }
 
 type maintenanceMode struct {
@@ -55,6 +56,7 @@ func (s *server) loadConfig() error {
 		return err
 	}
 	s.cacheTimeout = jsonObj.CacheTimeoutSecs * time.Second
+	s.s3BpConfigsBucketName = jsonObj.S3BpConfigsBucketName
 	blacklist := jsonObj.Blacklist
 
 	for _, pattern := range blacklist {
@@ -154,7 +156,12 @@ func (s *server) forceLoad(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 // publishToS3 uploads configs to the appropriate s3 bucket
-func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, configS3Key string) error {
+func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, bucket string, configS3Key string) error {
+	if bucket == "" {
+		logger.Info(fmt.Sprintf("Blueprint skipping publishing %s: no bucket name specified", configS3Key))
+		return nil
+	}
+
 	b, err := json.Marshal(configs)
 	if err != nil {
 		return err
@@ -174,7 +181,6 @@ func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, configS3Ke
 		return err
 	}
 
-	bucket := "science-blueprint-configs"
 	uploadParams := &s3manager.UploadInput{
 		Bucket: &bucket,
 		Key:    &configS3Key,
@@ -314,7 +320,7 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.goCache.Set(allSchemasCache, schemas, s.cacheTimeout)
-	err = publishToS3(s.s3Uploader, schemas, schemaConfigS3Key)
+	err = publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key)
 	if err != nil {
 		logger.WithError(err).Error("Failed to publish schema configs to S3")
 	}
@@ -395,7 +401,7 @@ func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 
 	metadata := allMetadata.Metadata
 	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
-	err = publishToS3(s.s3Uploader, metadata, eventMetadataConfigS3Key)
+	err = publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key)
 	if err != nil {
 		logger.WithError(err).Error("Failed to publish event metadata configs to S3")
 	}
@@ -437,7 +443,7 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 
 	metadata := allMetadata.Metadata
 	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
-	err = publishToS3(s.s3Uploader, metadata, eventMetadataConfigS3Key)
+	err = publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key)
 	if err != nil {
 		logger.WithError(err).Error("Failed to publish event metadata to S3")
 	}
@@ -705,7 +711,7 @@ func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
 		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
 		return
 	}
-	err = publishToS3(s.s3Uploader, schemas, kinesisConfigS3Key)
+	err = publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key)
 	if err != nil {
 		logger.WithError(err).Error("Failed to publish kinesis configs to S3")
 	}
