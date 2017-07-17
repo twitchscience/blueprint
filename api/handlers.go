@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	schemaConfigS3Key        = "schema-configs.json"
-	kinesisConfigS3Key       = "kinesis-configs.json"
-	eventMetadataConfigS3Key = "event-metadata-configs.json"
+	schemaConfigS3Key        = "schema-configs.json.gz"
+	kinesisConfigS3Key       = "kinesis-configs.json.gz"
+	eventMetadataConfigS3Key = "event-metadata-configs.json.gz"
 )
 
 type config struct {
