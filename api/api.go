@@ -128,6 +128,7 @@ func NewS3Uploader() *s3manager.Uploader {
 	return s3manager.NewUploader(s)
 }
 
+// NewMockS3Uploader returns a new mock s3 uploader
 func NewMockS3Uploader() *S3UploaderWrapper {
 	// s := session.Must(session.NewSession(&aws.Config{
 	// 	Region: aws.String("us-west-2"),
@@ -137,10 +138,12 @@ func NewMockS3Uploader() *S3UploaderWrapper {
 	return &S3UploaderWrapper{}
 }
 
+// Download is a mock of S3Manager's Download function
 func (s *S3DownloaderWrapper) Download(io.WriterAt, *s3.GetObjectInput, ...func(*s3manager.Downloader)) (int64, error) {
 	return 0, nil
 }
 
+// Upload is a mock of S3Manager's Upload function
 func (s *S3UploaderWrapper) Upload(*s3manager.UploadInput, ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
 	return &s3manager.UploadOutput{}, nil
 }
