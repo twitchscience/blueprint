@@ -20,6 +20,22 @@ import (
 	scoop "github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
+func TestMigrationNegativeFrom(t *testing.T) {
+	configFile := createJSONFile(t, "testMigration")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	handler := web.HandlerFunc(s.migration)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/migration/testerino?from_version=-4", nil)
+	handler.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+}
+
 func TestMigrationNegativeTo(t *testing.T) {
 	configFile := createJSONFile(t, "testMigration")
 	defer deleteJSONFile(t, configFile)
