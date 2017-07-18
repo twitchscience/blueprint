@@ -40,6 +40,8 @@ type Operation struct {
 	Action         Action
 	Name           string
 	ActionMetadata map[string]string
+	Version        int
+	Ordering       int
 }
 
 type EventMetadataType string

@@ -87,7 +87,7 @@ type BpSchemaBackend interface {
 	Schema(name string) (*AnnotatedSchema, error)
 	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError
 	CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError
-	Migration(table string, to int) ([]*scoop_protocol.Operation, error)
+	Migration(table string, from int, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
 }
 

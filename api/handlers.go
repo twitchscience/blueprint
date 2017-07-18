@@ -488,6 +488,7 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 }
 
 func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
+	var from int
 	args := r.URL.Query()
 	to, err := strconv.Atoi(args.Get("to_version"))
 	if err != nil || to < 0 {
@@ -497,8 +498,22 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 			Warning("'to_version' must be non-negative integer")
 		return
 	}
+	from_str := args.Get("from_version")
+	if from_str == "" {
+		from = to - 1
+	} else {
+		from, err = strconv.Atoi(from_str)
+		if err != nil || from < 0 {
+			respondWithJSONError(w, "Error, 'from_version' argument must be non-negative integer.", http.StatusBadRequest)
+			logger.WithError(err).
+				WithField("from_version", args.Get("from_version")).
+				Warning("'from_version' must be non-negative integer")
+			return
+		}
+	}
 	operations, err := s.bpSchemaBackend.Migration(
 		c.URLParams["schema"],
+		from,
 		to,
 	)
 	if err != nil {

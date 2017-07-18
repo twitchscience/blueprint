@@ -27,11 +27,12 @@ FROM operation
 ORDER BY version ASC, ordering ASC
 `
 	migrationQuery = `
-SELECT action, name, action_metadata
+SELECT action, name, action_metadata, version, ordering
 FROM operation
-WHERE version = $1
-AND event = $2
-ORDER BY ordering ASC
+WHERE version > $1
+AND version <= $2
+AND event = $3
+ORDER BY version ASC, ordering ASC
 `
 	insertOperationsQuery = `INSERT INTO operation
 (event, action, name, version, ordering, action_metadata, user_name)
@@ -67,8 +68,8 @@ func NewSchemaBackend(db *sql.DB) (BpSchemaBackend, error) {
 }
 
 // Migration returns the operations necessary to migration `table` from version `to -1` to version `to`
-func (s *schemaBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
-	rows, err := s.db.Query(migrationQuery, to, table)
+func (s *schemaBackend) Migration(table string, from int, to int) ([]*scoop_protocol.Operation, error) {
+	rows, err := s.db.Query(migrationQuery, from, to, table)
 	if err != nil {
 		return nil, fmt.Errorf("querying for migration (%s) to v%v: %v", table, to, err)
 	}
@@ -83,7 +84,7 @@ func (s *schemaBackend) Migration(table string, to int) ([]*scoop_protocol.Opera
 		var op scoop_protocol.Operation
 		var b []byte
 		var s string
-		err := rows.Scan(&s, &op.Name, &b)
+		err := rows.Scan(&s, &op.Name, &b, &op.Version, &op.Ordering)
 		if err != nil {
 			return nil, fmt.Errorf("parsing row into Operation: %v", err)
 		}

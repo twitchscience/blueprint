@@ -88,7 +88,7 @@ func (m *MockBpSchemaBackend) CreateSchema(schema *scoop_protocol.Config, user s
 }
 
 // Migration returns nils.
-func (m *MockBpSchemaBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
+func (m *MockBpSchemaBackend) Migration(table string, from int, to int) ([]*scoop_protocol.Operation, error) {
 	return nil, nil
 }
 
