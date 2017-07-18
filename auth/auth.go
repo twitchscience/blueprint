@@ -20,11 +20,10 @@ import (
 
 // DummyAuth creates a fake user.
 func DummyAuth(c *web.C, h http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Env["username"] = "unknown"
 		h.ServeHTTP(w, r)
-	}
-	return http.HandlerFunc(fn)
+	})
 }
 
 // New creates and returns a github auth object
@@ -88,26 +87,9 @@ type GithubAuth struct {
 	OauthConfig  *oauth2.Config
 }
 
-// AuthorizeOrForbid requires the user be logged in and have proper permissions,
-// else 403s
-func (a *GithubAuth) AuthorizeOrForbid(c *web.C, h http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		user := a.User(r)
-		if user == nil || !user.IsMemberOfOrg {
-			http.Error(w, "Please authenticate", http.StatusForbidden)
-			clearCookies(w)
-			return
-		}
-		c.Env["username"] = user.Name
-
-		h.ServeHTTP(w, r)
-	}
-	return http.HandlerFunc(fn)
-}
-
-// AuthorizeOrForbidAdmin requires the user be logged in and a member of the admin team,
-// else 403s.
-func (a *GithubAuth) AuthorizeOrForbidAdmin(c *web.C, h http.Handler) http.Handler {
+// authorize requires the user be logged in and pass the isAuthorized check,
+// else 403s with the given message.
+func (a *GithubAuth) authorize(c *web.C, h http.Handler, isAuthorized func(*User) bool, unauthorizedMessage string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
 		if user == nil {
@@ -116,8 +98,8 @@ func (a *GithubAuth) AuthorizeOrForbidAdmin(c *web.C, h http.Handler) http.Handl
 			return
 		}
 
-		if !user.IsAdmin {
-			http.Error(w, "You do not have the necessary privileges", http.StatusForbidden)
+		if !isAuthorized(user) {
+			http.Error(w, unauthorizedMessage, http.StatusForbidden)
 			clearCookies(w)
 			return
 		}
@@ -127,17 +109,33 @@ func (a *GithubAuth) AuthorizeOrForbidAdmin(c *web.C, h http.Handler) http.Handl
 	})
 }
 
+// AuthorizeOrForbid requires the user be logged in and a member of the proper org
+// (therefore allowed write access to Ace schemas), else 403s.
+func (a *GithubAuth) AuthorizeOrForbid(c *web.C, h http.Handler) http.Handler {
+	return a.authorize(c, h,
+		func(u *User) bool { return u.IsMemberOfOrg },
+		"You are not an org member")
+}
+
+// AuthorizeOrForbidAdmin requires the user be logged in and a member of the admin team
+// (therefore allowed write access to maintenance modes and Kinesis streams),
+// else 403s.
+func (a *GithubAuth) AuthorizeOrForbidAdmin(c *web.C, h http.Handler) http.Handler {
+	return a.authorize(c, h,
+		func(u *User) bool { return u.IsAdmin },
+		"You are not an admin")
+}
+
 // ExpireDisplayName expires the display name if the github auth is no longer valid.
 func (a *GithubAuth) ExpireDisplayName(h http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := a.User(r)
 		if user == nil || !user.IsMemberOfOrg {
 			clearCookies(w)
 		}
 
 		h.ServeHTTP(w, r)
-	}
-	return http.HandlerFunc(fn)
+	})
 }
 
 func clearCookies(w http.ResponseWriter) {

@@ -1,7 +1,14 @@
 angular.module('blueprint')
-  .service('auth', function($cookies, Maintenance) {
+  .service('auth', function($cookies, store, Maintenance) {
     var loginName = $cookies.get('displayName');
     var isAdmin = ($cookies.get('isAdmin') === "true");
+
+    var loginError = $cookies.get('loginError');
+    $cookies.remove('loginError');
+    if (loginError !== "") {
+      store.setError(loginError)
+    }
+
     return {
       getLoginName: function() {
         return loginName;

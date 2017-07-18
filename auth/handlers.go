@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/sessions"
 	"github.com/twitchscience/aws_utils/logger"
 	"github.com/twitchscience/blueprint/core"
 	"golang.org/x/oauth2"
@@ -83,28 +84,24 @@ func responseBodyToMap(r *http.Response) (map[string]interface{}, error) {
 
 // AuthCallbackHandler receives the callback portion of the auth flow
 func (a *GithubAuth) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	redirectTarget, webErr := a.authCallbackHelper(w, r)
-	if webErr != nil {
-		webErr.ReportError(w, "Failed to authorize user")
-		return
+	if weberr := a.authCallbackHelper(w, r); weberr != nil {
+		weberr.ReportError(w, "Failed to authorize user")
 	}
-
-	http.Redirect(w, r, "/"+redirectTarget, http.StatusFound)
 }
 
-func (a *GithubAuth) authCallbackHelper(w http.ResponseWriter, r *http.Request) (redirectTarget string, webErr *core.WebError) {
+func (a *GithubAuth) authCallbackHelper(w http.ResponseWriter, r *http.Request) *core.WebError {
 	session, err := a.CookieStore.Get(r, cookieName)
 	if err != nil {
-		return "", core.NewServerWebError(fmt.Errorf("getting cookie: %v", err))
+		return core.NewServerWebError(fmt.Errorf("getting cookie: %v", err))
 	}
 
 	if err = r.ParseForm(); err != nil {
-		return "", core.NewUserWebError(fmt.Errorf("parsing form: %v", err))
+		return core.NewUserWebError(fmt.Errorf("parsing form: %v", err))
 	}
 
 	expectedState := session.Values["auth-state"]
 	if expectedState == nil {
-		return "", core.NewUserWebError(errors.New("no auth state found in cookie"))
+		return core.NewUserWebError(errors.New("no auth state found in cookie"))
 	}
 
 	receivedState := r.FormValue("state")
@@ -113,35 +110,56 @@ func (a *GithubAuth) authCallbackHelper(w http.ResponseWriter, r *http.Request) 
 			"expected_state": expectedState,
 			"received_state": receivedState,
 		}).Warn("Invalid oauth state")
-		return "", core.NewUserWebError(errors.New("invalid oauth state"))
+		return core.NewUserWebError(errors.New("invalid oauth state"))
 	}
 
 	token, err := a.exchangeToken(r.FormValue("code"), receivedState)
 	if err != nil {
-		return "", core.NewServerWebError(fmt.Errorf("exchanging token: %v", err))
+		return core.NewServerWebError(fmt.Errorf("exchanging token: %v", err))
 	}
 
 	resp, err := a.OauthConfig.Client(oauth2.NoContext, token).Get(a.GithubServer + "/api/v3/user")
 	if err != nil {
-		return "", core.NewServerWebError(fmt.Errorf("getting user infor from GitHub API: %v", err))
+		return core.NewServerWebError(fmt.Errorf("getting user infor from GitHub API: %v", err))
 	}
 
 	userInfo, err := responseBodyToMap(resp)
 	if err != nil {
-		return "", core.NewServerWebError(fmt.Errorf("creating map from response body: %v", err))
+		return core.NewServerWebError(fmt.Errorf("creating map from response body: %v", err))
 	} else if userInfo["login"] == nil {
-		return "", core.NewServerWebError(errors.New("login not found in user info"))
+		return core.NewServerWebError(errors.New("login not found in user info"))
 	}
 
 	bytes, err := json.Marshal(token)
 	if err != nil {
-		return "", core.NewServerWebError(fmt.Errorf("marshaling OAuth token: %v", err))
+		return core.NewServerWebError(fmt.Errorf("marshaling OAuth token: %v", err))
 	}
 
 	loginName, ok := userInfo["login"].(string)
 	if !ok {
-		return "", core.NewServerWebError(errors.New("login in user info not a string"))
+		return core.NewServerWebError(errors.New("login in user info not a string"))
 	}
+	session.Values["auth-token"] = bytes
+	session.Values["login-time"] = time.Now().Unix()
+	session.Values["login-name"] = userInfo["login"]
+
+	isOrgMember, err := a.userIsOrgMember(token, session)
+	if err != nil {
+		return core.NewServerWebError(fmt.Errorf("getting org member status: %v", err))
+	} else if !isOrgMember {
+		delete(session.Values, "auth-token")
+		delete(session.Values, "login-time")
+		delete(session.Values, "login-name")
+
+		clearCookies(w)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "loginError",
+			Value: "You are not a member of the approved org.",
+		})
+
+		return redirectAfterLoginAttempt(w, r, session)
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:   "displayName",
 		Value:  loginName,
@@ -149,13 +167,9 @@ func (a *GithubAuth) authCallbackHelper(w http.ResponseWriter, r *http.Request) 
 		MaxAge: int(a.LoginTTL.Seconds()),
 	})
 
-	session.Values["auth-token"] = bytes
-	session.Values["login-time"] = time.Now().Unix()
-	session.Values["login-name"] = userInfo["login"]
-
 	isAdmin, err := a.userIsAdmin(token, session)
 	if err != nil {
-		return "", core.NewServerWebError(fmt.Errorf("getting admin status: %v", err))
+		return core.NewServerWebError(fmt.Errorf("getting admin status: %v", err))
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:   "isAdmin",
@@ -164,15 +178,20 @@ func (a *GithubAuth) authCallbackHelper(w http.ResponseWriter, r *http.Request) 
 		MaxAge: int(a.LoginTTL.Seconds()),
 	})
 
-	redirectTarget = session.Values["auth-redirect-to"].(string)
+	return redirectAfterLoginAttempt(w, r, session)
+}
+
+func redirectAfterLoginAttempt(w http.ResponseWriter, r *http.Request, session *sessions.Session) *core.WebError {
+	redirectTarget := session.Values["auth-redirect-to"].(string)
 	delete(session.Values, "auth-redirect-to")
 	delete(session.Values, "auth-state")
 
-	if err = session.Save(r, w); err != nil {
-		return "", core.NewServerWebError(fmt.Errorf("saving auth info to cookie: %v", err))
+	if err := session.Save(r, w); err != nil {
+		return core.NewServerWebError(fmt.Errorf("saving session info to cookie: %v", err))
 	}
 
-	return redirectTarget, nil
+	http.Redirect(w, r, "/"+redirectTarget, http.StatusFound)
+	return nil
 }
 
 // LoginHandler handles the login portion of the auth flow
