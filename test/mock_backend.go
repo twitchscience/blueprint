@@ -14,6 +14,8 @@ type MockBpdb struct {
 	maintenanceMutex *sync.RWMutex
 	maintenanceMode  bpdb.MaintenanceMode
 	maintenanceModes map[string]bpdb.MaintenanceMode
+	mockActiveUsers  []*bpdb.ActiveUser
+	mockDailyChanges []*bpdb.DailyChange
 }
 
 // MockBpSchemaBackend is a mock for the bpdb/BpSchemaBackend interface which tracks how many times AllSchemas has been called
@@ -35,8 +37,8 @@ type MockBpEventMetadataBackend struct {
 }
 
 // NewMockBpdb creates a new mock backend.
-func NewMockBpdb(mm map[string]bpdb.MaintenanceMode) *MockBpdb {
-	return &MockBpdb{&sync.RWMutex{}, bpdb.MaintenanceMode{IsInMaintenanceMode: false, User: ""}, mm}
+func NewMockBpdb(mm map[string]bpdb.MaintenanceMode, activeUsers []*bpdb.ActiveUser, dailyChanges []*bpdb.DailyChange) *MockBpdb {
+	return &MockBpdb{&sync.RWMutex{}, bpdb.MaintenanceMode{IsInMaintenanceMode: false, User: ""}, mm, activeUsers, dailyChanges}
 }
 
 // NewMockBpSchemaBackend creates a new mock schema backend.
@@ -166,12 +168,12 @@ func (m *MockBpdb) SetMaintenanceMode(switchingOn bool, user, reason string) err
 
 // ActiveUsersLast30Days returns nils.
 func (m *MockBpdb) ActiveUsersLast30Days() ([]*bpdb.ActiveUser, error) {
-	return nil, nil
+	return m.mockActiveUsers, nil
 }
 
 // DailyChangesLast30Days returns nils.
 func (m *MockBpdb) DailyChangesLast30Days() ([]*bpdb.DailyChange, error) {
-	return nil, nil
+	return m.mockDailyChanges, nil
 }
 
 // GetSchemaMaintenanceMode returns false, ""
