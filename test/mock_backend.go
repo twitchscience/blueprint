@@ -70,7 +70,7 @@ func (m *MockBpSchemaBackend) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
 }
 
 // Schema returns nils except when the event name is "this-table-exists" or "this-event-exists"
-func (m *MockBpSchemaBackend) Schema(name string) (*bpdb.AnnotatedSchema, error) {
+func (m *MockBpSchemaBackend) Schema(name string, version *int) (*bpdb.AnnotatedSchema, error) {
 	if name == "this-table-exists" || name == "this-event-exists" {
 		return &bpdb.AnnotatedSchema{}, nil
 	}

@@ -84,7 +84,7 @@ type Bpdb interface {
 // BpSchemaBackend is the interface of the blueprint db backend that stores schema state
 type BpSchemaBackend interface {
 	AllSchemas() ([]AnnotatedSchema, error)
-	Schema(name string) (*AnnotatedSchema, error)
+	Schema(name string, version *int) (*AnnotatedSchema, error)
 	UpdateSchema(update *core.ClientUpdateSchemaRequest, user string) *core.WebError
 	CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError
 	Migration(table string, from int, to int) ([]*scoop_protocol.Operation, error)

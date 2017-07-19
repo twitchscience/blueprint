@@ -21,14 +21,14 @@ import (
 )
 
 func TestMigrationNegativeFrom(t *testing.T) {
-	configFile := createJSONFile(t, "testMigration")
+	configFile := createJSONFile(t, "TestMigrationNegativeFrom")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
 	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/migration/testerino?from_version=-4", nil)
+	req, _ := http.NewRequest("GET", "/migration/testerino?from_version=-4&to_version=4", nil)
 	handler.ServeHTTP(recorder, req)
 	if status := recorder.Code; status != http.StatusBadRequest {
 		t.Errorf("handler returned wrong status code: got %v want %v",
@@ -37,7 +37,7 @@ func TestMigrationNegativeFrom(t *testing.T) {
 }
 
 func TestMigrationNegativeTo(t *testing.T) {
-	configFile := createJSONFile(t, "testMigration")
+	configFile := createJSONFile(t, "TestMigrationNegativeTo")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
@@ -494,6 +494,22 @@ func TestDecodeBody(t *testing.T) {
 	assert.Equal(t, "name", config.EventNameTargetField)
 	assert.Equal(t, false, config.Compress)
 	assert.Equal(t, []string{"time"}, config.Events["minute-watched"].Fields)
+}
+
+func TestSchemaNegativeVersion(t *testing.T) {
+	configFile := createJSONFile(t, "TestSchemaNegativeVersion")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	handler := web.HandlerFunc(s.schema)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/schema/empty-table?version=-4", nil)
+	handler.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
 }
 
 func TestSchemaMaintenanceGet(t *testing.T) {
