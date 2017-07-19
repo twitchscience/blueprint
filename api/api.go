@@ -2,13 +2,11 @@ package api
 
 import (
 	"flag"
-	"io"
 	"regexp"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/gorilla/context"
@@ -62,16 +60,6 @@ var (
 	adminTeam          string
 )
 
-// S3UploaderAPIWrapper is a wrapper for the S3 manager UploaderAPI
-type S3UploaderAPIWrapper struct {
-	s3manageriface.UploaderAPI
-}
-
-// S3DownloaderAPIWrapper is a wrapper for the S3 manager DownloaderAPI
-type S3DownloaderAPIWrapper struct {
-	s3manageriface.DownloaderAPI
-}
-
 func init() {
 	flag.BoolVar(&enableAuth, "enableAuth", true, "enable authentication when not in readonly mode")
 	flag.StringVar(&cookieSecret, "cookieSecret", "", "32 character secret for signing cookies")
@@ -121,14 +109,14 @@ func NewS3Uploader() *s3manager.Uploader {
 	return s3manager.NewUploader(s)
 }
 
+// S3UploaderAPIWrapper is a wrapper for the S3 manager UploaderAPI
+type S3UploaderAPIWrapper struct {
+	s3manageriface.UploaderAPI
+}
+
 // NewMockS3Uploader returns a new mock S3 uploader
 func NewMockS3Uploader() *S3UploaderAPIWrapper {
 	return &S3UploaderAPIWrapper{}
-}
-
-// Download is a mock of S3Manager's Download function
-func (s *S3DownloaderAPIWrapper) Download(io.WriterAt, *s3.GetObjectInput, ...func(*s3manager.Downloader)) (int64, error) {
-	return 0, nil
 }
 
 // Upload is a mock of S3Manager's Upload function

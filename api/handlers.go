@@ -155,8 +155,8 @@ func (s *server) forceLoad(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// publishToS3 uploads configs to the appropriate s3 bucket
-func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, bucket string, configS3Key string) error {
+// publishToS3Helper uploads configs to the appropriate s3 bucket
+func publishToS3Helper(svc s3manageriface.UploaderAPI, configs interface{}, bucket string, configS3Key string) error {
 	if bucket == "" {
 		logger.Info(fmt.Sprintf("Blueprint skipping publishing %s: no bucket name specified", configS3Key))
 		return nil
@@ -194,6 +194,18 @@ func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, bucket str
 
 	logger.Info(fmt.Sprintf("Published %s to S3 location %s and uploadID %s", configS3Key, result.Location, result.UploadID))
 	return nil
+}
+
+/* publishToS3 calls publishToS3Helper and checks if it was successful
+   We are not returning an error since up until the point in the calling function
+   where publishToS3 is called, no other errors have occurred, so the requester
+   should get the data independent of whether the S3 upload succeeded.
+   Hence, failed attempts to upload to S3 won't inadvertently break Blueprint */
+func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, bucket string, configS3Key string) {
+	err := publishToS3Helper(svc, configs, bucket, configS3Key)
+	if err != nil {
+		logger.WithError(err).Errorf("Failed to publish %s to S3", configS3Key)
+	}
 }
 
 func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -320,10 +332,7 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.goCache.Set(allSchemasCache, schemas, s.cacheTimeout)
-	err = publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key)
-	if err != nil {
-		logger.WithError(err).Error("Failed to publish schema configs to S3")
-	}
+	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key)
 	writeStructToResponse(w, schemas)
 }
 
@@ -401,10 +410,7 @@ func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 
 	metadata := allMetadata.Metadata
 	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
-	err = publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key)
-	if err != nil {
-		logger.WithError(err).Error("Failed to publish event metadata configs to S3")
-	}
+	publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key)
 	writeStructToResponse(w, metadata)
 }
 
@@ -443,10 +449,7 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 
 	metadata := allMetadata.Metadata
 	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
-	err = publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key)
-	if err != nil {
-		logger.WithError(err).Error("Failed to publish event metadata to S3")
-	}
+	publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key)
 	if eventMetadata, exists := metadata[eventName]; exists {
 		ret.Metadata = eventMetadata
 	} else {
@@ -711,10 +714,7 @@ func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
 		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
 		return
 	}
-	err = publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key)
-	if err != nil {
-		logger.WithError(err).Error("Failed to publish kinesis configs to S3")
-	}
+	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key)
 	writeStructToResponse(w, schemas)
 }
 
