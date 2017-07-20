@@ -57,6 +57,13 @@ func jsonResponse(h http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
+func getS3ConfigsFileName(baseFileName string, prefix string) (string, error) {
+	if baseFileName != schemaConfigS3Key && baseFileName != kinesisConfigS3Key && baseFileName != eventMetadataConfigS3Key {
+		return "", fmt.Errorf("Invalid base config key %s", baseFileName)
+	}
+	return prefix + "-" + baseFileName, nil
+}
+
 func getNewSuggestion(docRoot string, name string) (newSuggestion SchemaSuggestion, err error) {
 	p := path.Join(docRoot, "events", name)
 	f, err := os.Open(p)

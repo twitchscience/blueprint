@@ -2,7 +2,9 @@ package api
 
 import (
 	"flag"
+	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -43,6 +45,7 @@ type server struct {
 	readonly               bool
 	s3Uploader             s3manageriface.UploaderAPI
 	s3BpConfigsBucketName  string
+	s3BpConfigsPrefix      string
 }
 
 var (
@@ -109,18 +112,24 @@ func NewS3Uploader() *s3manager.Uploader {
 	return s3manager.NewUploader(s)
 }
 
-// S3UploaderAPIWrapper is a wrapper for the S3 manager UploaderAPI
-type S3UploaderAPIWrapper struct {
+// MockS3UploaderAPI is a wrapper for the S3 manager UploaderAPI
+type MockS3UploaderAPI struct {
 	s3manageriface.UploaderAPI
 }
 
 // NewMockS3Uploader returns a new mock S3 uploader
-func NewMockS3Uploader() *S3UploaderAPIWrapper {
-	return &S3UploaderAPIWrapper{}
+func NewMockS3Uploader() *MockS3UploaderAPI {
+	return &MockS3UploaderAPI{}
 }
 
 // Upload is a mock of S3Manager's Upload function
-func (s *S3UploaderAPIWrapper) Upload(*s3manager.UploadInput, ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
+func (s *MockS3UploaderAPI) Upload(input *s3manager.UploadInput, f ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
+	k := *input.Key
+	if !strings.HasSuffix(k, schemaConfigS3Key) &&
+		!strings.HasSuffix(k, kinesisConfigS3Key) &&
+		!strings.HasSuffix(k, eventMetadataConfigS3Key) {
+		return nil, fmt.Errorf("Invalid S3 config key %s", k)
+	}
 	return &s3manager.UploadOutput{}, nil
 }
 
