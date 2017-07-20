@@ -61,6 +61,13 @@ no modifications to the database are possible.
 Caveat: After toggling maintenance mode, you will have to reload to see the
 relevant UI changes, but the backend is locked down regardless.
 
+## Angular Tests
+
+First, install nodejs to so you can get npm as a side effect. Then you should be able to execute
+`./run_angular_tests.sh` and that should take care of installing dependencies for you and running
+all available [Jasmine](https://jasmine.github.io/) unit tests in the static/app/ folder with
+[Karma](https://karma-runner.github.io/1.0/index.html).
+
 ## Improvements
 
  * Improve these docs!

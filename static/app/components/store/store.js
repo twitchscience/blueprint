@@ -1,5 +1,5 @@
-angular.module('blueprint')
-  .service('store', function($location) {
+angular.module('blueprint.components.store', [])
+  .service('Store', function($location) {
     var data = {
       event: undefined,
       message: undefined,

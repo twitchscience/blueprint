@@ -1,4 +1,4 @@
-angular.module('blueprint')
+angular.module('blueprint.components.column', [])
   .factory('Column', function() {
     // Design Note:
     // Hard-coding this should be good enough for now, but we could instead augment the Types

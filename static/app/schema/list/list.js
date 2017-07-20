@@ -1,9 +1,12 @@
-angular.module('blueprint')
-  .controller('ListSchemas', function($scope, $location, Schema, Suggestions, Maintenance, store, auth) {
-    $scope.loginName = auth.getLoginName();
-    $scope.isAdmin = auth.isAdmin();
+angular.module('blueprint.schema.list', [
+  'blueprint.components.auth',
+  'blueprint.components.rest',
+  'blueprint.components.store'
+]).controller('ListSchemas', function($scope, $location, Schema, Suggestions, Maintenance, Store, Auth) {
+    $scope.loginName = Auth.getLoginName();
+    $scope.isAdmin = Auth.isAdmin();
     $scope.isEditable = false;
-    auth.globalIsEditableContinuation(function(globalIsEditable, user) {
+    Auth.globalIsEditableContinuation(function(globalIsEditable, user) {
       $scope.globalIsEditable = globalIsEditable;
       $scope.globalMaintenanceModeUser = user;
       if (globalIsEditable) {
@@ -41,11 +44,11 @@ angular.module('blueprint')
       } else {
         msg = 'Error loading schemas:' + err;
       }
-      store.setError(msg);
+      Store.setError(msg);
     });
     $scope.toggleMaintenanceMode = function() {
       if (!$scope.toggleMaintenanceModeReason) {
-        store.setError("Please enter a reason for turning maintenance mode " + $scope.maintenanceDirection);
+        Store.setError("Please enter a reason for turning maintenance mode " + $scope.maintenanceDirection);
         return
       }
       $scope.togglingMaintenanceMode = true;
@@ -53,7 +56,7 @@ angular.module('blueprint')
         {is_maintenance: $scope.globalIsEditable,
          reason: $scope.toggleMaintenanceModeReason},
         function() {
-          store.setMessage("Maintenance mode turned " + $scope.maintenanceDirection);
+          Store.setMessage("Maintenance mode turned " + $scope.maintenanceDirection);
           $location.path('/schemas');
           $scope.globalIsEditable = !$scope.globalIsEditable;
           $scope.globalMaintenanceModeUser = $scope.loginName;
@@ -62,7 +65,7 @@ angular.module('blueprint')
           $scope.togglingMaintenanceMode = false;
         },
         function(err) {
-          store.setError(err, undefined);
+          Store.setError(err, undefined);
           $scope.showMaintenance = false;
           $scope.togglingMaintenanceMode = false;
         });
