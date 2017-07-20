@@ -2,9 +2,15 @@ package api
 
 import (
 	"flag"
+	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/gorilla/context"
 	gzip "github.com/lidashuang/goji-gzip"
 	"github.com/patrickmn/go-cache"
@@ -37,6 +43,9 @@ type server struct {
 	cacheTimeout           time.Duration
 	blacklistRe            []*regexp.Regexp
 	readonly               bool
+	s3Uploader             s3manageriface.UploaderAPI
+	s3BpConfigsBucketName  string
+	s3BpConfigsPrefix      string
 }
 
 var (
@@ -74,7 +83,8 @@ func New(
 	configFilename string,
 	ingCont ingester.Controller,
 	slackbotURL string,
-	readonly bool) core.Subprocess {
+	readonly bool,
+	s3Uploader s3manageriface.UploaderAPI) core.Subprocess {
 	s := &server{
 		docRoot:                docRoot,
 		bpdbBackend:            bpdbBackend,
@@ -86,11 +96,41 @@ func New(
 		slackbotURL:            slackbotURL,
 		goCache:                cache.New(5*time.Minute, 10*time.Minute),
 		readonly:               readonly,
+		s3Uploader:             s3Uploader,
 	}
 	if err := s.loadConfig(); err != nil {
 		logger.WithError(err).Fatal("failed to load config")
 	}
 	return s
+}
+
+// NewS3Uploader returns a new S3 uploader
+func NewS3Uploader() *s3manager.Uploader {
+	s := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String("us-west-2"),
+	}))
+	return s3manager.NewUploader(s)
+}
+
+// MockS3UploaderAPI is a wrapper for the S3 manager UploaderAPI
+type MockS3UploaderAPI struct {
+	s3manageriface.UploaderAPI
+}
+
+// NewMockS3Uploader returns a new mock S3 uploader
+func NewMockS3Uploader() *MockS3UploaderAPI {
+	return &MockS3UploaderAPI{}
+}
+
+// Upload is a mock of S3Manager's Upload function
+func (s *MockS3UploaderAPI) Upload(input *s3manager.UploadInput, f ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
+	k := *input.Key
+	if !strings.HasSuffix(k, schemaConfigS3Key) &&
+		!strings.HasSuffix(k, kinesisConfigS3Key) &&
+		!strings.HasSuffix(k, eventMetadataConfigS3Key) {
+		return nil, fmt.Errorf("Invalid S3 config key %s", k)
+	}
+	return &s3manager.UploadOutput{}, nil
 }
 
 // Create a simple health check API which needs no special setup.

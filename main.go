@@ -73,7 +73,7 @@ func main() {
 
 	ingCont := ingester.NewController(*ingesterURL)
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, bpEventMetadataBackend, *configFilename, ingCont, *slackbotURL, *readonly)
+	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, bpEventMetadataBackend, *configFilename, ingCont, *slackbotURL, *readonly, api.NewS3Uploader())
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,
