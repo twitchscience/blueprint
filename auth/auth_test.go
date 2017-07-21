@@ -1,104 +1,105 @@
-package auth_test
+package auth
 
 import (
-	"flag"
-	"fmt"
-	"log"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/gorilla/context"
-	"github.com/twitchscience/blueprint/auth"
-	"github.com/zenazn/goji"
 	"github.com/zenazn/goji/web"
+
+	"golang.org/x/oauth2"
 )
 
-var (
-	integration   bool
-	cookieSecret  string
-	clientID      string
-	clientSecret  string
-	githubServer  string
-	requiredOrg   string
-	adminTeam     string
-	authenticator auth.Auth
-)
+const cookieSecret = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	username := "(not logged in)"
-	user := authenticator.User(r)
-
-	if user != nil {
-		username = user.Name
+func TestGithubAuthorize(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request, err := http.NewRequest("GET", "http://example.com", nil)
+	if err != nil {
+		t.Fatalf("Error on creating request: %v", err)
 	}
 
-	fmt.Fprintf(w, `<html><body>
-		<ul>
-		<li>DisplayName: %s</li>
-		<li><a href="/login">Login</a></li>
-		<li><a href="/logout">Logout</a></li>
-		<li><a href="/user/greet">User Greeting</a></li>
-		</ul>
-		</body></html>`, username)
+	authHandler := stubbedGithubAuth()
+	stub := authHandler.networkManager.(*stubNetworkManager)
+	stub.orgMemberResponse = &http.Response{
+		StatusCode: 200,
+		Body:       ioutil.NopCloser(bytes.NewBufferString("valid response")),
+	}
+	stub.adminResponse = &http.Response{
+		StatusCode: 400,
+		Body:       ioutil.NopCloser(bytes.NewBufferString("")),
+	}
+
+	cookieStore := authHandler.CookieStore
+	session, err := cookieStore.Get(request, cookieName)
+	if err != nil {
+		t.Fatalf("Unable to get session: %v", err)
+	}
+	session.Values["login-time"] = time.Now().Unix()
+	session.Values["login-name"] = "unknown_user"
+	session.Values["auth-token"], err = json.Marshal(oauth2.Token{})
+	if err != nil {
+		t.Fatalf("Unable to marshal auth token: %v", err)
+	}
+
+	authHandler.AuthorizeOrForbid(
+		&web.C{Env: make(map[interface{}]interface{})},
+		http.HandlerFunc(happyHandler),
+	).ServeHTTP(recorder, request)
+
+	statusCode := recorder.Result().StatusCode
+	if statusCode != 204 {
+		t.Errorf("Expected No Content (204), got %v", statusCode)
+	}
 }
 
-func loggedInHandler(w http.ResponseWriter, r *http.Request) {
-	user := authenticator.User(r)
-	fmt.Fprintf(w, "Hello, %s", user.Name)
-}
-
-func init() {
-	flag.BoolVar(&integration, "serve", false, "Run server integration test")
-	flag.StringVar(&cookieSecret, "cookieSecret", "", "32 character secret for signing cookies")
-	flag.StringVar(&clientID, "clientID", "", "Google API client id")
-	flag.StringVar(&clientSecret, "clientSecret", "", "Google API client secret")
-	flag.StringVar(&githubServer, "githubServer", "http://github.com", "Github server to use for auth")
-	flag.StringVar(&requiredOrg, "requiredOrg", "", "Org user need to belong to to use auth")
-	flag.StringVar(&adminTeam, "adminTeam", "", "Team with admin privileges")
-	flag.Parse()
-}
-
-func TestIntegrationGoogle(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skip integration tests in short mode")
-	}
-
-	if !integration {
-		t.Skip("Skip integration test when serve flag (-serve) isn't set")
-	}
-
-	if clientID == "" || clientSecret == "" || githubServer == "" {
-		t.Skip("Auth creds and github server not set, see README.md for details")
-	}
-
-	if cookieSecret == "" {
-		log.Println("Set cookie_secret to 32 random chars")
-		log.Println(`python -c "import string,random;print ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))"`)
-		t.Skip("Skipping until you set cookie secret")
-	}
-
-	authenticator = auth.New(githubServer,
-		clientID,
-		clientSecret,
+func stubbedGithubAuth() *GithubAuth {
+	githubAuth := New("",
+		"clientID",
+		"clientSecret",
 		cookieSecret,
-		requiredOrg,
-		adminTeam,
-		"/login")
+		"requiredOrg",
+		"adminTeam",
+		"http://example.com/login").(*GithubAuth)
 
-	goji.Get("/login", authenticator.LoginHandler)
-	goji.Get("/logout", authenticator.LogoutHandler)
-	goji.Get("/github_oauth_cb", authenticator.AuthCallbackHandler)
-	goji.Get("/", homeHandler)
+	githubAuth.networkManager = &stubNetworkManager{}
 
-	loggedIn := web.New()
-	goji.Handle("/user/*", loggedIn)
-	loggedIn.Use(authenticator.AuthorizeOrForbid)
-	loggedIn.Get("/user/greet", loggedInHandler)
+	return githubAuth
+}
 
-	goji.Use(context.ClearHandler) // THIS IS IMPORTANT - Prevent memory leaks
+type stubNetworkManager struct {
+	exchangeTokenResponse, userResponse, orgMemberResponse, adminResponse *http.Response
+	exchangeTokenErr, userErr, orgMemberErr, adminErr                     error
+}
 
-	log.Println("Use -bind if you're listening on the wrong port")
-	log.Println("Ctrl+C to finish the test")
+func (s *stubNetworkManager) getExchangeTokenResponse(_, _ string) (*http.Response, error) {
+	return s.exchangeTokenResponse, s.exchangeTokenErr
+}
 
-	goji.Serve()
+func (s *stubNetworkManager) getUser(_ *oauth2.Token) (*http.Response, error) {
+	return s.userResponse, s.userErr
+}
+
+func (s *stubNetworkManager) getMembership(_ *oauth2.Token, fmtString, _, _ string) (*http.Response, error) {
+	switch fmtString {
+	case orgMemberTemplate:
+		return s.orgMemberResponse, s.orgMemberErr
+	case adminTemplate:
+		return s.adminResponse, s.adminErr
+	default:
+		return nil, errors.New("do not recognize template")
+	}
+}
+
+func (s *stubNetworkManager) oauthRedirectURL(_ string) string {
+	return "http://example.org/"
+}
+
+func happyHandler(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
 }

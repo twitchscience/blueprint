@@ -18,6 +18,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const (
+	orgMemberTemplate = "%s/api/v3/orgs/%s/members/%s"
+	adminTemplate     = "%s/api/v3/teams/%s/memberships/%s"
+)
+
 // DummyAuth creates a fake user.
 func DummyAuth(c *web.C, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,21 +61,24 @@ func New(githubServer string,
 	cookieStore := sessions.NewCookieStore([]byte(cookieSecret))
 	cookieStore.Options.HttpOnly = true
 	cookieStore.Options.Secure = true
-	return &GithubAuth{
-		RequiredOrg:  requiredOrg,
-		AdminTeam:    adminTeam,
-		LoginURL:     loginURL,
-		CookieStore:  cookieStore,
-		GithubServer: githubServer,
-		LoginTTL:     7 * 24 * time.Hour, // 1 week
-		OauthConfig: &oauth2.Config{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			Scopes:       []string{"read:org"},
 
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  githubServer + "/login/oauth/authorize",
-				TokenURL: githubServer + "/login/oauth/access_token",
+	return &GithubAuth{
+		RequiredOrg: requiredOrg,
+		AdminTeam:   adminTeam,
+		LoginURL:    loginURL,
+		CookieStore: cookieStore,
+		LoginTTL:    7 * 24 * time.Hour, // 1 week
+		networkManager: &githubAuthNetworkManager{
+			GithubServer: githubServer,
+			OauthConfig: &oauth2.Config{
+				ClientID:     clientID,
+				ClientSecret: clientSecret,
+				Scopes:       []string{"read:org"},
+
+				Endpoint: oauth2.Endpoint{
+					AuthURL:  githubServer + "/login/oauth/authorize",
+					TokenURL: githubServer + "/login/oauth/access_token",
+				},
 			},
 		},
 	}
@@ -78,13 +86,51 @@ func New(githubServer string,
 
 // GithubAuth is an object managing the auth flow with github
 type GithubAuth struct {
-	RequiredOrg  string // If empty, membership will not be tested
-	AdminTeam    string
-	LoginURL     string
+	RequiredOrg    string // If empty, membership will not be tested
+	AdminTeam      string
+	LoginURL       string
+	LoginTTL       time.Duration
+	CookieStore    *sessions.CookieStore
+	networkManager authNetworkManager
+}
+
+// authNetworkManager represents all the network calls made by the server to
+// implement auth, to allow mocks in test.
+type authNetworkManager interface {
+	getExchangeTokenResponse(code, state string) (*http.Response, error)
+	getUser(token *oauth2.Token) (*http.Response, error)
+	getMembership(token *oauth2.Token, fmtString, groupName, loginName string) (*http.Response, error)
+	oauthRedirectURL(oauthState string) string
+}
+
+// githubAuthNetworkManager gives the intended interpretation of the calls in
+// authNetworkManager.
+type githubAuthNetworkManager struct {
+	authNetworkManager
 	GithubServer string
-	LoginTTL     time.Duration
-	CookieStore  *sessions.CookieStore
 	OauthConfig  *oauth2.Config
+}
+
+func (n *githubAuthNetworkManager) getExchangeTokenResponse(code, state string) (*http.Response, error) {
+	return http.PostForm(n.OauthConfig.Endpoint.TokenURL, url.Values{
+		"client_id":     {n.OauthConfig.ClientID},
+		"client_secret": {n.OauthConfig.ClientSecret},
+		"code":          {code},
+		"state":         {state}})
+}
+
+func (n *githubAuthNetworkManager) getUser(token *oauth2.Token) (*http.Response, error) {
+	return n.OauthConfig.Client(oauth2.NoContext, token).Get(n.GithubServer + "/api/v3/user")
+}
+
+func (n *githubAuthNetworkManager) getMembership(token *oauth2.Token, fmtString, groupName, loginName string) (*http.Response, error) {
+	client := n.OauthConfig.Client(oauth2.NoContext, token)
+	checkURL := fmt.Sprintf(fmtString, n.GithubServer, url.QueryEscape(groupName), loginName)
+	return client.Get(checkURL)
+}
+
+func (n *githubAuthNetworkManager) oauthRedirectURL(oauthState string) string {
+	return n.OauthConfig.AuthCodeURL(oauthState, oauth2.AccessTypeOnline)
 }
 
 // authorize requires the user be logged in and pass the isAuthorized check,
@@ -154,11 +200,10 @@ func (a *GithubAuth) getGroupMembership(
 		return true, nil
 	}
 
-	client := a.OauthConfig.Client(oauth2.NoContext, token)
-	checkURL := fmt.Sprintf(fmtString, a.GithubServer, url.QueryEscape(groupName), session.Values["login-name"])
-	resp, err := client.Get(checkURL)
+	resp, err := a.networkManager.getMembership(
+		token, fmtString, groupName, session.Values["login-name"].(string))
 	if err != nil {
-		return false, fmt.Errorf("checking URL: %v", err)
+		return false, fmt.Errorf("checking OAuth: %v", err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -170,14 +215,14 @@ func (a *GithubAuth) getGroupMembership(
 }
 
 func (a *GithubAuth) userIsOrgMember(token *oauth2.Token, session *sessions.Session) (bool, error) {
-	return a.getGroupMembership(token, session, "%s/api/v3/orgs/%s/members/%s", a.RequiredOrg,
+	return a.getGroupMembership(token, session, orgMemberTemplate, a.RequiredOrg,
 		func(resp *http.Response) (bool, error) {
 			return resp.StatusCode >= 200 && resp.StatusCode <= 299, nil
 		})
 }
 
 func (a *GithubAuth) userIsAdmin(token *oauth2.Token, session *sessions.Session) (bool, error) {
-	return a.getGroupMembership(token, session, "%s/api/v3/teams/%s/memberships/%s", a.AdminTeam,
+	return a.getGroupMembership(token, session, adminTemplate, a.AdminTeam,
 		func(resp *http.Response) (bool, error) {
 			if resp.StatusCode != 200 {
 				return false, nil

@@ -21,13 +21,8 @@ const (
 	cookieName = "github-auth"
 )
 
-func (a *GithubAuth) exchangeToken(code string, state string) (*oauth2.Token, error) {
-	resp, err := http.PostForm(a.OauthConfig.Endpoint.TokenURL, url.Values{
-		"client_id":     {a.OauthConfig.ClientID},
-		"client_secret": {a.OauthConfig.ClientSecret},
-		"code":          {code},
-		"state":         {state}})
-
+func (a *GithubAuth) exchangeToken(code, state string) (*oauth2.Token, error) {
+	resp, err := a.networkManager.getExchangeTokenResponse(code, state)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting token: %s", err)
 	}
@@ -118,7 +113,7 @@ func (a *GithubAuth) authCallbackHelper(w http.ResponseWriter, r *http.Request) 
 		return core.NewServerWebError(fmt.Errorf("exchanging token: %v", err))
 	}
 
-	resp, err := a.OauthConfig.Client(oauth2.NoContext, token).Get(a.GithubServer + "/api/v3/user")
+	resp, err := a.networkManager.getUser(token)
 	if err != nil {
 		return core.NewServerWebError(fmt.Errorf("getting user infor from GitHub API: %v", err))
 	}
@@ -218,8 +213,9 @@ func (a *GithubAuth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url := a.OauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	http.Redirect(w, r,
+		a.networkManager.oauthRedirectURL(oauthStateString),
+		http.StatusTemporaryRedirect)
 }
 
 // LogoutHandler handles the logout step of the auth flow
