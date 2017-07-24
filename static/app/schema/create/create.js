@@ -1,13 +1,18 @@
-angular.module('blueprint')
-  .controller('CreateSchema', function($scope, $location, $q, $routeParams, store, Schema, Types, Suggestions, Column, auth) {
-    $scope.loginName = auth.getLoginName();
-    auth.globalIsEditable($scope);
+angular.module('blueprint.schema.create', [
+  'ngRoute',
+  'blueprint.components.auth',
+  'blueprint.components.column',
+  'blueprint.components.rest',
+  'blueprint.components.store'
+]).controller('CreateSchema', function($scope, $location, $q, $routeParams, Store, Schema, Types, Suggestions, Column, Auth) {
+    $scope.loginName = Auth.getLoginName();
+    Auth.globalIsEditable($scope);
     var types, suggestions, suggestionData;
     var typeData = Types.get(function(data) {
       if (data) {
         types = data.result;
       } else {
-        store.setError('Failed to fetch type information', undefined)
+        Store.setError('Failed to fetch type information', undefined)
         types = [];
       }
     }).$promise;
@@ -168,10 +173,10 @@ angular.module('blueprint')
       };
       $scope.addColumnToSchema = function(column) {
         if (!Column.validate(column)) {
-          store.setError("New column is invalid", undefined);
+          Store.setError("New column is invalid", undefined);
           return false;
         }
-        store.clearError();
+        Store.clearError();
         $scope.event.Columns.push(column);
         $scope.newCol = Column.make();
         document.getElementById('newInboundName').focus();
@@ -181,7 +186,7 @@ angular.module('blueprint')
       }
       $scope.outboundNameBlacklist = ["date"];
       $scope.createSchema = function() {
-        store.clearError();
+        Store.clearError();
         var setDistKey = $scope.event.distkey;
         var nameSet = {};
         var inboundNames = $scope.validInboundNames();
@@ -192,31 +197,31 @@ angular.module('blueprint')
           }
 
           if($scope.outboundNameBlacklist.indexOf(item.OutboundName.toLowerCase()) != -1){
-            store.setError("Cannot have outbound name '"+item.OutboundName+"'. It is a reserved identifier.");
+            Store.setError("Cannot have outbound name '"+item.OutboundName+"'. It is a reserved identifier.");
           }
 
           if(item.OutboundName in nameSet){
-            store.setError("Cannot repeat column name. Repeated '"+item.OutboundName+"'");
+            Store.setError("Cannot repeat column name. Repeated '"+item.OutboundName+"'");
             return false;
           } else {
             nameSet[item.OutboundName] = true;
           }
           if (!Column.validate(item)) {
-            store.setError("At least one column is invalid; look at '" + item.InboundName + "'", undefined);
+            Store.setError("At least one column is invalid; look at '" + item.InboundName + "'", undefined);
             return false;
           }
 
           if (Column.usingMappingTransformer(item)) {
             if (!item.mappingColumn) {
-              store.setError("Column '" + item.OutboundName + "' is invalid (needs nonempty mapping column)");
+              Store.setError("Column '" + item.OutboundName + "' is invalid (needs nonempty mapping column)");
               return false;
             }
             if (item.mappingColumn === item.InboundName) {
-              store.setError("Cannot use a column for its own mapping. Column with problem: " + item.OutboundName);
+              Store.setError("Cannot use a column for its own mapping. Column with problem: " + item.OutboundName);
               return false;
             }
             if (inboundNames.indexOf(item.mappingColumn) == -1) {
-              store.setError("Can't add a column using a mapping that is not in the schema. Offending name: " + item.OutboundName);
+              Store.setError("Can't add a column using a mapping that is not in the schema. Offending name: " + item.OutboundName);
               return false;
             }
             item.SupportingColumns = item.mappingColumn;
@@ -236,15 +241,15 @@ angular.module('blueprint')
           }
         });
         if(!hasValidTime) {
-          store.setError("Must have time->time of type f@timestamp@unix.");
+          Store.setError("Must have time->time of type f@timestamp@unix.");
         }
 
-        if (store.getError()) {
+        if (Store.getError()) {
           return;
         }
         delete $scope.event.distkey;
         Schema.put($scope.event, function() {
-          store.setMessage("Succesfully created schema: " + $scope.event.EventName)
+          Store.setMessage("Succesfully created schema: " + $scope.event.EventName)
           $location.path('/schema/' + $scope.event.EventName);
         }, function(err) {
           var msg;
@@ -253,7 +258,7 @@ angular.module('blueprint')
           } else {
             msg = 'Error creating schema:' + err;
           }
-          store.setError(msg, '/schemas');
+          Store.setError(msg, '/schemas');
           return;
         });
       };

@@ -1,12 +1,15 @@
-angular.module('blueprint')
-  .service('auth', function($cookies, store, Maintenance) {
+angular.module('blueprint.components.auth', [
+  'ngCookies',
+  'blueprint.components.rest',
+  'blueprint.components.store'
+]).service('Auth', function($cookies, Store, Maintenance) {
     var loginName = $cookies.get('displayName');
     var isAdmin = ($cookies.get('isAdmin') === "true");
 
     var loginError = $cookies.get('loginError');
     $cookies.remove('loginError');
     if (loginError !== "") {
-      store.setError(loginError)
+      Store.setError(loginError)
     }
 
     return {
@@ -24,7 +27,7 @@ angular.module('blueprint')
         Maintenance.get(function(data) {
           f(!data.is_maintenance, data.user);
         }, function(err) {
-          store.setError('Error loading maintenance mode: ' + err);
+          Store.setError('Error loading maintenance mode: ' + err);
           f(false);
         });
       },

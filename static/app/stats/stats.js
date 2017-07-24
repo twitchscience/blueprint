@@ -1,4 +1,4 @@
-angular.module('blueprint')
+angular.module('blueprint.stats', ['blueprint.components.rest'])
   .controller('Analytics', function($scope, Stats) {
     $scope.loading = true;
     Stats.get(function(data) {

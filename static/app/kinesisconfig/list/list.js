@@ -1,7 +1,10 @@
-angular.module('blueprint')
-  .controller('ListKinesisConfigs', function($scope, $location, KinesisConfig, store, auth) {
-    $scope.loginName = auth.getLoginName();
-    $scope.isAdmin = auth.isAdmin();
+angular.module('blueprint.kinesisconfig.list', [
+  'blueprint.components.auth',
+  'blueprint.components.rest',
+  'blueprint.components.store'
+]).controller('ListKinesisConfigs', function($scope, $location, KinesisConfig, Store, Auth) {
+    $scope.loginName = Auth.getLoginName();
+    $scope.isAdmin = Auth.isAdmin();
 
     $scope.loading = true;
     $scope.ready = false;
@@ -17,6 +20,6 @@ angular.module('blueprint')
       } else {
         msg = 'Error loading Kinesis configs:' + err;
       }
-      store.setError(msg);
+      Store.setError(msg);
     });
   });

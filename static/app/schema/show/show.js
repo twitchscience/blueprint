@@ -1,18 +1,24 @@
-var app = angular.module('blueprint')
-  .controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, store, Schema, Types, Droppable, EventMetadata, SchemaMaintenance, Column, auth) {
+angular.module('blueprint.schema.show', [
+  'ngRoute',
+  'ng-showdown',
+  'blueprint.components.auth',
+  'blueprint.components.column',
+  'blueprint.components.rest',
+  'blueprint.components.store',
+]).controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, Store, Schema, Types, Droppable, EventMetadata, SchemaMaintenance, Column, Auth) {
     var types, schema, dropMessage, cancelDropMessage, rawEventMetadata;
     var typeRequest = Types.get(function(data) {
       if (data) {
         types = data.result;
       } else {
-        store.setError('Failed to fetch type information', undefined)
+        Store.setError('Failed to fetch type information', undefined)
         types = [];
       }
     }).$promise;
-    $scope.isAdmin = auth.isAdmin();
+    $scope.isAdmin = Auth.isAdmin();
     $scope.eventName = $routeParams.scope;
     $scope.loading = true;
-    $scope.loginName = auth.getLoginName();
+    $scope.loginName = Auth.getLoginName();
     $scope.eventMetadata = {
       "edge_type": {"metadataType": "edge_type", "editable": false, "value": "", "savedValue": ""},
       "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": "",
@@ -20,7 +26,7 @@ var app = angular.module('blueprint')
     };
     $scope.toggleSchemaMaintenanceMode = function() {
       if (!$scope.toggleSchemaMaintenanceModeReason) {
-        store.setError("Please enter a reason for turning schema maintenance mode " + $scope.schemaMaintenanceDirection);
+        Store.setError("Please enter a reason for turning schema maintenance mode " + $scope.schemaMaintenanceDirection);
         return
       }
       $scope.togglingSchemaMaintenanceMode = true;
@@ -28,25 +34,25 @@ var app = angular.module('blueprint')
         {is_maintenance: $scope.schemaIsEditable,
          reason: $scope.toggleSchemaMaintenanceModeReason},
         function() {
-          store.setMessage("Schema Maintenance Mode Turned " + $scope.schemaMaintenanceDirection);
+          Store.setMessage("Schema Maintenance Mode Turned " + $scope.schemaMaintenanceDirection);
           $scope.schemaIsEditable = !$scope.schemaIsEditable;
           $scope.schemaMaintenanceDirection = $scope.schemaIsEditable ? "On" : "Off";
           $scope.showSchemaMaintenance = false;
           $scope.togglingSchemaMaintenanceMode = false;
         },
         function(err) {
-          store.setError(err, undefined);
+          Store.setError(err, undefined);
           $scope.showSchemaMaintenance = false;
           $scope.togglingSchemaMaintenanceMode = false;
         });
     };
-    auth.globalIsEditable($scope);
+    Auth.globalIsEditable($scope);
 
     $scope.forceLoadTable = function(schema){
       $http.post("/force_load", {Table:schema.EventName}, {timeout: 7000}).success(function(data, status){
-          store.setMessage("Force load successful");
+          Store.setMessage("Force load successful");
       }).error(function(data,status){
-          store.setError("Force load failed, try again in a couple of minutes. If the problem persists, please report in #scieng.");
+          Store.setError("Force load failed, try again in a couple of minutes. If the problem persists, please report in #scieng.");
       });
     }
 
@@ -72,7 +78,7 @@ var app = angular.module('blueprint')
       } else {
         msg = 'Schema not found or threw an error';
       }
-      store.setError(msg, '/schemas');
+      Store.setError(msg, '/schemas');
     }).$promise;
 
     function makeUndroppable() {
@@ -98,14 +104,14 @@ var app = angular.module('blueprint')
         msg = 'Schema not found or threw an error when determining if droppable';
       }
       makeUndroppable()
-      store.setError(msg);
+      Store.setError(msg);
     }).$promise;
 
     var eventMetadataRequest = EventMetadata.get($routeParams, function(data) {
       if (data) {
         rawEventMetadata = data;
       } else {
-        store.setError('Failed to fetch event metadata');
+        Store.setError('Failed to fetch event metadata');
       }
     }, function(err) {
       var msg;
@@ -114,7 +120,7 @@ var app = angular.module('blueprint')
       } else {
         msg = 'Schema not found or threw an error when retrieving event metadata';
       }
-      store.setError(msg);
+      Store.setError(msg);
     }).$promise;
 
     var schemaMaintenanceRequest = SchemaMaintenance.get({schema: $routeParams['scope']}, function(data) {
@@ -122,7 +128,7 @@ var app = angular.module('blueprint')
         schemaIsEditable = !data['is_maintenance'];
         schemaMaintenanceModeUser = data['user'];
       } else {
-        store.setError('Failed to fetch schema maintenance status');
+        Store.setError('Failed to fetch schema maintenance status');
       }
     }, function(err) {
       var msg;
@@ -131,13 +137,13 @@ var app = angular.module('blueprint')
       } else {
         msg = 'threw an error when retrieving schema maintenance status';
       }
-      store.setError(msg);
+      Store.setError(msg);
     }).$promise;
 
 
     $q.all([typeRequest, schemaRequest, droppableRequest, eventMetadataRequest, schemaMaintenanceRequest]).then(function() {
       if (!schema || !types) {
-        store.setError('API Error', '/schemas');
+        Store.setError('API Error', '/schemas');
       }
       $scope.loading = false;
       $scope.showDropTable = false;
@@ -177,22 +183,22 @@ var app = angular.module('blueprint')
       };
       $scope.addColumnToSchema = function(column) {
         if (!Column.validate(column)) {
-          store.setError("New column is invalid", undefined);
+          Store.setError("New column is invalid", undefined);
           return false;
         }
-        store.clearError();
+        Store.clearError();
         if (column.Transformer === 'varchar') {
           if (parseInt(column.size)) {
             column.ColumnCreationOptions = '(' + parseInt(column.size) + ')';
           } else {
-            store.setError("New column is invalid (needs nonempty value)", undefined);
+            Store.setError("New column is invalid (needs nonempty value)", undefined);
             return false;
           }
         } else if (Column.usingMappingTransformer(column)) {
           if (column.mappingColumn) {
             column.SupportingColumns = column.mappingColumn;
           } else {
-            store.setError("New column is invalid (needs nonempty mapping column)", undefined);
+            Store.setError("New column is invalid (needs nonempty mapping column)", undefined);
             return false;
           }
         }
@@ -280,7 +286,7 @@ var app = angular.module('blueprint')
              MetadataValue: metadataRow.value
             },
             function() {
-              store.setMessage("Successfully updated " + metadataType + " for " +  schema.EventName);
+              Store.setMessage("Successfully updated " + metadataType + " for " +  schema.EventName);
               metadataRow.savedValue = metadataRow.value;
               metadataRow.editable = false;
               if (metadataType == "comment") {
@@ -289,7 +295,7 @@ var app = angular.module('blueprint')
               }
             },
             function(err) {
-              store.setError(err);
+              Store.setError(err);
               metadataRow.editable = true;
             });
         }
@@ -308,11 +314,11 @@ var app = angular.module('blueprint')
 
         // Check that time isn't being deleted or renamed away
         if (deletes.indexOf("time") != -1) {
-          store.setError("Cannot delete the time column.");
+          Store.setError("Cannot delete the time column.");
           return false;
         }
         if ("time" in $scope.nameMap && $scope.nameMap["time"] != "time") {
-          store.setError("Cannot rename the time column.");
+          Store.setError("Cannot rename the time column.");
           return false;
         }
 
@@ -320,7 +326,7 @@ var app = angular.module('blueprint')
         // outbound names
         if (!$scope.additions.Columns.every(function (col) {
           if ($scope.blacklistedOutboundNames.indexOf(col.OutboundName.toLowerCase()) != -1) {
-            store.setError("Cannot have an outbound name '" + col.OutboundName + "'. It is a reserved identifier.");
+            Store.setError("Cannot have an outbound name '" + col.OutboundName + "'. It is a reserved identifier.");
             return false;
           }
           return true;
@@ -330,7 +336,7 @@ var app = angular.module('blueprint')
         if (!Object.keys($scope.nameMap).every(function (oldName) {
           var newName = $scope.nameMap[oldName];
           if($scope.blacklistedOutboundNames.indexOf(newName) != -1) {
-            store.setError("Cannot have an outbound name '" + newName + "'. It is a reserved identifier.");
+            Store.setError("Cannot have an outbound name '" + newName + "'. It is a reserved identifier.");
             return false;
           }
           return true;
@@ -341,7 +347,7 @@ var app = angular.module('blueprint')
         // Check that columns which are not going to be deleted still have valid supporting columns
         if (!$scope.schema.Columns.every(function (col) {
           if (!(col.OutboundName in delNames) && col.SupportingColumns && inboundNames.indexOf(col.SupportingColumns) == -1) {
-            store.setError("Can't have a column using a mapping that is going to be deleted. Offending name: " + col.OutboundName);
+            Store.setError("Can't have a column using a mapping that is going to be deleted. Offending name: " + col.OutboundName);
             return false;
           }
           return true;
@@ -360,7 +366,7 @@ var app = angular.module('blueprint')
           }
           oldNames[oldName] = true;
           if (newName in newNames) {
-            store.setError("Duplicate name. Offending name: " + newName);
+            Store.setError("Duplicate name. Offending name: " + newName);
             return false;
           }
           newNames[newName] = true;
@@ -373,16 +379,16 @@ var app = angular.module('blueprint')
         // valid supporting column
         if (!$scope.additions.Columns.every(function (col) {
           if (col.OutboundName in newNames) {
-            store.setError("Duplicate name. Offending name: " + col.OutboundName);
+            Store.setError("Duplicate name. Offending name: " + col.OutboundName);
             return false;
           }
           newNames[col.OutboundName] = true;
           if (col.OutboundName in oldNames) {
-            store.setError("Can't add a column while renaming away from it. Offending name: " + col.OutboundName);
+            Store.setError("Can't add a column while renaming away from it. Offending name: " + col.OutboundName);
             return false;
           }
           if (col.SupportingColumns && inboundNames.indexOf(col.SupportingColumns) == -1) {
-            store.setError("Can't add a column using a mapping that was or is going to be deleted. Offending name: " + col.OutboundName);
+            Store.setError("Can't add a column using a mapping that was or is going to be deleted. Offending name: " + col.OutboundName);
             return false;
           }
           return true;
@@ -404,11 +410,11 @@ var app = angular.module('blueprint')
               }
 
               if(newName in nameSet) {
-                store.setError("Cannot rename from or to a column that was already renamed from or to. Offending name: " + newName);
+                Store.setError("Cannot rename from or to a column that was already renamed from or to. Offending name: " + newName);
                 return false;
               }
               if(originalName in nameSet) {
-                store.setError("Cannot rename from or to a column that was already renamed from or to. Offending name: " + originalName);
+                Store.setError("Cannot rename from or to a column that was already renamed from or to. Offending name: " + originalName);
                 return false;
               }
               nameSet[newName] = true;
@@ -420,13 +426,13 @@ var app = angular.module('blueprint')
 
         // If the user is in the middle of adding a column, stop here to force a conclusion there
         if ($scope.newCol.InboundName || $scope.newCol.OutboundName) {
-          store.setError("Column addition not finished. Hit \"Add!\" or clear the inbound and outbound name.");
+          Store.setError("Column addition not finished. Hit \"Add!\" or clear the inbound and outbound name.");
           return false;
         }
 
         // Nothing was modified, so stop here
         if (additions.Columns.length + deletes.length + Object.keys(renames).length < 1) {
-          store.setError("No change to columns, so no action taken.", undefined);
+          Store.setError("No change to columns, so no action taken.", undefined);
           return false;
         }
 
@@ -435,7 +441,7 @@ var app = angular.module('blueprint')
           {event: schema.EventName},
           {additions: additions.Columns, deletes: deletes, renames: renames},
           function() {
-            store.setMessage("Succesfully updated schema: " +  schema.EventName);
+            Store.setMessage("Succesfully updated schema: " +  schema.EventName);
             // update front-end schema
             for (i = 0; i < $scope.deletes.ColInds.length; i++) {
               $scope.schema.Columns.splice($scope.deletes.ColInds[i], 1);
@@ -461,24 +467,24 @@ var app = angular.module('blueprint')
             $location.path('/schema/' + schema.EventName);
           },
           function(err) {
-            store.setError(err, undefined);
+            Store.setError(err, undefined);
           });
       };
       $scope.dropTable = function() {
         if ($scope.dropTableReason === '') {
-          store.setError("Please enter a reason for dropping the table");
+          Store.setError("Please enter a reason for dropping the table");
           return false
         }
         $scope.executingDrop = true;
         Schema.drop(
           {EventName: schema.EventName, Reason: $scope.dropTableReason},
           function() {
-            store.setMessage($scope.successDropMessage);
+            Store.setMessage($scope.successDropMessage);
             $location.path('/schemas');
             $scope.executingDrop = false;
           },
           function(err) {
-            store.setError(err, undefined);
+            Store.setError(err, undefined);
             $scope.executingDrop = false;
           });
       };

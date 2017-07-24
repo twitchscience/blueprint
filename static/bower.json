@@ -1,0 +1,18 @@
+{
+  "name": "blueprint",
+  "version": "1.0.0",
+  "authors": [
+    "Science Engineering <scieng@twitch.tv>"
+  ],
+  "private": true,
+  "dependencies": {
+    "angular": "~1.6.5",
+    "angular-cookies": "~1.5.0",
+    "angular-resource": "~1.5.0",
+    "angular-route": "~1.5.0",
+    "angular-loader": "~1.5.0",
+    "angular-mocks": "~1.5.0",
+    "angular-sanitize": "~1.5.0",
+    "ng-showdown": "~1.1.0"
+  }
+}

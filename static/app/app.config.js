@@ -3,31 +3,31 @@ angular.module('blueprint')
     $routeProvider
       .when('/schemas', {
         controller: 'ListSchemas',
-        templateUrl: 'template/schema/list.html'
+        templateUrl: 'app/schema/list/list.html'
       })
       .when('/schema', {
         controller: 'CreateSchema',
-        templateUrl: 'template/schema/create.html'
+        templateUrl: 'app/schema/create/create.html'
       })
       .when('/schema/:scope', {
         controller: 'ShowSchema',
-        templateUrl: 'template/schema/show.html'
+        templateUrl: 'app/schema/show/show.html'
       })
       .when('/kinesisconfigs', {
         controller: 'ListKinesisConfigs',
-        templateUrl: 'template/kinesisconfig/list.html'
+        templateUrl: 'app/kinesisconfig/list/list.html'
       })
       .when('/kinesisconfig', {
         controller: 'CreateKinesisConfig',
-        templateUrl: 'template/kinesisconfig/create.html'
+        templateUrl: 'app/kinesisconfig/create/create.html'
       })
       .when('/kinesisconfig/:account/:type/:name', {
         controller: 'ShowKinesisConfig',
-        templateUrl: 'template/kinesisconfig/show.html'
+        templateUrl: 'app/kinesisconfig/show/show.html'
       })
       .when('/stats', {
         controller: 'Analytics',
-        templateUrl: 'template/stats.html'
+        templateUrl: 'app/stats/stats.html'
       })
       .otherwise({
         redirectTo: '/schemas'

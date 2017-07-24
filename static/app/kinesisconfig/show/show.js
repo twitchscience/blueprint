@@ -1,9 +1,13 @@
-angular.module('blueprint')
-  .controller('ShowKinesisConfig', function ($scope, $http, $location, $routeParams, $q, store, KinesisConfig, auth) {
+angular.module('blueprint.kinesisconfig.show', [
+  'ngRoute',
+  'blueprint.components.auth',
+  'blueprint.components.rest',
+  'blueprint.components.store'
+]).controller('ShowKinesisConfig', function ($scope, $http, $location, $routeParams, $q, Store, KinesisConfig, Auth) {
     var kinesisconfig, dropMessage, cancelDropMessage;
     $scope.loading = true;
-    $scope.loginName = auth.getLoginName();
-    $scope.isAdmin = auth.isAdmin();
+    $scope.loginName = Auth.getLoginName();
+    $scope.isAdmin = Auth.isAdmin();
 
     var kinesisconfigRequest = KinesisConfig.get($routeParams, function(data) {
       if (data) {
@@ -16,13 +20,13 @@ angular.module('blueprint')
       } else {
         msg = 'Kinesis config not found or threw an error';
       }
-      store.setError(msg, '/kinesisconfigs');
+      Store.setError(msg, '/kinesisconfigs');
     }).$promise;
 
 
     $q.all([kinesisconfigRequest]).then(function() {
       if (!kinesisconfig) {
-        store.setError('API Error', '/kinesisconfigs');
+        Store.setError('API Error', '/kinesisconfigs');
       }
       $scope.loading = false;
       $scope.showDropConfig = false;
@@ -35,7 +39,7 @@ angular.module('blueprint')
       try {
         $scope.configJSON = JSON.stringify(kinesisconfig.SpadeConfig, null, 2)
       } catch (err) {
-        store.setError("Could not stringify JSON from server: " + err)
+        Store.setError("Could not stringify JSON from server: " + err)
       }
       $scope.StreamName = kinesisconfig.SpadeConfig.StreamName
       $scope.StreamType = kinesisconfig.SpadeConfig.StreamType
@@ -45,28 +49,28 @@ angular.module('blueprint')
         try {
           $scope.kinesisconfig.SpadeConfig = JSON.parse($scope.configJSON)
         } catch (err) {
-          store.setError("Invalid JSON - could not be parsed: " + err)
+          Store.setError("Invalid JSON - could not be parsed: " + err)
           return false
         }
         if ($scope.StreamName != kinesisconfig.SpadeConfig.StreamName ||
             $scope.StreamType != kinesisconfig.SpadeConfig.StreamType ||
             $scope.AWSAccount != kinesisconfig.AWSAccount) {
-          store.setError("AWS account, stream name and stream type must not be changed")
+          Store.setError("AWS account, stream name and stream type must not be changed")
           return false
         }
         KinesisConfig.update(
           {account: kinesisconfig.AWSAccount, type: kinesisconfig.SpadeConfig.StreamType, name: kinesisconfig.SpadeConfig.StreamName},
           {kinesisconfig: kinesisconfig},
           function() {
-            store.setMessage("Succesfully updated Kinesis configuration: " +  kinesisconfig.SpadeConfig.StreamName);
+            Store.setMessage("Succesfully updated Kinesis configuration: " +  kinesisconfig.SpadeConfig.StreamName);
           },
           function(err) {
-            store.setError(err, undefined);
+            Store.setError(err, undefined);
           });
       };
       $scope.dropConfig = function() {
         if ($scope.dropConfigReason === '') {
-          store.setError("Please enter a reason for dropping the Kinesis configuration");
+          Store.setError("Please enter a reason for dropping the Kinesis configuration");
           return false
         }
         $scope.executingDrop = true;
@@ -76,12 +80,12 @@ angular.module('blueprint')
             AWSAccount: $scope.AWSAccount,
             Reason: $scope.dropConfigReason},
           function() {
-            store.setMessage($scope.successDropMessage);
+            Store.setMessage($scope.successDropMessage);
             $location.path('/kinesisconfigs');
             $scope.executingDrop = false;
           },
           function(err) {
-            store.setError(err, undefined);
+            Store.setError(err, undefined);
             $scope.executingDrop = false;
           });
       };

@@ -1,7 +1,11 @@
-angular.module('blueprint')
-  .controller('CreateKinesisConfig', function($scope, $location, $routeParams, store, KinesisConfig, auth) {
-    $scope.loginName = auth.getLoginName();
-    $scope.isAdmin = auth.isAdmin();
+angular.module('blueprint.kinesisconfig.create', [
+  'ngRoute',
+  'blueprint.components.auth',
+  'blueprint.components.rest',
+  'blueprint.components.store'
+]).controller('CreateKinesisConfig', function($scope, $location, $routeParams, Store, KinesisConfig, Auth) {
+    $scope.loginName = Auth.getLoginName();
+    $scope.isAdmin = Auth.isAdmin();
 
     $scope.StreamName = '';
     $scope.StreamType = '';
@@ -13,15 +17,15 @@ angular.module('blueprint')
     $scope.SpadeConfig = '';
     $scope.configJSON = ''
     $scope.createKinesisConfig = function() {
-      store.clearError();
+      Store.clearError();
       try {
         $scope.SpadeConfig = JSON.parse($scope.configJSON)
       } catch (err) {
-        store.setError("Invalid JSON - could not be parsed: " + err)
+        Store.setError("Invalid JSON - could not be parsed: " + err)
         return false
       }
       if (!$scope.SpadeConfig.StreamName || !$scope.SpadeConfig.StreamType || $scope.AWSAccount == 0) {
-        store.setError("AWS account, stream name and stream type must be present")
+        Store.setError("AWS account, stream name and stream type must be present")
         return false
       }
       KinesisConfig.put({
@@ -34,7 +38,7 @@ angular.module('blueprint')
         "ConsumingLibrary": $scope.ConsumingLibrary,
         "SpadeConfig": $scope.SpadeConfig
       }, function() {
-        store.setMessage("Succesfully created Kinesis config: " + $scope.StreamName)
+        Store.setMessage("Succesfully created Kinesis config: " + $scope.StreamName)
         $location.path('/kinesisconfigs');
       }, function(err) {
         var msg;
@@ -43,7 +47,7 @@ angular.module('blueprint')
         } else {
           msg = 'Error creating Kinesis Config:' + err;
         }
-        store.setError(msg);
+        Store.setError(msg);
         return false;
       });
     };

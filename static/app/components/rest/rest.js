@@ -1,4 +1,4 @@
-angular.module('blueprint')
+angular.module('blueprint.components.rest', ['ngResource'])
   .factory('Event', function($resource) {
     return $resource(
       '/event/:scope', null,
