@@ -253,7 +253,9 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	return ops, nil
 }
 
-// Schema returns the current schema for the table `name`
+// Schema returns the schema for the table `name`
+// The version parameter can be used to request the specific version of the schema (0 to the current version)
+// If nil is the argument given for version, then Schema() returns the current version of the schema
 func (s *schemaBackend) Schema(name string, version *int) (*AnnotatedSchema, error) {
 	var rows *sql.Rows
 	var err error

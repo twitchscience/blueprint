@@ -387,7 +387,6 @@ func respondWithJSONBool(w http.ResponseWriter, key string, result bool) {
 	}
 }
 
-// TODO: Update goji to goji/goji so handlers with URLParams are testable.
 func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	schema, err := s.bpSchemaBackend.Schema(c.URLParams["id"], nil)
 	if err != nil {
