@@ -20,8 +20,8 @@ import (
 	scoop "github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
-func TestMigrationNegativeFrom(t *testing.T) {
-	configFile := createJSONFile(t, "TestMigrationNegativeFrom")
+func TestMigrationInvalidFrom(t *testing.T) {
+	configFile := createJSONFile(t, "TestMigrationInvalidFrom")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 

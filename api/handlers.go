@@ -519,8 +519,8 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 		from = to - 1
 	} else {
 		from, err = strconv.Atoi(fromStr)
-		if err != nil || from < 0 {
-			respondWithJSONError(w, "Error, 'from_version' argument must be non-negative integer.", http.StatusBadRequest)
+		if err != nil || from < -1 {
+			respondWithJSONError(w, "Error, 'from_version' argument must be an integer great or equal to -1.", http.StatusBadRequest)
 			logger.WithError(err).
 				WithField("from_version", args.Get("from_version")).
 				Warning("'from_version' must be non-negative integer")
