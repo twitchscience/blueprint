@@ -25,7 +25,7 @@ func TestMigrationNegativeFrom(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?from_version=-4&to_version=4", nil)
@@ -501,7 +501,7 @@ func TestSchemaNegativeVersion(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 	handler := web.HandlerFunc(s.schema)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/schema/empty-table?version=-4", nil)
