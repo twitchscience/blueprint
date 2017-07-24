@@ -53,7 +53,7 @@ func TestMigrationNegativeTo(t *testing.T) {
 }
 
 func TestAllSchemasCache(t *testing.T) {
-	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{})
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
 
 	configFile := createJSONFile(t, "testCache")
@@ -515,7 +515,7 @@ func TestSchemaNegativeVersion(t *testing.T) {
 func TestSchemaMaintenanceGet(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
 		"in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
-	})
+	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
 	configFile := createJSONFile(t, "testSchemaMaintenanceGet")
 	defer deleteJSONFile(t, configFile)
@@ -537,7 +537,7 @@ func TestSchemaMaintenanceGet(t *testing.T) {
 func TestSchemaMaintenanceSet(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
 		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
-	})
+	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
 	configFile := createJSONFile(t, "testSchemaMaintenanceSet")
 	defer deleteJSONFile(t, configFile)
@@ -565,7 +565,7 @@ func TestSchemaMaintenanceSet(t *testing.T) {
 func TestUpdateDuringSchemaMaintenance(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
 		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
-	})
+	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
 	configFile := createJSONFile(t, "TestUpdateDuringSchemaMaintenance")
 	defer deleteJSONFile(t, configFile)
@@ -585,7 +585,7 @@ func TestUpdateDuringSchemaMaintenance(t *testing.T) {
 }
 
 func TestUpdateDuringGlobalMaintenance(t *testing.T) {
-	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{})
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	err := bpdbBackend.SetMaintenanceMode(true, "test", "because I'm an automated test.")
 	assert.NoError(t, err)
 	schemaBackend := test.NewMockBpSchemaBackend()
@@ -605,6 +605,60 @@ func TestUpdateDuringGlobalMaintenance(t *testing.T) {
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("TestUpdateDuringGlobalMaintenance returned status code %v, want %v", res.StatusCode, http.StatusServiceUnavailable)
 	}
+}
+
+// Tests getting the ValidTransform types
+// Expected result is a 200 OK response
+func TestGetValidTransformTypes(t *testing.T) {
+	configFile := createJSONFile(t, "TestGetValidTransformTypes")
+
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/types", nil)
+
+	s.types(recorder, req)
+	expectedBody := "{\"result\":[\"bigint\",\"bool\",\"float\",\"int\",\"ipAsn\",\"ipAsnInteger\",\"ipCity\",\"ipCountry\"," +
+		"\"ipRegion\",\"varchar\",\"f@timestamp@unix\",\"f@timestamp@unix-utc\",\"userIDWithMapping\"]}"
+	assertRequestOK(t, "TestGetValidTransformTypes", recorder, expectedBody)
+}
+
+// Tests getting the DailyChanges and ActiveUsers
+// Expected result is a 200 OK response
+func TestGetStats(t *testing.T) {
+	activeUsers := []*bpdb.ActiveUser{
+		&bpdb.ActiveUser{
+			UserName: "legacy",
+			Changes:  2,
+		},
+		&bpdb.ActiveUser{
+			UserName: "unknown",
+			Changes:  3,
+		},
+	}
+	dailyChanges := []*bpdb.DailyChange{
+		&bpdb.DailyChange{
+			Day:     "2017-07-18T00:00:00Z",
+			Changes: 6,
+			Users:   3,
+		},
+	}
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, activeUsers, dailyChanges)
+	configFile := createJSONFile(t, "TestGetStats")
+
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", bpdbBackend, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/stats", nil)
+
+	s.stats(recorder, req)
+	expectedBody := "{\"DailyChanges\":[{\"Day\":\"2017-07-18T00:00:00Z\",\"Changes\":6,\"Users\":3}]," +
+		"\"ActiveUsers\":[{\"UserName\":\"legacy\",\"Changes\":2},{\"UserName\":\"unknown\",\"Changes\":3}]}"
+	assertRequestOK(t, "TestGetStats", recorder, expectedBody)
 }
 
 // GetTestHandler returns a http.HandlerFunc for testing http middleware
