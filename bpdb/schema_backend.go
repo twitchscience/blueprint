@@ -21,17 +21,25 @@ FROM operation
 WHERE event = $1
 ORDER BY version ASC, ordering ASC
 `
+	schemaQueryWithVersion = `
+SELECT event, action, name, version, ordering, action_metadata, ts, user_name
+FROM operation
+WHERE event = $1
+AND version <= $2
+ORDER BY version ASC, ordering ASC
+`
 	allSchemasQuery = `
 SELECT event, action, name,  version, ordering, action_metadata, ts, user_name
 FROM operation
 ORDER BY version ASC, ordering ASC
 `
 	migrationQuery = `
-SELECT action, name, action_metadata
+SELECT action, name, action_metadata, version, ordering
 FROM operation
-WHERE version = $1
-AND event = $2
-ORDER BY ordering ASC
+WHERE version > $1
+AND version <= $2
+AND event = $3
+ORDER BY version ASC, ordering ASC
 `
 	insertOperationsQuery = `INSERT INTO operation
 (event, action, name, version, ordering, action_metadata, user_name)
@@ -67,8 +75,8 @@ func NewSchemaBackend(db *sql.DB) (BpSchemaBackend, error) {
 }
 
 // Migration returns the operations necessary to migration `table` from version `to -1` to version `to`
-func (s *schemaBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
-	rows, err := s.db.Query(migrationQuery, to, table)
+func (s *schemaBackend) Migration(table string, from int, to int) ([]*scoop_protocol.Operation, error) {
+	rows, err := s.db.Query(migrationQuery, from, to, table)
 	if err != nil {
 		return nil, fmt.Errorf("querying for migration (%s) to v%v: %v", table, to, err)
 	}
@@ -83,7 +91,7 @@ func (s *schemaBackend) Migration(table string, to int) ([]*scoop_protocol.Opera
 		var op scoop_protocol.Operation
 		var b []byte
 		var s string
-		err := rows.Scan(&s, &op.Name, &b)
+		err := rows.Scan(&s, &op.Name, &b, &op.Version, &op.Ordering)
 		if err != nil {
 			return nil, fmt.Errorf("parsing row into Operation: %v", err)
 		}
@@ -164,7 +172,7 @@ func (s *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *c
 // the operations for this migration to the schema as operations in bpdb. It
 // applies the operations in order of delete, add, then renames.
 func (s *schemaBackend) UpdateSchema(req *core.ClientUpdateSchemaRequest, user string) *core.WebError {
-	schema, err := s.Schema(req.EventName)
+	schema, err := s.Schema(req.EventName, nil)
 	if err != nil {
 		return core.NewServerWebErrorf("error getting schema to validate schema update: %v", err)
 	}
@@ -213,7 +221,7 @@ func (s *schemaBackend) DropSchema(schema *AnnotatedSchema, reason string, exist
 
 // SchemaExists checks if a schema name exists in blueprint already
 func (s *schemaBackend) SchemaExists(eventName string) (bool, error) {
-	schema, err := s.Schema(eventName)
+	schema, err := s.Schema(eventName, nil)
 	if err != nil {
 		return false, fmt.Errorf("querying existence of schema  %s: %v", eventName, err)
 	}
@@ -245,9 +253,17 @@ func scanOperationRows(rows *sql.Rows) ([]operationRow, error) {
 	return ops, nil
 }
 
-// Schema returns the current schema for the table `name`
-func (s *schemaBackend) Schema(name string) (*AnnotatedSchema, error) {
-	rows, err := s.db.Query(schemaQuery, name)
+// Schema returns the schema for the table `name`
+// The version parameter can be used to request the specific version of the schema (0 to the current version)
+// If nil is the argument given for version, then Schema() returns the current version of the schema
+func (s *schemaBackend) Schema(name string, version *int) (*AnnotatedSchema, error) {
+	var rows *sql.Rows
+	var err error
+	if version == nil {
+		rows, err = s.db.Query(schemaQuery, name)
+	} else {
+		rows, err = s.db.Query(schemaQueryWithVersion, name, *version)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("querying for schema %s: %v", name, err)
 	}

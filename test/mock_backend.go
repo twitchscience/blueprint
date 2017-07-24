@@ -70,7 +70,7 @@ func (m *MockBpSchemaBackend) AllSchemas() ([]bpdb.AnnotatedSchema, error) {
 }
 
 // Schema returns nils except when the event name is "this-table-exists" or "this-event-exists"
-func (m *MockBpSchemaBackend) Schema(name string) (*bpdb.AnnotatedSchema, error) {
+func (m *MockBpSchemaBackend) Schema(name string, version *int) (*bpdb.AnnotatedSchema, error) {
 	if name == "this-table-exists" || name == "this-event-exists" {
 		return &bpdb.AnnotatedSchema{}, nil
 	}
@@ -88,7 +88,7 @@ func (m *MockBpSchemaBackend) CreateSchema(schema *scoop_protocol.Config, user s
 }
 
 // Migration returns nils.
-func (m *MockBpSchemaBackend) Migration(table string, to int) ([]*scoop_protocol.Operation, error) {
+func (m *MockBpSchemaBackend) Migration(table string, from int, to int) ([]*scoop_protocol.Operation, error) {
 	return nil, nil
 }
 

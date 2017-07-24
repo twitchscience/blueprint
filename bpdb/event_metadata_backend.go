@@ -97,7 +97,7 @@ func getNextEventMetadataVersion(tx *sql.Tx, eventName string, metadataType scoo
 }
 
 func (p *eventMetadataBackend) UpdateEventMetadata(req *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {
-	schema, err := p.bpSchemaBackend.Schema(req.EventName)
+	schema, err := p.bpSchemaBackend.Schema(req.EventName, nil)
 	if err != nil {
 		return core.NewServerWebErrorf("error getting schema to validate event metadata update: %v", err)
 	}

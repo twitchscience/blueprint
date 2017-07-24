@@ -285,7 +285,7 @@ func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		return // error written by maintenanceModeGuard
 	}
 
-	schema, err := s.bpSchemaBackend.Schema(req.EventName)
+	schema, err := s.bpSchemaBackend.Schema(req.EventName, nil)
 	if err != nil {
 		core.NewServerWebError(err).ReportError(w, "retrieving schema")
 		return
@@ -343,9 +343,26 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) schema(c web.C, w http.ResponseWriter, r *http.Request) {
-	schema, err := s.bpSchemaBackend.Schema(c.URLParams["id"])
+	var schema *bpdb.AnnotatedSchema
+	var err error
+	var version int
+	event := c.URLParams["id"]
+	versionStr := r.URL.Query().Get("version")
+	if versionStr == "" {
+		schema, err = s.bpSchemaBackend.Schema(event, nil)
+	} else {
+		version, err = strconv.Atoi(versionStr)
+		if err != nil || version < 0 {
+			respondWithJSONError(w, "Error, 'version' argument must be non-negative integer.", http.StatusBadRequest)
+			logger.WithError(err).
+				WithField("version", versionStr).
+				Warning("'version' must be non-negative integer")
+			return
+		}
+		schema, err = s.bpSchemaBackend.Schema(event, &version)
+	}
 	if err != nil {
-		logger.WithError(err).WithField("schema", c.URLParams["id"]).Error("Error retrieving schema")
+		logger.WithError(err).WithField("schema", event).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -370,9 +387,8 @@ func respondWithJSONBool(w http.ResponseWriter, key string, result bool) {
 	}
 }
 
-// TODO: Update goji to goji/goji so handlers with URLParams are testable.
 func (s *server) droppableSchema(c web.C, w http.ResponseWriter, r *http.Request) {
-	schema, err := s.bpSchemaBackend.Schema(c.URLParams["id"])
+	schema, err := s.bpSchemaBackend.Schema(c.URLParams["id"], nil)
 	if err != nil {
 		logger.WithError(err).WithField("schema", c.URLParams["id"]).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -435,7 +451,7 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	schema, err := s.bpSchemaBackend.Schema(eventName)
+	schema, err := s.bpSchemaBackend.Schema(eventName, nil)
 	if err != nil {
 		logger.WithError(err).WithField("schema", eventName).Error("Error retrieving schema")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -488,6 +504,7 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 }
 
 func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
+	var from int
 	args := r.URL.Query()
 	to, err := strconv.Atoi(args.Get("to_version"))
 	if err != nil || to < 0 {
@@ -497,8 +514,22 @@ func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
 			Warning("'to_version' must be non-negative integer")
 		return
 	}
+	fromStr := args.Get("from_version")
+	if fromStr == "" {
+		from = to - 1
+	} else {
+		from, err = strconv.Atoi(fromStr)
+		if err != nil || from < 0 {
+			respondWithJSONError(w, "Error, 'from_version' argument must be non-negative integer.", http.StatusBadRequest)
+			logger.WithError(err).
+				WithField("from_version", args.Get("from_version")).
+				Warning("'from_version' must be non-negative integer")
+			return
+		}
+	}
 	operations, err := s.bpSchemaBackend.Migration(
 		c.URLParams["schema"],
+		from,
 		to,
 	)
 	if err != nil {
