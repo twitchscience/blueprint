@@ -1,0 +1,6 @@
+{
+  "load": [
+    "arcanist"
+  ],
+  "unit.engine": "AngularTestEngine"
+}
