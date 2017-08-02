@@ -54,7 +54,6 @@ var (
 	authCallbackURL    = "/github_oauth_cb"
 	slackbotDeletePath = "/request-table-delete"
 	enableAuth         bool
-	readonly           bool
 	cookieSecret       string
 	clientID           string
 	clientSecret       string

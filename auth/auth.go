@@ -106,7 +106,6 @@ type authNetworkManager interface {
 // githubAuthNetworkManager gives the intended interpretation of the calls in
 // authNetworkManager.
 type githubAuthNetworkManager struct {
-	authNetworkManager
 	GithubServer string
 	OauthConfig  *oauth2.Config
 }
@@ -287,12 +286,4 @@ func (a *GithubAuth) User(r *http.Request) *User {
 		IsMemberOfOrg: isMember,
 		IsAdmin:       isAdmin,
 	}
-}
-
-func (a *GithubAuth) requireUser(w http.ResponseWriter, r *http.Request) *User {
-	user := a.User(r)
-	if user == nil {
-		http.Redirect(w, r, a.LoginURL+"?redirect_to="+r.RequestURI, http.StatusFound)
-	}
-	return user
 }
