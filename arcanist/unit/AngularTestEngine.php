@@ -9,7 +9,8 @@
  */
 final class AngularTestEngine extends ArcanistUnitTestEngine {
   public function run() {
-    $future = new ExecFuture('./run_angular_tests.sh');
+    $command = $this->getWorkingCopy()->getProjectRoot().'/run_angular_tests.sh';
+    $future = new ExecFuture($command);
     do {
       list($stdout, $stderr) = $future->read();
       echo $stdout;

@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e -u -o pipefail
-cd static
+
+cd -- "$(dirname -- "$0")/static"
 npm install
 npm run test-single-run
