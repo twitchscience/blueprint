@@ -77,7 +77,7 @@ type Bpdb interface {
 	SetMaintenanceMode(switchingOn bool, user, reason string) error
 	ActiveUsersLast30Days() ([]*ActiveUser, error)
 	DailyChangesLast30Days() ([]*DailyChange, error)
-	GetSchemaMaintenanceMode(string) MaintenanceMode
+	GetSchemaMaintenanceMode(string) (MaintenanceMode, error)
 	SetSchemaMaintenanceMode(schema string, switchingOn bool, user, reason string) error
 }
 

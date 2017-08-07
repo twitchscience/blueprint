@@ -122,7 +122,14 @@ func (s *server) maintenanceHandler(h http.Handler) http.Handler {
 // maintenanceModeGuard writes a 503 error if the given schema is in maintenance mode
 // and returns true, otherwise just returns false
 func (s *server) maintenanceModeGuard(schema string, w http.ResponseWriter) bool {
-	mm := s.bpdbBackend.GetSchemaMaintenanceMode(schema)
+	mm, err := s.bpdbBackend.GetSchemaMaintenanceMode(schema)
+	if err != nil {
+		logger.WithField("schema", schema).WithField("error", err).Error("Could not check schema maintenance mode")
+		respondWithJSONError(
+			w,
+			fmt.Sprintf("Could not check maintenance mode for schema %s", schema),
+			http.StatusInternalServerError)
+	}
 	if mm.IsInMaintenanceMode {
 		respondWithJSONError(
 			w,
@@ -656,8 +663,14 @@ func (s *server) removeSuggestion(c web.C, w http.ResponseWriter, r *http.Reques
 func (s *server) getMaintenanceMode(c web.C, w http.ResponseWriter, r *http.Request) {
 	eventName, present := c.URLParams["schema"]
 	var mm bpdb.MaintenanceMode
+	var err error
 	if present {
-		mm = s.bpdbBackend.GetSchemaMaintenanceMode(eventName)
+		mm, err = s.bpdbBackend.GetSchemaMaintenanceMode(eventName)
+		if err != nil {
+			logger.WithField("schema", eventName).WithField("error", err).Error("Could not get schema maintenance mode")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		logger.WithField("schema", eventName).WithField("is_maintenance", mm.IsInMaintenanceMode).Info("Serving get schema maintenance mode request")
 	} else {
 		mm = s.bpdbBackend.GetMaintenanceMode()
