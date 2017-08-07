@@ -123,6 +123,9 @@ var filterFuncs = map[string]func(map[string]string) bool{
 	"isLiveClipContent": func(fields map[string]string) bool {
 		return fields["source_content_type"] == "live"
 	},
+	"isTwilightApp": func(fields map[string]string) bool {
+		return fields["client_app"] == "twilight"
+	},
 }
 
 // BatcherConfig is used to configure a batcher instance
