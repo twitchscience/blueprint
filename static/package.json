@@ -15,13 +15,12 @@
     "karma-chrome-launcher": "~2.2.0",
     "karma-firefox-launcher": "~1.0.0",
     "karma-jasmine": "~1.1.0",
-    "karma-junit-reporter": "~1.2.0"
+    "karma-junit-reporter": "~1.2.0",
+    "karma-phantomjs-launcher": "~1.0.4"
   },
   "scripts": {
-    "postinstall": "bower install",
-
-    "pretest": "npm install",
-    "test": "karma start karma.conf.js",
-    "test-single-run": "karma start karma.conf.js --single-run"
+    "postinstall": "bower --allow-root install",
+    "test-single-run": "karma start karma.conf.js --single-run",
+    "test-single-headless": "karma start karma.conf.js --single-run --browsers PhantomJS"
   }
 }

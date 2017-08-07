@@ -68,12 +68,22 @@
     {
       "type": "shell",
       "inline": [
+        "echo -- [ blueprint configuration ] --",
         "sudo chmod +x /tmp/{{user `project`}}/bin/*",
         "sudo mkdir /opt/science && sudo mv /tmp/{{user `project`}} /opt/science/",
         "sudo mv /opt/science/{{user `project`}}/config/schema_suggestor.conf /etc/init/",
         "sudo mv /opt/science/{{user `project`}}/config/blueprint.conf /etc/init/",
         "sudo mv /opt/science/{{user `project`}}/config/blueprint_readonly.conf /etc/init/",
 
+        "echo -- [ installing web dependencies ] --",
+        "sudo run_apt_get_install.sh libfontconfig",
+        "cd /opt/science/{{user `project`}}/data/",
+        "sudo npm install --unsafe-perm",
+
+        "echo -- [ running angular tests ] --",
+        "sudo npm run test-single-headless",
+
+        "echo -- [ configuring nginx ] --",
         "sudo run_apt_get_install.sh nginx",
         "sudo rm /etc/nginx/sites-*/default",
         "sudo ln -s /opt/science/{{user `project`}}/config/nginx.conf /etc/nginx/sites-enabled/{{user `project`}}",
