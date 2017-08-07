@@ -177,12 +177,12 @@ func (m *MockBpdb) DailyChangesLast30Days() ([]*bpdb.DailyChange, error) {
 }
 
 // GetSchemaMaintenanceMode returns false, ""
-func (m *MockBpdb) GetSchemaMaintenanceMode(schema string) bpdb.MaintenanceMode {
+func (m *MockBpdb) GetSchemaMaintenanceMode(schema string) (bpdb.MaintenanceMode, error) {
 	mm, e := m.maintenanceModes[schema]
 	if !e {
-		return bpdb.MaintenanceMode{IsInMaintenanceMode: false, User: ""}
+		return bpdb.MaintenanceMode{IsInMaintenanceMode: false, User: ""}, nil
 	}
-	return mm
+	return mm, nil
 }
 
 // SetSchemaMaintenanceMode returns nil
