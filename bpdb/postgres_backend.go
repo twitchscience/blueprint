@@ -3,6 +3,7 @@ package bpdb
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"sync"
 
@@ -37,13 +38,16 @@ FROM changes
 WHERE ts > (CURRENT_DATE - 30)
 GROUP BY user_name
 ORDER BY event_changes DESC`
+
+	maintenanceCacheTimeout = 10 * time.Minute
 )
 
 type postgresBackend struct {
-	db                    *sql.DB
-	globalMaintenanceMode MaintenanceMode
-	maintenanceMutex      *sync.RWMutex
-	schemaMaintenanceMode map[string]MaintenanceMode
+	db                          *sql.DB
+	globalMaintenanceMode       MaintenanceMode
+	maintenanceMutex            *sync.RWMutex
+	schemaMaintenanceMode       map[string]MaintenanceMode
+	schemaMaintenanceLastPulled time.Time
 }
 
 // NewPostgresBackend creates a postgres bpdb backend to interface with
@@ -91,15 +95,21 @@ func (p *postgresBackend) readSchemaMaintenanceModes() error {
 		}
 		p.schemaMaintenanceMode[mode.schema] = MaintenanceMode{IsInMaintenanceMode: mode.inMaintenanceMode, User: mode.user}
 	}
+	p.schemaMaintenanceLastPulled = time.Now()
 	return nil
 }
 
 // GetSchemaMaintenanceMode returns true and the user that triggered it if the schema is in
 // maintenance mode, else false and an empty string
-func (p *postgresBackend) GetSchemaMaintenanceMode(schema string) MaintenanceMode {
+func (p *postgresBackend) GetSchemaMaintenanceMode(schema string) (MaintenanceMode, error) {
+	if time.Since(p.schemaMaintenanceLastPulled) > maintenanceCacheTimeout {
+		if err := p.readSchemaMaintenanceModes(); err != nil {
+			return MaintenanceMode{}, fmt.Errorf("querying maintenance status: %v", err)
+		}
+	}
 	p.maintenanceMutex.RLock()
 	defer p.maintenanceMutex.RUnlock()
-	return p.schemaMaintenanceMode[schema]
+	return p.schemaMaintenanceMode[schema], nil
 }
 
 // SetSchemaMaintenanceMode sets the maintenance mode for the given schema
