@@ -102,13 +102,13 @@ func (p *postgresBackend) readSchemaMaintenanceModes() error {
 // GetSchemaMaintenanceMode returns true and the user that triggered it if the schema is in
 // maintenance mode, else false and an empty string
 func (p *postgresBackend) GetSchemaMaintenanceMode(schema string) (MaintenanceMode, error) {
-	p.maintenanceMutex.RLock()
-	defer p.maintenanceMutex.RUnlock()
 	if time.Since(p.schemaMaintenanceLastPulled) > maintenanceCacheTimeout {
 		if err := p.readSchemaMaintenanceModes(); err != nil {
 			return MaintenanceMode{}, fmt.Errorf("querying maintenance status: %v", err)
 		}
 	}
+	p.maintenanceMutex.RLock()
+	defer p.maintenanceMutex.RUnlock()
 	return p.schemaMaintenanceMode[schema], nil
 }
 
