@@ -105,7 +105,7 @@ func (p *postgresBackend) GetSchemaMaintenanceMode(schema string) (MaintenanceMo
 	p.maintenanceMutex.RLock()
 	defer p.maintenanceMutex.RUnlock()
 	if time.Since(p.schemaMaintenanceLastPulled) > maintenanceCacheTimeout {
-		if err := p.readMaintenanceMode(); err != nil {
+		if err := p.readSchemaMaintenanceModes(); err != nil {
 			return MaintenanceMode{}, fmt.Errorf("querying maintenance status: %v", err)
 		}
 	}
