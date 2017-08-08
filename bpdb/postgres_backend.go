@@ -39,7 +39,7 @@ WHERE ts > (CURRENT_DATE - 30)
 GROUP BY user_name
 ORDER BY event_changes DESC`
 
-	maintenanceCacheTimeout = time.Duration(15 * time.Second) // time.Duration(10 * time.Minute)
+	maintenanceCacheTimeout = 15 * time.Second // time.Duration(time.Minute)
 )
 
 type postgresBackend struct {
