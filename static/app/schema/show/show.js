@@ -22,7 +22,8 @@ angular.module('blueprint.schema.show', [
     $scope.eventMetadata = {
       "edge_type": {"metadataType": "edge_type", "editable": false, "value": "", "savedValue": ""},
       "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": "",
-                  "previewMode": false, "displayedValue": "", "previewValue": "", "collapsed": true}
+                  "previewMode": false, "displayedValue": "", "previewValue": "", "collapsed": true},
+      "tahoe_only": {"metadataType": "tahoe_only", "editable": false, "value": "false", "savedValue": "false"}
     };
     $scope.toggleSchemaMaintenanceMode = function() {
       if (!$scope.toggleSchemaMaintenanceModeReason) {

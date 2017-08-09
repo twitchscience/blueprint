@@ -127,6 +127,28 @@
       </div>
     </div>
   </div>
+  <div class="form-group" style="margin-left: 10px; padding-right: 10px; width: 100%">
+    <div ng-if="!eventMetadata.tahoe_only.editable" style="display: inline-block; width: 20%">
+      <strong style="margin-right: 10px;">Load Into Tahoe Only</strong>
+    </div>
+    <div ng-if="eventMetadata.tahoe_only.editable" style="display: inline-block; width: 20%; vertical-align: middle; margin-top:2px">
+      <strong style="margin-right: 10px;">Load Into Tahoe Only</strong>
+    </div>
+    <div ng-if="!eventMetadata.tahoe_only.editable" style="margin-top: 7px; margin-bottom: 7px; display: inline-block">
+      {{eventMetadata.tahoe_only.value == "true" ? "Yes" : "No"}}
+    </div>
+    <div style="display:inline-block; float: right">
+      <button class="btn btn-primary" ng-if="globalIsEditable && !eventMetadata.tahoe_only.editable" ng-click="editEventMetadata(eventMetadata.tahoe_only.metadataType)">Edit</button>
+    </div>
+    <div class="input-group-btn" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.tahoe_only.editable" style="display: inline">
+      <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.tahoe_only.value" ng-disabled="!eventMetadata.tahoe_only.editable" value="true">Yes</label>
+      <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="radio" name="edgeTypeRadio" ng-model="eventMetadata.tahoe_only.value" ng-disabled="!eventMetadata.tahoe_only.editable" value="false">No</label>
+      <div class="input-group" style="float: right">
+        <button class="btn btn-success" ng-if="schemaIsEditable && globalIsEditable &&eventMetadata.tahoe_only.editable" ng-click="updateEventMetadata(eventMetadata.tahoe_only.metadataType)" style="margin-right: 15px">Update</button>
+        <button class="btn btn-danger" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.tahoe_only.editable" ng-click="cancelEditEventMetadata(eventMetadata.tahoe_only.metadataType)">Cancel</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 

@@ -128,6 +128,8 @@ func validateEventMetadataUpdate(metadataType scoop_protocol.EventMetadataType, 
 		return invalidValueError
 	case scoop_protocol.COMMENT:
 		return nil
+	case scoop_protocol.TAHOE_ONLY:
+		return nil
 	default:
 		return notImplementedError
 	}
