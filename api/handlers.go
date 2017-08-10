@@ -256,6 +256,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	if webErr != nil {
 		webErr.ReportError(w, "Error creating schema")
 	}
+	s.goCache.Delete(allSchemasCache)
 	_, err := s.getAndPublishSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
@@ -272,8 +273,6 @@ func (s *server) createSchemaHelper(username string, body io.ReadCloser) *core.W
 	if s.isBlacklisted(cfg.EventName) {
 		return core.NewUserWebErrorf("%s is blacklisted", cfg.EventName)
 	}
-
-	defer s.goCache.Delete(allSchemasCache)
 	return s.bpSchemaBackend.CreateSchema(&cfg, username)
 }
 
@@ -299,6 +298,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating schema")
 	}
+	s.goCache.Delete(allSchemasCache)
 	_, err := s.getAndPublishSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
@@ -312,8 +312,6 @@ func (s *server) updateSchemaHelper(eventName string, username string, body io.R
 		return core.NewServerWebError(err)
 	}
 	req.EventName = eventName
-
-	defer s.goCache.Delete(allSchemasCache)
 	return s.bpSchemaBackend.UpdateSchema(&req, username)
 }
 
