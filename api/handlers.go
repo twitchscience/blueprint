@@ -221,18 +221,45 @@ func publishToS3(svc s3manageriface.UploaderAPI, configs interface{}, bucket str
 	}
 }
 
+func (s *server) getAndPublishSchemas() ([]bpdb.AnnotatedSchema, error) {
+	schemas, err := s.bpSchemaBackend.AllSchemas()
+	if err != nil {
+		return nil, err
+	}
+	s.goCache.Set(allSchemasCache, schemas, s.cacheTimeout)
+	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key, s.s3BpConfigsPrefix)
+	return schemas, nil
+}
+
+func (s *server) getAndPublishEventMetadata() (*bpdb.AllEventMetadata, error) {
+	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
+	if err != nil {
+		return nil, err
+	}
+	metadata := allMetadata.Metadata
+	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
+	publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key, s.s3BpConfigsPrefix)
+	return allMetadata, nil
+}
+
+func (s *server) getAndPublishKinesisConfigs() ([]scoop_protocol.AnnotatedKinesisConfig, error) {
+	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
+	if err != nil {
+		return nil, err
+	}
+	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key, s.s3BpConfigsPrefix)
+	return schemas, nil
+}
+
 func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	webErr := s.createSchemaHelper(c.Env["username"].(string), r.Body)
 	if webErr != nil {
 		webErr.ReportError(w, "Error creating schema")
 	}
-	schemas, err := s.bpSchemaBackend.AllSchemas()
+	_, err := s.getAndPublishSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key, s.s3BpConfigsPrefix)
 }
 
 func (s *server) createSchemaHelper(username string, body io.ReadCloser) *core.WebError {
@@ -272,13 +299,10 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating schema")
 	}
-	schemas, err := s.bpSchemaBackend.AllSchemas()
+	_, err := s.getAndPublishSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key, s.s3BpConfigsPrefix)
 }
 
 func (s *server) updateSchemaHelper(eventName string, username string, body io.ReadCloser) *core.WebError {
@@ -342,13 +366,10 @@ func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		core.NewServerWebError(err).ReportError(w, "dropping schema in operation table")
 		return
 	}
-	schemas, err := s.bpSchemaBackend.AllSchemas()
+	_, err = s.getAndPublishSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key, s.s3BpConfigsPrefix)
 }
 
 func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
@@ -358,14 +379,12 @@ func (s *server) allSchemas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	schemas, err := s.bpSchemaBackend.AllSchemas()
+	schemas, err := s.getAndPublishSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.goCache.Set(allSchemasCache, schemas, s.cacheTimeout)
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, schemaConfigS3Key, s.s3BpConfigsPrefix)
 	writeStructToResponse(w, schemas)
 }
 
@@ -450,16 +469,13 @@ func (s *server) allEventMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
+	allMetadata, err := s.getAndPublishEventMetadata()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	metadata := allMetadata.Metadata
-	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
-	publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key, s.s3BpConfigsPrefix)
 	writeStructToResponse(w, metadata)
 }
 
@@ -489,7 +505,7 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
+	allMetadata, err := s.getAndPublishEventMetadata()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -497,8 +513,6 @@ func (s *server) eventMetadata(c web.C, w http.ResponseWriter, r *http.Request) 
 	}
 
 	metadata := allMetadata.Metadata
-	s.goCache.Set(allMetadataCache, metadata, s.cacheTimeout)
-	publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key, s.s3BpConfigsPrefix)
 	if eventMetadata, exists := metadata[eventName]; exists {
 		ret.Metadata = eventMetadata
 	} else {
@@ -523,21 +537,17 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	defer s.goCache.Delete(allMetadataCache)
+	s.goCache.Delete(allMetadataCache)
 	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating event metadata")
 	}
-
-	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
+	_, err = s.getAndPublishEventMetadata()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	metadata := allMetadata.Metadata
-	publishToS3(s.s3Uploader, metadata, s.s3BpConfigsBucketName, eventMetadataConfigS3Key, s.s3BpConfigsPrefix)
 }
 
 func (s *server) migration(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -789,12 +799,11 @@ func (s *server) statsHelper(w io.Writer) error {
 }
 
 func (s *server) allKinesisConfigs(w http.ResponseWriter, r *http.Request) {
-	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
+	schemas, err := s.getAndPublishKinesisConfigs()
 	if err != nil {
 		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
 		return
 	}
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key, s.s3BpConfigsPrefix)
 	writeStructToResponse(w, schemas)
 }
 
@@ -838,12 +847,10 @@ func (s *server) updateKinesisConfig(c web.C, w http.ResponseWriter, r *http.Req
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating Kinesis config")
 	}
-	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
+	_, err = s.getAndPublishKinesisConfigs()
 	if err != nil {
-		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
-		return
+		logger.WithError(err).Error("Failed to retrieve all Kinesis configs")
 	}
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key, s.s3BpConfigsPrefix)
 }
 
 func (s *server) updateKinesisConfigHelper(account int64, streamType string, streamName string, username string, body io.ReadCloser) *core.WebError {
@@ -863,12 +870,10 @@ func (s *server) createKinesisConfig(c web.C, w http.ResponseWriter, r *http.Req
 	if webErr != nil {
 		webErr.ReportError(w, "Error creating Kinesis config")
 	}
-	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
+	_, err := s.getAndPublishKinesisConfigs()
 	if err != nil {
-		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
-		return
+		logger.WithError(err).Error("Failed to retrieve all Kinesis configs")
 	}
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key, s.s3BpConfigsPrefix)
 }
 
 func (s *server) createKinesisConfigHelper(username string, body io.ReadCloser) *core.WebError {
@@ -885,12 +890,10 @@ func (s *server) dropKinesisConfig(c web.C, w http.ResponseWriter, r *http.Reque
 	if webErr != nil {
 		webErr.ReportError(w, "Error dropping schema")
 	}
-	schemas, err := s.bpKinesisConfigBackend.AllKinesisConfigs()
+	_, err := s.getAndPublishKinesisConfigs()
 	if err != nil {
-		reportKinesisConfigServerError(w, err, "Failed to retrieve all Kinesis configs")
-		return
+		logger.WithError(err).Error("Failed to retrieve all Kinesis configs")
 	}
-	publishToS3(s.s3Uploader, schemas, s.s3BpConfigsBucketName, kinesisConfigS3Key, s.s3BpConfigsPrefix)
 }
 
 func (s *server) dropKinesisConfigHelper(username string, body io.ReadCloser) *core.WebError {

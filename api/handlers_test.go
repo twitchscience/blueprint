@@ -76,8 +76,8 @@ func TestAllSchemasCache(t *testing.T) {
 	updateSchema(t, s, c, schemaBackend)
 	repeatAllSchema(t, s, schemaBackend)
 
-	if schemaBackend.GetAllSchemasCalls() != 6 {
-		t.Errorf("AllSchemas() called %v times, expected 6", schemaBackend.GetAllSchemasCalls())
+	if schemaBackend.GetAllSchemasCalls() != 4 {
+		t.Errorf("AllSchemas() called %v times, expected 4", schemaBackend.GetAllSchemasCalls())
 	}
 }
 
@@ -105,9 +105,6 @@ func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	createRecorder := httptest.NewRecorder()
 	s.createSchema(c, createRecorder, createReq)
 	assertRequestOK(t, "createSchema", createRecorder, "")
-	if getCachedSchemaResult(s) != nil {
-		t.Error("Failed to invalidate cache")
-	}
 	printTotalAllSchemasCalls(t, backend)
 }
 
@@ -139,9 +136,6 @@ func updateSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	updateRecorder := httptest.NewRecorder()
 	s.updateSchema(c, updateRecorder, updateReq)
 	assertRequestOK(t, "updateSchema", updateRecorder, "")
-	if getCachedSchemaResult(s) != nil {
-		t.Error("Failed to invalidate cache")
-	}
 	printTotalAllSchemasCalls(t, backend)
 }
 
@@ -259,9 +253,6 @@ func updateEventMetadata(t *testing.T, s *server, c web.C, backend *test.MockBpE
 	updateRecorder := httptest.NewRecorder()
 	s.updateEventMetadata(c, updateRecorder, updateReq)
 	assertRequestOK(t, "updateEventMetadata", updateRecorder, "")
-	if len(getCachedAllEventMetadataResult(s)) > 0 {
-		t.Error("Failed to invalidate cache")
-	}
 	printTotalEventMetadataCalls(t, backend)
 }
 
@@ -318,8 +309,8 @@ func TestAllEventMetadataCache(t *testing.T) {
 	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
 	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
 
-	if eventMetadataBackend.GetAllEventMetadataCalls() != 7 {
-		t.Errorf("EventMetadata() called %v times, expected 7", eventMetadataBackend.GetAllEventMetadataCalls())
+	if eventMetadataBackend.GetAllEventMetadataCalls() != 4 {
+		t.Errorf("EventMetadata() called %v times, expected 4", eventMetadataBackend.GetAllEventMetadataCalls())
 	}
 }
 
