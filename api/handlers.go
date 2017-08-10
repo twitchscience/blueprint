@@ -545,8 +545,6 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 	_, err = s.getAndPublishEventMetadata()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 }
 
