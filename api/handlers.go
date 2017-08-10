@@ -360,12 +360,12 @@ func (s *server) dropSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	defer s.goCache.Delete(allSchemasCache)
 	err = s.bpSchemaBackend.DropSchema(schema, req.Reason, exists, username)
 	if err != nil {
 		core.NewServerWebError(err).ReportError(w, "dropping schema in operation table")
 		return
 	}
+	s.goCache.Delete(allSchemasCache)
 	_, err = s.getAndPublishSchemas()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all schemas")
@@ -537,11 +537,11 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	s.goCache.Delete(allMetadataCache)
 	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating event metadata")
 	}
+	s.goCache.Delete(allMetadataCache)
 	_, err = s.getAndPublishEventMetadata()
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve all metadata")
