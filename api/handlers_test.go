@@ -61,6 +61,7 @@ func TestAllSchemasCache(t *testing.T) {
 	writeConfig(t, configFile)
 
 	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}
@@ -75,8 +76,8 @@ func TestAllSchemasCache(t *testing.T) {
 	updateSchema(t, s, c, schemaBackend)
 	repeatAllSchema(t, s, schemaBackend)
 
-	if schemaBackend.GetAllSchemasCalls() != 3 {
-		t.Errorf("AllSchemas() called %v times, expected 3", schemaBackend.GetAllSchemasCalls())
+	if schemaBackend.GetAllSchemasCalls() != 6 {
+		t.Errorf("AllSchemas() called %v times, expected 6", schemaBackend.GetAllSchemasCalls())
 	}
 }
 
@@ -294,6 +295,7 @@ func TestAllEventMetadataCache(t *testing.T) {
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
@@ -316,8 +318,8 @@ func TestAllEventMetadataCache(t *testing.T) {
 	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
 	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
 
-	if eventMetadataBackend.GetAllEventMetadataCalls() != 4 {
-		t.Errorf("EventMetadata() called %v times, expected 4", eventMetadataBackend.GetAllEventMetadataCalls())
+	if eventMetadataBackend.GetAllEventMetadataCalls() != 7 {
+		t.Errorf("EventMetadata() called %v times, expected 7", eventMetadataBackend.GetAllEventMetadataCalls())
 	}
 }
 
@@ -366,6 +368,7 @@ func TestGetEventMetadata(t *testing.T) {
 	writeConfig(t, configFile)
 
 	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -390,6 +393,7 @@ func TestUpdateEventMetadataNoSchema(t *testing.T) {
 	writeConfig(t, configFile)
 
 	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
