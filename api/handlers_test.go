@@ -34,6 +34,7 @@ func TestMigrationInvalidFrom(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusBadRequest)
 	}
+	t.Error("Fail")
 }
 
 func TestMigrationNegativeTo(t *testing.T) {
