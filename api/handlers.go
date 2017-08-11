@@ -255,6 +255,7 @@ func (s *server) createSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	webErr := s.createSchemaHelper(c.Env["username"].(string), r.Body)
 	if webErr != nil {
 		webErr.ReportError(w, "Error creating schema")
+		return
 	}
 	s.goCache.Delete(allSchemasCache)
 	_, err := s.getAndPublishSchemas()
@@ -297,6 +298,7 @@ func (s *server) updateSchema(c web.C, w http.ResponseWriter, r *http.Request) {
 	webErr := s.updateSchemaHelper(eventName, c.Env["username"].(string), r.Body)
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating schema")
+		return
 	}
 	s.goCache.Delete(allSchemasCache)
 	_, err := s.getAndPublishSchemas()
@@ -538,6 +540,7 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating event metadata")
+		return
 	}
 	s.goCache.Delete(allMetadataCache)
 	_, err = s.getAndPublishEventMetadata()

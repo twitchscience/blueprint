@@ -113,6 +113,7 @@ func NewS3Uploader() *s3manager.Uploader {
 
 // MockS3UploaderAPI is a wrapper for the S3 manager UploaderAPI
 type MockS3UploaderAPI struct {
+	uploadSuccessful bool
 	s3manageriface.UploaderAPI
 }
 
@@ -129,7 +130,16 @@ func (s *MockS3UploaderAPI) Upload(input *s3manager.UploadInput, f ...func(*s3ma
 		!strings.HasSuffix(k, eventMetadataConfigS3Key) {
 		return nil, fmt.Errorf("Invalid S3 config key %s", k)
 	}
+	s.uploadSuccessful = true
 	return &s3manager.UploadOutput{}, nil
+}
+
+func (s *MockS3UploaderAPI) UploadSucceeded() bool {
+	return s.uploadSuccessful
+}
+
+func (s *MockS3UploaderAPI) ResetUploadSuccess() {
+	s.uploadSuccessful = false
 }
 
 // Create a simple health check API which needs no special setup.
