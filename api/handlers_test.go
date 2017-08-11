@@ -21,11 +21,12 @@ import (
 )
 
 func TestMigrationInvalidFrom(t *testing.T) {
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestMigrationInvalidFrom")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?from_version=-4&to_version=4", nil)
@@ -34,14 +35,16 @@ func TestMigrationInvalidFrom(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusBadRequest)
 	}
+	assertNotPublishedToS3(t, "TestMigrationInvalidFrom", s3Uploader)
 }
 
 func TestMigrationNegativeTo(t *testing.T) {
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestMigrationNegativeTo")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)
@@ -50,17 +53,20 @@ func TestMigrationNegativeTo(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusBadRequest)
 	}
+	assertNotPublishedToS3(t, "TestMigrationNegativeTo", s3Uploader)
 }
 
 func TestAllSchemasCache(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
+	s3Uploader := NewMockS3Uploader()
 
 	configFile := createJSONFile(t, "testCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
 	}
@@ -68,12 +74,19 @@ func TestAllSchemasCache(t *testing.T) {
 
 	printTotalAllSchemasCalls(t, schemaBackend)
 	repeatAllSchema(t, s, schemaBackend)
+	assertPublishedToS3(t, "repeatAllSchema", s3Uploader)
 	createSchema(t, s, c, schemaBackend)
+	assertPublishedToS3(t, "createSchema", s3Uploader)
 	repeatAllSchema(t, s, schemaBackend)
+	assertNotPublishedToS3(t, "repeatAllSchema", s3Uploader)
 	createSchemaBlacklisted(t, s, c, schemaBackend)
+	assertNotPublishedToS3(t, "createSchemaBlacklisted", s3Uploader)
 	repeatAllSchema(t, s, schemaBackend)
+	assertNotPublishedToS3(t, "repeatAllSchema", s3Uploader)
 	updateSchema(t, s, c, schemaBackend)
+	assertPublishedToS3(t, "updateSchema", s3Uploader)
 	repeatAllSchema(t, s, schemaBackend)
+	assertNotPublishedToS3(t, "repeatAllSchema", s3Uploader)
 
 	if schemaBackend.GetAllSchemasCalls() != 3 {
 		t.Errorf("AllSchemas() called %v times, expected 3", schemaBackend.GetAllSchemasCalls())
@@ -104,9 +117,6 @@ func createSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	createRecorder := httptest.NewRecorder()
 	s.createSchema(c, createRecorder, createReq)
 	assertRequestOK(t, "createSchema", createRecorder, "")
-	if getCachedSchemaResult(s) != nil {
-		t.Error("Failed to invalidate cache")
-	}
 	printTotalAllSchemasCalls(t, backend)
 }
 
@@ -138,9 +148,6 @@ func updateSchema(t *testing.T, s *server, c web.C, backend *test.MockBpSchemaBa
 	updateRecorder := httptest.NewRecorder()
 	s.updateSchema(c, updateRecorder, updateReq)
 	assertRequestOK(t, "updateSchema", updateRecorder, "")
-	if getCachedSchemaResult(s) != nil {
-		t.Error("Failed to invalidate cache")
-	}
 	printTotalAllSchemasCalls(t, backend)
 }
 
@@ -204,6 +211,19 @@ func assertRequestInternalError(t *testing.T, testedName string, w *httptest.Res
 	}
 }
 
+func assertPublishedToS3(t *testing.T, testedName string, s3Uploader *MockS3UploaderAPI) {
+	if !s3Uploader.UploadSucceeded() {
+		t.Errorf("%v did not successfully upload to S3", testedName)
+	}
+	s3Uploader.ResetUploadSuccess()
+}
+
+func assertNotPublishedToS3(t *testing.T, testedName string, s3Uploader *MockS3UploaderAPI) {
+	if s3Uploader.UploadSucceeded() {
+		t.Errorf("%v uploaded to S3 but was not expected to", testedName)
+	}
+}
+
 func getCachedAllEventMetadataResult(s *server) map[string](map[string]bpdb.EventMetadataRow) {
 	cachedAllEventMetadata, found := s.goCache.Get(allMetadataCache)
 	if found {
@@ -258,9 +278,6 @@ func updateEventMetadata(t *testing.T, s *server, c web.C, backend *test.MockBpE
 	updateRecorder := httptest.NewRecorder()
 	s.updateEventMetadata(c, updateRecorder, updateReq)
 	assertRequestOK(t, "updateEventMetadata", updateRecorder, "")
-	if len(getCachedAllEventMetadataResult(s)) > 0 {
-		t.Error("Failed to invalidate cache")
-	}
 	printTotalEventMetadataCalls(t, backend)
 }
 
@@ -290,10 +307,12 @@ func TestAllEventMetadataCache(t *testing.T) {
 	}
 	schemaBackend := test.NewMockBpSchemaBackend()
 	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestAllEventMetadataCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
-	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
@@ -305,16 +324,27 @@ func TestAllEventMetadataCache(t *testing.T) {
 
 	printTotalEventMetadataCalls(t, eventMetadataBackend)
 	repeatAllEventMetadata(t, s, eventMetadataBackend)
+	assertPublishedToS3(t, "repeatAllEventMetadata", s3Uploader)
 	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+	assertNotPublishedToS3(t, "getEventMetadata", s3Uploader)
 	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
+	assertPublishedToS3(t, "updateEventMetadata", s3Uploader)
 	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+	assertNotPublishedToS3(t, "getEventMetadata", s3Uploader)
 	repeatAllEventMetadata(t, s, eventMetadataBackend)
+	assertNotPublishedToS3(t, "repeatAllEventMetadata", s3Uploader)
 	repeatAllEventMetadata(t, s, eventMetadataBackend)
+	assertNotPublishedToS3(t, "repeatAllEventMetadata", s3Uploader)
 	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
+	assertPublishedToS3(t, "updateEventMetadata", s3Uploader)
 	repeatAllEventMetadata(t, s, eventMetadataBackend)
+	assertNotPublishedToS3(t, "repeatAllEventMetadata", s3Uploader)
 	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+	assertNotPublishedToS3(t, "getEventMetadata", s3Uploader)
 	updateEventMetadata(t, s, c, eventMetadataBackend, "this-table-exists")
+	assertPublishedToS3(t, "updateEventMetadata", s3Uploader)
 	getEventMetadata(c, t, s, eventMetadataBackend, "this-table-exists")
+	assertNotPublishedToS3(t, "getEventMetadata", s3Uploader)
 
 	if eventMetadataBackend.GetAllEventMetadataCalls() != 4 {
 		t.Errorf("EventMetadata() called %v times, expected 4", eventMetadataBackend.GetAllEventMetadataCalls())
@@ -327,12 +357,13 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 	schemaBackend := test.NewMockBpSchemaBackend()
 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
 	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestGetEventMetadataNotFound")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -342,6 +373,7 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 	s.eventMetadata(c, recorder, req)
 
 	assertRequest404(t, "TestGetEventMetadataNotFound", recorder)
+	assertNotPublishedToS3(t, "TestGetEventMetadataNotFound", s3Uploader)
 }
 
 // Tests trying to get metadata for an event with a schema
@@ -360,12 +392,14 @@ func TestGetEventMetadata(t *testing.T) {
 		},
 	}
 	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestGetEventMetadata")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -377,6 +411,7 @@ func TestGetEventMetadata(t *testing.T) {
 	expectedBody := "{\"EventName\":\"this-table-exists\",\"Metadata\":{\"comment\":{\"MetadataValue\":" +
 		"\"Test comment\",\"TS\":\"0001-01-01T00:00:00Z\",\"UserName\":\"legacy\",\"Version\":2}}}"
 	assertRequestOK(t, "TestGetEventMetadata", recorder, expectedBody)
+	assertPublishedToS3(t, "TestGetEventMetadata", s3Uploader)
 }
 
 // Tests trying to update metadata for an event with no schema
@@ -384,12 +419,14 @@ func TestGetEventMetadata(t *testing.T) {
 func TestUpdateEventMetadataNoSchema(t *testing.T) {
 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateEventMetadataNoSchema")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-does-not-exist"},
@@ -406,6 +443,7 @@ func TestUpdateEventMetadataNoSchema(t *testing.T) {
 
 	s.updateEventMetadata(c, recorder, req)
 	assertRequestBad(t, "TestUpdateEventMetadataNoSchema", recorder, "Error updating event metadata: schema does not exist")
+	assertNotPublishedToS3(t, "TestUpdateEventMetadataNoSchema", s3Uploader)
 }
 
 // Tests trying to update metadata for an invalid metadata type
@@ -416,12 +454,13 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 		EventName: "test-event",
 	}
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateEventMetadataInvalidMetadataType")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "test-event"},
@@ -438,6 +477,7 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 
 	s.updateEventMetadata(c, recorder, req)
 	assertRequestInternalError(t, "TestUpdateEventMetadataInvalidMetadataType", recorder, "Internal error: Update event metadata validation error")
+	assertNotPublishedToS3(t, "TestUpdateEventMetadataInvalidMetadataType", s3Uploader)
 }
 
 // Tests trying to update metadata for an event with a schema
@@ -446,12 +486,14 @@ func TestUpdateEventMetadata(t *testing.T) {
 	eventMetadataMap := make(map[string]bpdb.EventMetadata)
 	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{}
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateEventMetadata")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, backend, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s.s3BpConfigsBucketName = "test-bucket"
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "this-table-exists"},
@@ -468,6 +510,7 @@ func TestUpdateEventMetadata(t *testing.T) {
 
 	s.updateEventMetadata(c, createRecorder, createReq)
 	assertRequestOK(t, "TestUpdateEventMetadata", createRecorder, "")
+	assertPublishedToS3(t, "TestUpdateEventMetadata", s3Uploader)
 }
 
 func TestDecodeBody(t *testing.T) {
@@ -497,11 +540,12 @@ func TestDecodeBody(t *testing.T) {
 }
 
 func TestSchemaNegativeVersion(t *testing.T) {
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestSchemaNegativeVersion")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	handler := web.HandlerFunc(s.schema)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/schema/empty-table?version=-4", nil)
@@ -510,6 +554,7 @@ func TestSchemaNegativeVersion(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusBadRequest)
 	}
+	assertNotPublishedToS3(t, "TestSchemaNegativeVersion", s3Uploader)
 }
 
 func TestSchemaMaintenanceGet(t *testing.T) {
@@ -517,11 +562,12 @@ func TestSchemaMaintenanceGet(t *testing.T) {
 		"in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
 	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "testSchemaMaintenanceGet")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -532,6 +578,7 @@ func TestSchemaMaintenanceGet(t *testing.T) {
 	s.getMaintenanceMode(c, recorder, req)
 
 	assertRequestOK(t, "TestMaintenanceGet", recorder, `{"is_maintenance":true,"user":"bob"}`)
+	assertNotPublishedToS3(t, "TestMaintenanceGet", s3Uploader)
 }
 
 func TestSchemaMaintenanceSet(t *testing.T) {
@@ -539,11 +586,12 @@ func TestSchemaMaintenanceSet(t *testing.T) {
 		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
 	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "testSchemaMaintenanceSet")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -560,6 +608,7 @@ func TestSchemaMaintenanceSet(t *testing.T) {
 	s.setMaintenanceMode(c, recorder, req)
 
 	assertRequestOK(t, "testSchemaMaintenanceSet", recorder, "")
+	assertNotPublishedToS3(t, "testSchemaMaintenanceSet", s3Uploader)
 }
 
 func TestUpdateDuringSchemaMaintenance(t *testing.T) {
@@ -567,11 +616,12 @@ func TestUpdateDuringSchemaMaintenance(t *testing.T) {
 		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
 	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateDuringSchemaMaintenance")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -582,6 +632,7 @@ func TestUpdateDuringSchemaMaintenance(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/schema/starts-in-maintenance", nil)
 	s.updateSchema(c, recorder, req)
 	assertRequest503(t, "TestUpdateDuringSchemaMaintenance", recorder)
+	assertNotPublishedToS3(t, "TestUpdateDuringSchemaMaintenance", s3Uploader)
 }
 
 func TestUpdateDuringGlobalMaintenance(t *testing.T) {
@@ -589,11 +640,12 @@ func TestUpdateDuringGlobalMaintenance(t *testing.T) {
 	err := bpdbBackend.SetMaintenanceMode(true, "test", "because I'm an automated test.")
 	assert.NoError(t, err)
 	schemaBackend := test.NewMockBpSchemaBackend()
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateDuringGlobalMaintenance")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	ts := httptest.NewServer(s.maintenanceHandler(getTestHandler()))
 	defer ts.Close()
 	var u bytes.Buffer
@@ -605,17 +657,19 @@ func TestUpdateDuringGlobalMaintenance(t *testing.T) {
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("TestUpdateDuringGlobalMaintenance returned status code %v, want %v", res.StatusCode, http.StatusServiceUnavailable)
 	}
+	assertNotPublishedToS3(t, "TestUpdateDuringGlobalMaintenance", s3Uploader)
 }
 
 // Tests getting the ValidTransform types
 // Expected result is a 200 OK response
 func TestGetValidTransformTypes(t *testing.T) {
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestGetValidTransformTypes")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/types", nil)
 
@@ -623,6 +677,7 @@ func TestGetValidTransformTypes(t *testing.T) {
 	expectedBody := "{\"result\":[\"bigint\",\"bool\",\"float\",\"int\",\"ipAsn\",\"ipAsnInteger\",\"ipCity\",\"ipCountry\"," +
 		"\"ipRegion\",\"varchar\",\"f@timestamp@unix\",\"f@timestamp@unix-utc\",\"userIDWithMapping\"]}"
 	assertRequestOK(t, "TestGetValidTransformTypes", recorder, expectedBody)
+	assertNotPublishedToS3(t, "TestGetValidTransformTypes", s3Uploader)
 }
 
 // Tests getting the DailyChanges and ActiveUsers
@@ -646,12 +701,13 @@ func TestGetStats(t *testing.T) {
 		},
 	}
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, activeUsers, dailyChanges)
+	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestGetStats")
 
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, nil, nil, nil, configFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", bpdbBackend, nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/stats", nil)
 
@@ -659,6 +715,7 @@ func TestGetStats(t *testing.T) {
 	expectedBody := "{\"DailyChanges\":[{\"Day\":\"2017-07-18T00:00:00Z\",\"Changes\":6,\"Users\":3}]," +
 		"\"ActiveUsers\":[{\"UserName\":\"legacy\",\"Changes\":2},{\"UserName\":\"unknown\",\"Changes\":3}]}"
 	assertRequestOK(t, "TestGetStats", recorder, expectedBody)
+	assertNotPublishedToS3(t, "TestGetStats", s3Uploader)
 }
 
 // GetTestHandler returns a http.HandlerFunc for testing http middleware
