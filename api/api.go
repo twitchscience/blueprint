@@ -134,10 +134,12 @@ func (s *MockS3UploaderAPI) Upload(input *s3manager.UploadInput, f ...func(*s3ma
 	return &s3manager.UploadOutput{}, nil
 }
 
+// UploadSucceeded returns whether a mock upload was successful
 func (s *MockS3UploaderAPI) UploadSucceeded() bool {
 	return s.uploadSuccessful
 }
 
+// ResetUploadSuccess sets uploadSuccessful to false
 func (s *MockS3UploaderAPI) ResetUploadSuccess() {
 	s.uploadSuccessful = false
 }
