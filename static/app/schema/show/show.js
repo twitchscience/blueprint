@@ -60,7 +60,7 @@ angular.module('blueprint.schema.show', [
           Store.setError("Force load failed, try again in a couple of minutes. If the problem persists, please report in #scieng.");
       });
     }
-    
+
     $scope.getDatastoreDisplayedValue = function(value) {
           var datastores = [];
           Object.keys(value).filter(function(datastore) {
@@ -76,7 +76,6 @@ angular.module('blueprint.schema.show', [
           }
           return datastores.join(", ");
     }
-    console.log($scope.getDatastoreDisplayedValue);
 
     $scope.setEventMetadata = function(data) {
       Object.keys(data.Metadata).forEach(function(metadataType) {
@@ -84,11 +83,9 @@ angular.module('blueprint.schema.show', [
           var value = data.Metadata[metadataType].MetadataValue;
           if (metadataType == "datastores" && value.length) {
             var datastores = value.split(",");
-            // var displayedDatastores = [];
             angular.forEach(datastores, function(datastore) {
               $scope.eventMetadata[metadataType].value[datastore] = true;
               $scope.eventMetadata[metadataType].savedValue[datastore] = true;
-              // displayedDatastores.push(datastore[0].toUpperCase() + datastore.slice(1));
             });
             return;
           }
@@ -101,10 +98,8 @@ angular.module('blueprint.schema.show', [
       if (!Object.keys(data.Metadata).includes("datastores")) {
         $scope.eventMetadata["datastores"].value["ace"] = true;
         $scope.eventMetadata["datastores"].savedValue["ace"] = true;
-        // $scope.displayedValue = NO_DATASTORES;
       }
       $scope.eventMetadata["datastores"].displayedValue = $scope.getDatastoreDisplayedValue($scope.eventMetadata["datastores"].value);
-      console.log($scope.eventMetadata);
     }
 
     var schemaRequest = Schema.get($routeParams, function(data) {
@@ -322,7 +317,6 @@ angular.module('blueprint.schema.show', [
         if (metadataRow.value != metadataRow.savedValue) {
           var updateValue = metadataRow.value;
           if (metadataType == "datastores") {
-            // var displayedDatastores = [];
             var datastores = Object.keys(metadataRow.value).filter(function(datastore) {
               return metadataRow.value[datastore];
             });
@@ -331,7 +325,6 @@ angular.module('blueprint.schema.show', [
             } else {
               updateValue = "";
             }
-            console.log(updateValue);
           }
           EventMetadata.update(
             {event: $scope.schema.EventName},
