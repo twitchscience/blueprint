@@ -333,7 +333,7 @@ angular.module('blueprint.schema.show', [
             },
             function() {
               Store.setMessage("Successfully updated " + metadataType + " for " +  schema.EventName);
-              metadataRow.savedValue = metadataRow.value;
+              metadataRow.savedValue = angular.copy(metadataRow.value);
               metadataRow.editable = false;
               if (metadataType == "comment") {
                 metadataRow.displayedValue = metadataRow.value;

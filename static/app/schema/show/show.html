@@ -141,8 +141,10 @@
       <button class="btn btn-primary" ng-if="globalIsEditable && !eventMetadata.datastores.editable" ng-click="editEventMetadata(eventMetadata.datastores.metadataType)">Edit</button>
     </div>
     <div class="input-group-btn" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.datastores.editable" style="display: inline">
-      <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="checkbox" name="datastoresCheckbox" ng-model="eventMetadata.datastores.value.ace" ng-disabled="!eventMetadata.datastores.editable">Ace</label>
-      <label class="radio-inline" style="margin-top: 7px; margin-bottom: 7px"><input type="checkbox" name="datastoresCheckbox" ng-model="eventMetadata.datastores.value.tahoe" ng-disabled="!eventMetadata.datastores.editable">Tahoe</label>
+      <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
+      <input type="checkbox" name="datastoresCheckbox" ng-model="eventMetadata.datastores.value.ace" ng-disabled="!eventMetadata.datastores.editable">Ace</label>
+      <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
+      <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="eventMetadata.datastores.value.tahoe" ng-disabled="!eventMetadata.datastores.editable">Tahoe</label>
       <div class="input-group" style="float: right">
         <button class="btn btn-success" ng-if="schemaIsEditable && globalIsEditable &&eventMetadata.datastores.editable" ng-click="updateEventMetadata(eventMetadata.datastores.metadataType)" style="margin-right: 15px">Update</button>
         <button class="btn btn-danger" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.datastores.editable" ng-click="cancelEditEventMetadata(eventMetadata.datastores.metadataType)">Cancel</button>
