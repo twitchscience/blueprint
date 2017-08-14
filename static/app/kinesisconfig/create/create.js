@@ -1,19 +1,16 @@
 angular.module('blueprint.kinesisconfig.create', [
-  'ngRoute',
   'blueprint.components.auth',
   'blueprint.components.rest',
   'blueprint.components.store'
-]).controller('CreateKinesisConfig', function($scope, $location, $routeParams, Store, KinesisConfig, Auth) {
+]).controller('CreateKinesisConfig', function($scope, $location, Store, KinesisConfig, Auth) {
     $scope.loginName = Auth.getLoginName();
     $scope.isAdmin = Auth.isAdmin();
 
-    $scope.StreamName = '';
-    $scope.StreamType = '';
     $scope.AWSAccount = 0;
     $scope.Team = '';
     $scope.Contact = '';
     $scope.Usage = '';
-    $scope.Consuminglibrary = '';
+    $scope.ConsumingLibrary = '';
     $scope.SpadeConfig = '';
     $scope.configJSON = ''
     $scope.createKinesisConfig = function() {
@@ -38,7 +35,7 @@ angular.module('blueprint.kinesisconfig.create', [
         "ConsumingLibrary": $scope.ConsumingLibrary,
         "SpadeConfig": $scope.SpadeConfig
       }, function() {
-        Store.setMessage("Succesfully created Kinesis config: " + $scope.StreamName)
+        Store.setMessage("Successfully created Kinesis config: " + $scope.SpadeConfig.StreamName)
         $location.path('/kinesisconfigs');
       }, function(err) {
         var msg;
@@ -50,5 +47,6 @@ angular.module('blueprint.kinesisconfig.create', [
         Store.setError(msg);
         return false;
       });
+      return true;
     };
   });
