@@ -7,6 +7,7 @@ angular.module('blueprint.schema.show', [
   'blueprint.components.store',
 ]).controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, Store, Schema, Types, Droppable, EventMetadata, SchemaMaintenance, Column, Auth) {
     var types, schema, dropMessage, cancelDropMessage, rawEventMetadata;
+    var NO_DATASTORES = "None";
     var typeRequest = Types.get(function(data) {
       if (data) {
         types = data.result;
@@ -23,7 +24,10 @@ angular.module('blueprint.schema.show', [
       "edge_type": {"metadataType": "edge_type", "editable": false, "value": "", "savedValue": ""},
       "comment": {"metadataType": "comment", "editable": false, "value": "", "savedValue": "",
                   "previewMode": false, "displayedValue": "", "previewValue": "", "collapsed": true},
-      "tahoe_only": {"metadataType": "tahoe_only", "editable": false, "value": "false", "savedValue": "false"}
+      "datastores": {"metadataType": "datastores", "editable": false,
+                     "value": {"ace": false, "tahoe": false},
+                     "savedValue": {"ace": false, "tahoe": false},
+                     "displayedValue": "None"}
     };
     $scope.toggleSchemaMaintenanceMode = function() {
       if (!$scope.toggleSchemaMaintenanceModeReason) {
@@ -56,16 +60,51 @@ angular.module('blueprint.schema.show', [
           Store.setError("Force load failed, try again in a couple of minutes. If the problem persists, please report in #scieng.");
       });
     }
+    
+    $scope.getDatastoreDisplayedValue = function(value) {
+          var datastores = [];
+          Object.keys(value).filter(function(datastore) {
+            if (value[datastore]) {
+              datastores.push(datastore[0].toUpperCase() + datastore.slice(1));
+              return true;
+            }
+            return false;
+          });
+
+          if (!datastores.length) {
+            return NO_DATASTORES;
+          }
+          return datastores.join(", ");
+    }
+    console.log($scope.getDatastoreDisplayedValue);
 
     $scope.setEventMetadata = function(data) {
       Object.keys(data.Metadata).forEach(function(metadataType) {
           $scope.eventMetadata[metadataType].metadataType = metadataType;
-          $scope.eventMetadata[metadataType].value = data.Metadata[metadataType].MetadataValue;
-          $scope.eventMetadata[metadataType].savedValue = data.Metadata[metadataType].MetadataValue;
-          if (metadataType == "comment") {
-            $scope.eventMetadata[metadataType].displayedValue = data.Metadata[metadataType].MetadataValue;
+          var value = data.Metadata[metadataType].MetadataValue;
+          if (metadataType == "datastores" && value.length) {
+            var datastores = value.split(",");
+            // var displayedDatastores = [];
+            angular.forEach(datastores, function(datastore) {
+              $scope.eventMetadata[metadataType].value[datastore] = true;
+              $scope.eventMetadata[metadataType].savedValue[datastore] = true;
+              // displayedDatastores.push(datastore[0].toUpperCase() + datastore.slice(1));
+            });
+            return;
           }
-      })
+          $scope.eventMetadata[metadataType].value = value;
+          $scope.eventMetadata[metadataType].savedValue = value;
+          if (metadataType == "comment") {
+            $scope.eventMetadata[metadataType].displayedValue = value;
+          }
+      });
+      if (!Object.keys(data.Metadata).includes("datastores")) {
+        $scope.eventMetadata["datastores"].value["ace"] = true;
+        $scope.eventMetadata["datastores"].savedValue["ace"] = true;
+        // $scope.displayedValue = NO_DATASTORES;
+      }
+      $scope.eventMetadata["datastores"].displayedValue = $scope.getDatastoreDisplayedValue($scope.eventMetadata["datastores"].value);
+      console.log($scope.eventMetadata);
     }
 
     var schemaRequest = Schema.get($routeParams, function(data) {
@@ -281,10 +320,23 @@ angular.module('blueprint.schema.show', [
         metadataRow.editable = false;
 
         if (metadataRow.value != metadataRow.savedValue) {
+          var updateValue = metadataRow.value;
+          if (metadataType == "datastores") {
+            // var displayedDatastores = [];
+            var datastores = Object.keys(metadataRow.value).filter(function(datastore) {
+              return metadataRow.value[datastore];
+            });
+            if (datastores.length) {
+              updateValue = datastores.join(",");
+            } else {
+              updateValue = "";
+            }
+            console.log(updateValue);
+          }
           EventMetadata.update(
             {event: $scope.schema.EventName},
             {MetadataType: metadataType,
-             MetadataValue: metadataRow.value
+             MetadataValue: updateValue,
             },
             function() {
               Store.setMessage("Successfully updated " + metadataType + " for " +  schema.EventName);
@@ -294,6 +346,7 @@ angular.module('blueprint.schema.show', [
                 metadataRow.displayedValue = metadataRow.value;
                 metadataRow.previewMode = false;
               }
+              $scope.eventMetadata["datastores"].displayedValue = $scope.getDatastoreDisplayedValue($scope.eventMetadata["datastores"].value);
             },
             function(err) {
               Store.setError(err);

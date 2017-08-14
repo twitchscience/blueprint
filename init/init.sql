@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS kinesis_config
 DO $$
   BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_metadata_type') THEN
-    CREATE TYPE event_metadata_type AS ENUM ('comment', 'edge_type', 'tahoe_only');
+    CREATE TYPE event_metadata_type AS ENUM ('comment', 'edge_type', 'datastores');
   END IF;
 END $$;
 
