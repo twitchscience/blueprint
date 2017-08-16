@@ -67,7 +67,7 @@ describe('blueprint.kinesisconfig.create module', function() {
     };
 
     beforeEach(function() {
-      $scope = {}
+      $scope = {};
       authMock = authMockGenerator(false);
       kinesisMock = kinesisMockGenerator();
       storeMock = storeMockGenerator();
@@ -94,7 +94,7 @@ describe('blueprint.kinesisconfig.create module', function() {
       expect($scope.configJSON).toEqual('');
     }));
 
-    it('accepts a fully valid example of a Kinesis configuration', inject(function() {
+    it('accepts valid examples of a Kinesis configuration', inject(function() {
       var jsonConfig = '{' +
       ' "StreamName": "test-stream",' +
       ' "StreamRole": "arn:aws:iam::100000000001:role/test-stream",' +
@@ -154,98 +154,101 @@ describe('blueprint.kinesisconfig.create module', function() {
       expect(kinesisMock.getData().params).toEqual(expectedParams);
       expect(kinesisMock.getData().successCallback).toBeDefined();
       expect(kinesisMock.getData().failureCallback).toBeDefined();
-
-      storeMock.clearData();
-      kinesisMock.getData().successCallback();
-      expect(storeMock.getData().error).toBeUndefined();
-      expect(storeMock.getData().message).toEqual("Successfully created Kinesis config: test-stream");
     }));
 
-    it('rejects a Kinesis configuration with invalid JSON', inject(function() {
-      // JSON is missing the closing bracket
-      $scope.configJSON = '{"StreamName": "test-stream", "StreamType": "stream"';
-
-      $scope.createKinesisConfig();
-      expect(storeMock.getData().error).toContain("Invalid JSON - could not be parsed");
-      expect(storeMock.getData().message).toBeUndefined();
-      expect(kinesisMock.getData().params).toBeUndefined();
-
-      // JSON is empty
-      $scope.configJSON = '';
-
-      storeMock.clearData();
-      $scope.createKinesisConfig();
-      expect(storeMock.getData().error).toContain("Invalid JSON - could not be parsed");
-      expect(storeMock.getData().message).toBeUndefined();
-      expect(kinesisMock.getData().params).toBeUndefined();
-    }));
-
-    it('rejects a Kinesis configurations missing required fields', inject(function() {
-      // Missing AWS account
-      $scope.configJSON = '{"StreamName": "test-stream", "StreamType": "stream"}';
-
-      $scope.createKinesisConfig();
-      expect(storeMock.getData().error).toEqual("AWS account, stream name and stream type must be present");
-      expect(storeMock.getData().message).toBeUndefined();
-      expect(kinesisMock.getData().params).toBeUndefined()
-
-      // JSON is missing StreamName
-      $scope.configJSON = '{"StreamType": "stream"}';
-      $scope.AWSAccount = 100000000001;
-
-      storeMock.clearData();
-      $scope.createKinesisConfig();
-      expect(storeMock.getData().error).toEqual("AWS account, stream name and stream type must be present");
-      expect(storeMock.getData().message).toBeUndefined();
-      expect(kinesisMock.getData().params).toBeUndefined()
-
-      // JSON is an empty dictionary
-      $scope.configJSON = '{}';
-      $scope.AWSAccount = 100000000001;
-
-      storeMock.clearData();
-      $scope.createKinesisConfig()
-      expect(storeMock.getData().error).toEqual("AWS account, stream name and stream type must be present");
-      expect(storeMock.getData().message).toBeUndefined();
-      expect(kinesisMock.getData().params).toBeUndefined()
-    }));
-
-    it('handles PUT request failures', inject(function() {
-      var jsonConfig = '{"StreamName": "test-stream","StreamType": "stream"}';
-      $scope.configJSON = jsonConfig;
-      $scope.AWSAccount = 100000000001;
-      $scope.Team = 'test_team';
-      $scope.Contact = 'test_contact';
-      $scope.Usage = 'testing';
-      $scope.ConsumingLibrary = 'kinsumer';
-
-      $scope.createKinesisConfig();
-      expect(storeMock.getData().error).toBeUndefined();
-      expect(storeMock.getData().message).toBeUndefined();
-
-      expectedParams = {
-        'StreamName': 'test-stream',
-        "StreamType": 'stream',
-        'AWSAccount': 100000000001,
-        'Team': $scope.Team,
-        'Contact': $scope.Contact,
-        'Usage': $scope.Usage,
-        'ConsumingLibrary': $scope.ConsumingLibrary,
-        'SpadeConfig': JSON.parse(jsonConfig),
+    it('rejects Kinesis configurations with invalid JSON', inject(function() {
+      testCases = [
+        {
+          // JSON is missing the closing bracket
+          config: '{"StreamName": "test-stream", "StreamType": "stream"',
+        },
+        {
+          // JSON is empty
+          config: '',
+        },
+      ];
+      var expectedErrorMsg = "Invalid JSON - could not be parsed";
+      for (var i = 0; i < testCases.length; i++) {
+        $scope.configJSON = testCases[i].config;
+        $scope.AWSAccount = testCases[i].account;
+        
+        storeMock.clearData();
+        $scope.createKinesisConfig();
+        expect(storeMock.getData().error).toContain(expectedErrorMsg);
+        expect(storeMock.getData().message).toBeUndefined();
+        expect(kinesisMock.getData().params).toBeUndefined();
       }
-      expect(kinesisMock.getData().params).toEqual(expectedParams)
-      expect(kinesisMock.getData().successCallback).toBeDefined()
-      expect(kinesisMock.getData().failureCallback).toBeDefined()
+    }));
 
-      storeMock.clearData();
-      kinesisMock.getData().failureCallback({data: ''});
-      expect(storeMock.getData().error).toContain('Error creating Kinesis Config');
-      expect(storeMock.getData().message).toBeUndefined();
+    it('rejects Kinesis configurations missing required fields', inject(function() {
+      testCases = [
+        {
+          // Missing AWS account
+          config: '{"StreamName": "test-stream", "StreamType": "stream"}',
+          account: 0,
+        },
+        {
+          // JSON is missing StreamName
+          config: '{"StreamType": "stream"}',
+          account: 100000000001,
+        },
+        {
+          // JSON is an empty dictionary
+          config: '{}',
+          account: 100000000001,
+        },
+      ];
+      var expectedErrorMsg = "AWS account, stream name and stream type must be present";
+      for (var i = 0; i < testCases.length; i++) {
+        $scope.configJSON = testCases[i].config;
+        $scope.AWSAccount = testCases[i].account;
+        
+        storeMock.clearData();
+        $scope.createKinesisConfig();
+        expect(storeMock.getData().error).toEqual(expectedErrorMsg);
+        expect(storeMock.getData().message).toBeUndefined();
+        expect(kinesisMock.getData().params).toBeUndefined();
+      }
+    }));
 
-      storeMock.clearData();
-      kinesisMock.getData().failureCallback({data: 'Expected error msg'});
-      expect(storeMock.getData().error).toContain('Expected error msg');
-      expect(storeMock.getData().message).toBeUndefined();
+    it('handles success/failure callbacks well', inject(function() {
+      var testCases = [
+        {
+          callback: $scope.successCallback,
+          arg: {'StreamName': 'test-stream'},
+          expectFailure: false,
+          expectedMsg: 'Successfully created Kinesis config: test-stream',
+          expectedLocation: '/kinesisconfigs',
+        },
+        {
+          callback: $scope.failureCallback,
+          arg: {data: ''},
+          expectFailure: true,
+          expectedMsg: 'Error creating Kinesis Config:',
+          expectedLocation: '/',
+        },
+        {
+          callback: $scope.failureCallback,
+          arg: {data: 'Expected error msg'},
+          expectFailure: true,
+          expectedMsg: 'Expected error msg',
+          expectedLocation: '/',
+        },
+      ];
+      for (var i = 0; i < testCases.length; i++) {
+        storeMock.clearData();
+        $location.path('/');
+        testCases[i].callback(testCases[i].arg);
+        
+        if (testCases[i].expectFailure) {
+          expect(storeMock.getData().error).toContain(testCases[i].expectedMsg);
+          expect(storeMock.getData().message).toBeUndefined();
+        } else {
+          expect(storeMock.getData().error).toBeUndefined();
+          expect(storeMock.getData().message).toContain(testCases[i].expectedMsg);
+        }
+        expect($location.path()).toEqual(testCases[i].expectedLocation);
+      }
     }));
   });
 });
