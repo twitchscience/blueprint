@@ -1,34 +1,48 @@
 angular.module('blueprint.kinesisconfig.create', [
-  'ngRoute',
   'blueprint.components.auth',
   'blueprint.components.rest',
   'blueprint.components.store'
-]).controller('CreateKinesisConfig', function($scope, $location, $routeParams, Store, KinesisConfig, Auth) {
+]).controller('CreateKinesisConfig', function($scope, $location, Store, KinesisConfig, Auth) {
     $scope.loginName = Auth.getLoginName();
     $scope.isAdmin = Auth.isAdmin();
 
-    $scope.StreamName = '';
-    $scope.StreamType = '';
     $scope.AWSAccount = 0;
     $scope.Team = '';
     $scope.Contact = '';
     $scope.Usage = '';
-    $scope.Consuminglibrary = '';
+    $scope.ConsumingLibrary = '';
     $scope.SpadeConfig = '';
-    $scope.configJSON = ''
+    $scope.configJSON = '';
+
+    $scope.successCallback = function(kinesisConfig){
+      Store.setMessage("Successfully created Kinesis config: " + kinesisConfig.StreamName);
+      $location.path('/kinesisconfigs');
+    };
+
+    $scope.failureCallback = function(err){
+      var msg;
+      if (err.data) {
+        msg = err.data;
+      } else {
+        msg = 'Error creating Kinesis Config:' + err;
+      }
+      Store.setError(msg);
+    };
+
     $scope.createKinesisConfig = function() {
       Store.clearError();
       try {
-        $scope.SpadeConfig = JSON.parse($scope.configJSON)
+        $scope.SpadeConfig = JSON.parse($scope.configJSON);
       } catch (err) {
-        Store.setError("Invalid JSON - could not be parsed: " + err)
-        return false
+        Store.setError("Invalid JSON - could not be parsed: " + err);
+        return false;
       }
       if (!$scope.SpadeConfig.StreamName || !$scope.SpadeConfig.StreamType || $scope.AWSAccount == 0) {
-        Store.setError("AWS account, stream name and stream type must be present")
-        return false
+        Store.setError("AWS account, stream name and stream type must be present");
+        return false;
       }
-      KinesisConfig.put({
+
+      var kinesisConfig = {
         "StreamName": $scope.SpadeConfig.StreamName,
         "StreamType": $scope.SpadeConfig.StreamType,
         "AWSAccount": $scope.AWSAccount,
@@ -37,18 +51,12 @@ angular.module('blueprint.kinesisconfig.create', [
         "Usage": $scope.Usage,
         "ConsumingLibrary": $scope.ConsumingLibrary,
         "SpadeConfig": $scope.SpadeConfig
-      }, function() {
-        Store.setMessage("Succesfully created Kinesis config: " + $scope.StreamName)
-        $location.path('/kinesisconfigs');
+      };
+      KinesisConfig.put(kinesisConfig, function() {
+        $scope.successCallback(kinesisConfig);
       }, function(err) {
-        var msg;
-        if (err.data) {
-          msg = err.data;
-        } else {
-          msg = 'Error creating Kinesis Config:' + err;
-        }
-        Store.setError(msg);
-        return false;
+        $scope.failureCallback(err);
       });
+      return true;
     };
   });
