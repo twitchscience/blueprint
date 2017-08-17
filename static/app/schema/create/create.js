@@ -191,7 +191,6 @@ angular.module('blueprint.schema.create', [
       }
       $scope.outboundNameBlacklist = ["date"];
       $scope.createSchema = function() {
-        console.log($scope.datastores)
         Store.clearError();
         var setDistKey = $scope.event.distkey;
         var nameSet = {};
@@ -279,7 +278,8 @@ angular.module('blueprint.schema.create', [
               $location.path('/schema/' + $scope.event.EventName);
             },
             function(err) {
-              Store.setError(err);
+              var msg = "Error saving target datastores, please try to update it below";
+              Store.setError(msg);
               $location.path('/schema/' + $scope.event.EventName);
             });
         }, function(err) {
