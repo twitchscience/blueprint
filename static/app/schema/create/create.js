@@ -271,7 +271,7 @@ angular.module('blueprint.schema.create', [
         Schema.put($scope.event, function() {
           EventMetadata.update(
             {event: $scope.event.EventName},
-            {MetadataType: "datastdores",
+            {MetadataType: "datastores",
              MetadataValue: datastoreValue,
             },
             function() {
