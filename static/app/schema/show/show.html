@@ -142,7 +142,7 @@
     </div>
     <div class="input-group-btn" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.datastores.editable" style="display: inline">
       <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
-      <input type="checkbox" name="datastoresCheckbox" ng-model="eventMetadata.datastores.value.ace" ng-disabled="!eventMetadata.datastores.editable">Ace</label>
+      <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="eventMetadata.datastores.value.ace" ng-disabled="!eventMetadata.datastores.editable">Ace</label>
       <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
       <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="eventMetadata.datastores.value.tahoe" ng-disabled="!eventMetadata.datastores.editable">Tahoe</label>
       <div class="input-group" style="float: right">
