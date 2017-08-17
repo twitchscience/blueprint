@@ -2,26 +2,21 @@
   <form ng-submit="createSchema()" name="createSchemaForm">
     <h1><a href="#/schemas">&#x21e6;</a> Create Schema for
     <input ng-model="event.EventName"/></h1>
-      <div class="panel-group" style="padding: 15px 0px; width: 100%">
-        <div class="panel panel-primary">
-            <div class="panel-body">
-              <div>
-                <div style="display: inline-block; width: 20%; vertical-align: middle; margin-top: 2px;">
-                  <strong style="margin-right: 10px;">Target Datastores</strong>
-                </div>
-                <div style="margin-top: 7px; margin-bottom: 7px; display: inline-block">
-                  {{eventMetadata.datastores.displayedValue}}
-                </div>
-                <div class="input-group-btn" style="display: inline">
-                  <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
-                  <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.ace">Ace</label>
-                  <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
-                  <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.tahoe">Tahoe</label>
-                </div>
-              </div>
+    <div class="panel-group" style="padding: 15px 0px;">
+      <div class="panel panel-primary">
+          <div class="panel-body">
+            <div style="display: inline-block; width: 20%; vertical-align: middle; margin-top: 2px;">
+              <strong style="margin-right: 10px;">Target Datastores</strong>
             </div>
-        </div>
+            <div class="input-group-btn" style="display: inline">
+              <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
+              <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.ace">Ace</label>
+              <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
+              <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.tahoe">Tahoe</label>
+            </div>
+          </div>
       </div>
+    </div>
     <table class="table table-hover">
       <thead>
         <tr>
