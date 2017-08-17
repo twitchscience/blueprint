@@ -272,8 +272,6 @@ angular.module('blueprint.schema.create', [
           datastoreValue = datastores.join(",");
         }
 
-        // var eventMetadataRequest = 
-
         var schemaRequest = Schema.put($scope.event, function() {
           EventMetadata.update(
             {event: $scope.event.EventName},
@@ -296,9 +294,6 @@ angular.module('blueprint.schema.create', [
           }
           Store.setError(msg, '/schemas');
         });
-
-        // $q.all(eventMetadataRequest, schemaRequest).then(function() {
-        // });
       };
     });
   });

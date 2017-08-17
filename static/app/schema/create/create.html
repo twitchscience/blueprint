@@ -1,40 +1,9 @@
-
-    <!-- <div>
-      <div class="form-group" style="margin-left: 10px; padding-right: 10px; width: 100%"> -->
-<!--         <div ng-if="!eventMetadata.datastores.editable" style="display: inline-block; width: 20%">
-          <strong style="margin-right: 10px;">Target Datastores</strong>
-        </div>
-        <div ng-if="eventMetadata.datastores.editable" style="display: inline-block; width: 20%; vertical-align: middle; margin-top:2px">
-          <strong style="margin-right: 10px;">Target Datastores</strong>
-        </div>
-        <div ng-if="!eventMetadata.datastores.editable" style="margin-top: 7px; margin-bottom: 7px; display: inline-block">
-          {{eventMetadata.datastores.displayedValue}}
-        </div>
-        <div style="display:inline-block; float: right">
-          <button class="btn btn-primary" ng-if="globalIsEditable && !eventMetadata.datastores.editable" ng-click="editEventMetadata(eventMetadata.datastores.metadataType)">Edit</button>
-        </div>
-        <div class="input-group-btn" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.datastores.editable" style="display: inline">
-          <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
-          <input type="checkbox" name="datastoresCheckbox" ng-model="eventMetadata.datastores.value.ace" ng-disabled="!eventMetadata.datastores.editable">Ace</label>
-          <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
-          <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="eventMetadata.datastores.value.tahoe" ng-disabled="!eventMetadata.datastores.editable">Tahoe</label>
-          <div class="input-group" style="float: right">
-            <button class="btn btn-success" ng-if="schemaIsEditable && globalIsEditable &&eventMetadata.datastores.editable" ng-click="updateEventMetadata(eventMetadata.datastores.metadataType)" style="margin-right: 15px">Update</button>
-            <button class="btn btn-danger" ng-if="schemaIsEditable && globalIsEditable && eventMetadata.datastores.editable" ng-click="cancelEditEventMetadata(eventMetadata.datastores.metadataType)">Cancel</button>
-          </div>
-        </div> -->
-<!--       </div>
-    </div> -->
-
 <div>
   <form ng-submit="createSchema()" name="createSchemaForm">
     <h1><a href="#/schemas">&#x21e6;</a> Create Schema for
     <input ng-model="event.EventName"/></h1>
-
-    <!-- <div class="container col-md-12" style="padding-left: 0px; padding-right: 0px;"> -->
       <div class="panel-group" style="padding: 15px 0px; width: 100%">
         <div class="panel panel-primary">
-          <!-- <div id="collapseOne" class="panel-info"> -->
             <div class="panel-body">
               <div>
                 <div style="display: inline-block; width: 20%; vertical-align: middle; margin-top: 2px;">
@@ -50,28 +19,9 @@
                   <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.tahoe">Tahoe</label>
                 </div>
               </div>
-
             </div>
-          <!-- </div> -->
         </div>
       </div>
-    <!-- </div> -->
-
-
-<!--     <div style="margin-top: 15px;">
-      <div style="display: inline-block; width: 20%; vertical-align: middle; margin-top: 2px;">
-        <strong style="margin-right: 10px;">Target Datastores</strong>
-      </div>
-      <div style="margin-top: 7px; margin-bottom: 7px; display: inline-block">
-        {{eventMetadata.datastores.displayedValue}}
-      </div>
-      <div class="input-group-btn" style="display: inline">
-        <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
-        <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.ace">Ace</label>
-        <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
-        <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.tahoe">Tahoe</label>
-      </div>
-    </div> -->
     <table class="table table-hover">
       <thead>
         <tr>
