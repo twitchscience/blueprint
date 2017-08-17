@@ -166,7 +166,6 @@ angular.module('blueprint.schema.create', [
 
       $scope.event = event;
       $scope.event.EventName = "";
-      console.log($scope.event)
       $scope.types = types;
       $scope.newCol = Column.make();
       $scope.usingMappingTransformer = Column.usingMappingTransformer;
@@ -198,13 +197,11 @@ angular.module('blueprint.schema.create', [
         var nameSet = {};
         var inboundNames = $scope.validInboundNames();
         var hasValidTime = false;
-        console.log($scope.event)
         var eventNameLength = $scope.event.EventName.length;
 
         if (eventNameLength < 1 || eventNameLength > 127) {
           Store.setError("Event name must be between 1 and 127 characters, given length " + eventNameLength);
         }
-
         angular.forEach($scope.event.Columns, function(item) {
           if(item.OutboundName == "time" && item.InboundName == "time" && item.Transformer == "f@timestamp@unix"){
             hasValidTime = true;
@@ -267,12 +264,11 @@ angular.module('blueprint.schema.create', [
         var datastores = Object.keys($scope.datastores).filter(function(datastore) {
           return $scope.datastores[datastore];
         });
-
         if (datastores.length) {
           datastoreValue = datastores.join(",");
         }
 
-        var schemaRequest = Schema.put($scope.event, function() {
+        Schema.put($scope.event, function() {
           EventMetadata.update(
             {event: $scope.event.EventName},
             {MetadataType: "datastores",
