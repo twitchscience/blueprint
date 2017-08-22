@@ -47,8 +47,9 @@ type Operation struct {
 type EventMetadataType string
 
 const (
-	COMMENT   EventMetadataType = "comment"
-	EDGE_TYPE EventMetadataType = "edge_type"
+	COMMENT    EventMetadataType = "comment"
+	EDGE_TYPE  EventMetadataType = "edge_type"
+	DATASTORES EventMetadataType = "datastores"
 )
 
 type EventMetadataRow struct {
