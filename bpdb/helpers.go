@@ -21,5 +21,8 @@ func execFnInTransaction(work func(*sql.Tx) error, db *sql.DB) error {
 		}
 		return err
 	}
-	return tx.Commit()
+	if commitErr := tx.Commit(); commitErr != nil {
+		return fmt.Errorf("failed in commit: %v", commitErr)
+	}
+	return nil
 }
