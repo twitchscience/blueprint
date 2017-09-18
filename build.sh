@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT=$1
 BRANCH=$2
-SOURCE_AMI=$3
+SOURCE_AMI=ami-46f70b3e
 VPC=$4
 SUBNET=$5
 SECURITY_GROUP=$6
