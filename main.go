@@ -59,7 +59,7 @@ func main() {
 		logger.WithError(err).Fatal("Failed to connect to DB")
 	}
 
-	// set up 3 backend objects; they handle schema actions, kinesis actions, and maintenance/stats actions
+	// Set up 3 backend objects; they handle schema actions, kinesis actions, and maintenance/stats actions
 	bpdbBackend, err := bpdb.NewPostgresBackend(db)
 	if err != nil {
 		logger.WithError(err).Fatal("Error setting up blueprint db backend")

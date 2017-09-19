@@ -4,9 +4,13 @@ angular.module('blueprint.schema.create', [
   'blueprint.components.column',
   'blueprint.components.rest',
   'blueprint.components.store'
-]).controller('CreateSchema', function($scope, $location, $q, $routeParams, Store, Schema, Types, Suggestions, Column, Auth) {
+]).controller('CreateSchema', function($scope, $location, $q, $routeParams, Store, Schema, Types, Suggestions, Column, Auth, EventMetadata) {
     $scope.loginName = Auth.getLoginName();
     Auth.globalIsEditable($scope);
+    $scope.datastores = {
+      "ace": true,
+      "tahoe": false
+    }
     var types, suggestions, suggestionData;
     var typeData = Types.get(function(data) {
       if (data) {
@@ -161,6 +165,7 @@ angular.module('blueprint.schema.create', [
       }
 
       $scope.event = event;
+      $scope.event.EventName = "";
       $scope.types = types;
       $scope.newCol = Column.make();
       $scope.usingMappingTransformer = Column.usingMappingTransformer;
@@ -191,6 +196,11 @@ angular.module('blueprint.schema.create', [
         var nameSet = {};
         var inboundNames = $scope.validInboundNames();
         var hasValidTime = false;
+        var eventNameLength = $scope.event.EventName.length;
+
+        if (eventNameLength < 1 || eventNameLength > 127) {
+          Store.setError("Event name must be between 1 and 127 characters, given length " + eventNameLength);
+        }
         angular.forEach($scope.event.Columns, function(item) {
           if(item.OutboundName == "time" && item.InboundName == "time" && item.Transformer == "f@timestamp@unix"){
             hasValidTime = true;
@@ -248,9 +258,30 @@ angular.module('blueprint.schema.create', [
           return;
         }
         delete $scope.event.distkey;
+
+        var datastoreValue = "";
+        var datastores = Object.keys($scope.datastores).filter(function(datastore) {
+          return $scope.datastores[datastore];
+        });
+        if (datastores.length) {
+          datastoreValue = datastores.join(",");
+        }
+
         Schema.put($scope.event, function() {
-          Store.setMessage("Succesfully created schema: " + $scope.event.EventName)
-          $location.path('/schema/' + $scope.event.EventName);
+          EventMetadata.update(
+            {event: $scope.event.EventName},
+            {MetadataType: "datastores",
+             MetadataValue: datastoreValue,
+            },
+            function() {
+              Store.setMessage("Successfully created schema: " + $scope.event.EventName);
+              $location.path('/schema/' + $scope.event.EventName);
+            },
+            function(err) {
+              var msg = "Error saving target datastores, please try to update it below";
+              Store.setError(msg);
+              $location.path('/schema/' + $scope.event.EventName);
+            });
         }, function(err) {
           var msg;
           if (err.data) {
@@ -259,7 +290,6 @@ angular.module('blueprint.schema.create', [
             msg = 'Error creating schema:' + err;
           }
           Store.setError(msg, '/schemas');
-          return;
         });
       };
     });

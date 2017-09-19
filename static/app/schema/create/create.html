@@ -1,8 +1,20 @@
 <div>
-  <form ng-submit="createSchema()" name="createSchemaForm">
-    <h1><a href="#/schemas">&#x21e6;</a> Create Schema for
-    <input ng-model="event.EventName" value="event.EventName"/></h1>
+  <h1><a href="#/schemas">&#x21e6;</a> Create Schema for
+  <input ng-model="event.EventName"/></h1>
 
+  <div style="margin-left: 10px; margin-top: 15px; width: 100%">
+      <div style="display: inline-block; width: 20%; vertical-align: middle; margin-top: 2px;">
+        <strong style="margin-right: 10px;">Target Datastores</strong>
+      </div>
+      <div class="input-group-btn" style="display: inline">
+        <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
+        <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.ace">Ace</label>
+        <label class="checkbox-inline" style="margin-top: 7px; margin-bottom: 7px">
+        <input type="checkbox" name="datastoresCheckbox" ng-class="checkbox" ng-model="datastores.tahoe">Tahoe</label>
+      </div>
+  </div>
+
+  <form ng-submit="createSchema()" name="createSchemaForm">
     <table class="table table-hover">
       <thead>
         <tr>
