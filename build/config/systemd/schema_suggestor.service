@@ -1,0 +1,16 @@
+# Systemd service at /etc/systemd/blueprint.conf
+
+[Unit]
+After=cloud-final.service journald-cloudwatch-logs.service
+Wants=cloud-final.service journald-cloudwatch-logs.service
+StartLimitInterval=0
+
+[Service]
+ExecStart=/opt/science/blueprint/bin/run_schema_suggestor.sh
+
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=cloud-init.target

@@ -82,7 +82,7 @@ func main() {
 	manager.Start()
 
 	shutdownSignal := make(chan os.Signal)
-	signal.Notify(shutdownSignal, syscall.SIGINT)
+	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
 	logger.Go(func() {
 		<-shutdownSignal
 		logger.Info("Sigint received -- shutting down")
