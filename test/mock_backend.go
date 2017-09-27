@@ -31,7 +31,7 @@ type MockBpKinesisConfigBackend struct {
 
 // MockBpEventMetadataBackend is a mock for the bpdb/BpEventMetadataBackend interface
 type MockBpEventMetadataBackend struct {
-	returnMap             map[string]bpdb.EventMetadata
+	metadataState         map[string](map[string]bpdb.EventMetadataRow)
 	allEventMetadataMutex *sync.RWMutex
 	allEventMetadataCalls int32
 }
@@ -52,8 +52,8 @@ func NewMockBpKinesisConfigBackend() *MockBpKinesisConfigBackend {
 }
 
 // NewMockBpEventMetadataBackend creates a mock event metadata backend.
-func NewMockBpEventMetadataBackend(returnMap map[string]bpdb.EventMetadata) *MockBpEventMetadataBackend {
-	return &MockBpEventMetadataBackend{returnMap, &sync.RWMutex{}, 0}
+func NewMockBpEventMetadataBackend(initMetadata map[string]map[string]bpdb.EventMetadataRow) *MockBpEventMetadataBackend {
+	return &MockBpEventMetadataBackend{initMetadata, &sync.RWMutex{}, 0}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.
@@ -104,11 +104,7 @@ func (m *MockBpEventMetadataBackend) AllEventMetadata() (*bpdb.AllEventMetadata,
 	m.allEventMetadataMutex.Lock()
 	m.allEventMetadataCalls++
 	m.allEventMetadataMutex.Unlock()
-	if eventMetadata, exists := m.returnMap["this-table-exists"]; exists {
-		metadata := map[string](map[string]bpdb.EventMetadataRow){"this-table-exists": eventMetadata.Metadata}
-		return &bpdb.AllEventMetadata{Metadata: metadata}, nil
-	}
-	return &bpdb.AllEventMetadata{}, nil
+	return &bpdb.AllEventMetadata{Metadata: m.metadataState}, nil
 }
 
 // GetAllEventMetadataCalls returns the number of times EventMetadata() has been called.
@@ -120,7 +116,10 @@ func (m *MockBpEventMetadataBackend) GetAllEventMetadataCalls() int32 {
 
 // UpdateEventMetadata returns nil if update.EventName is in the returnMap
 func (m *MockBpEventMetadataBackend) UpdateEventMetadata(update *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {
-	if _, exists := m.returnMap[update.EventName]; exists {
+	if _, exists := m.metadataState[update.EventName]; exists {
+		m.metadataState[update.EventName][string(update.MetadataType)] = bpdb.EventMetadataRow{
+			MetadataValue: update.MetadataValue,
+		}
 		return nil
 	}
 	return core.NewUserWebError(errors.New("schema does not exist"))

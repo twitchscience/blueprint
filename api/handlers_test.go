@@ -56,16 +56,41 @@ func TestMigrationNegativeTo(t *testing.T) {
 	assertNotPublishedToS3(t, "TestMigrationNegativeTo", s3Uploader)
 }
 
-func TestAllSchemasCache(t *testing.T) {
+func TestBirthAdded(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend()
 	s3Uploader := NewMockS3Uploader()
+	eventMetadataBackend := test.NewMockBpEventMetadataBackend(map[string]map[string]bpdb.EventMetadataRow{"event": {}})
 
 	configFile := createJSONFile(t, "testCache")
 	defer deleteJSONFile(t, configFile)
 	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	c := web.C{Env: map[interface{}]interface{}{"username": ""}}
+
+	createSchema(t, s, c, schemaBackend)
+	meta, err := eventMetadataBackend.AllEventMetadata()
+	assert.Nil(t, err, "event metadata")
+	birthTime, err := time.Parse("2006-01-02T15:04:05-0700", meta.Metadata["event"][string(scoop.BIRTH)].MetadataValue)
+	assert.Nil(t, err, "parsing birth time")
+	now := time.Now().UTC()
+	if !(birthTime.Before(now) && birthTime.After(now.Add(-time.Minute))) {
+		t.Errorf("Birth time of new event not in the created minute, birth time is: %v", birthTime)
+	}
+}
+
+func TestAllSchemasCache(t *testing.T) {
+	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
+	schemaBackend := test.NewMockBpSchemaBackend()
+	s3Uploader := NewMockS3Uploader()
+	eventMetadataBackend := test.NewMockBpEventMetadataBackend(map[string]map[string]bpdb.EventMetadataRow{"event": {}})
+
+	configFile := createJSONFile(t, "testCache")
+	defer deleteJSONFile(t, configFile)
+	writeConfig(t, configFile)
+
+	s := New("", bpdbBackend, schemaBackend, nil, eventMetadataBackend, configFile.Name(), nil, "", false, s3Uploader).(*server)
 	s.s3BpConfigsBucketName = "test-bucket"
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
@@ -164,10 +189,10 @@ func printTotalAllSchemasCalls(t *testing.T, backend *test.MockBpSchemaBackend) 
 }
 
 func assertRequestOK(t *testing.T, testedName string, w *httptest.ResponseRecorder, expectedResponse string) {
-	if w.Code != http.StatusOK {
-		t.Errorf("%v returned status code %v, want %v", testedName, w.Code, http.StatusOK)
-	}
 	response := strings.TrimSpace(w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Errorf("%v returned status code %v, want %v, message: %v", testedName, w.Code, http.StatusOK, response)
+	}
 	if expectedResponse != "" && response != expectedResponse {
 		t.Errorf("%v returned response [%v] does not match expected response [%v]", testedName, response, expectedResponse)
 	}
@@ -295,14 +320,12 @@ func repeatAllEventMetadata(t *testing.T, s *server, backend *test.MockBpEventMe
 }
 
 func TestAllEventMetadataCache(t *testing.T) {
-	eventMetadataMap := make(map[string]bpdb.EventMetadata)
-	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{
-		Metadata: map[string]bpdb.EventMetadataRow{
-			"comment": bpdb.EventMetadataRow{
-				MetadataValue: "Test comment",
-				UserName:      "legacy",
-				Version:       2,
-			},
+	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
+	eventMetadataMap["this-table-exists"] = map[string]bpdb.EventMetadataRow{
+		"comment": {
+			MetadataValue: "Test comment",
+			UserName:      "legacy",
+			Version:       2,
 		},
 	}
 	schemaBackend := test.NewMockBpSchemaBackend()
@@ -355,7 +378,7 @@ func TestAllEventMetadataCache(t *testing.T) {
 // Expected result is a 404 not found
 func TestGetEventMetadataNotFound(t *testing.T) {
 	schemaBackend := test.NewMockBpSchemaBackend()
-	eventMetadataMap := make(map[string]bpdb.EventMetadata)
+	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
 	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestGetEventMetadataNotFound")
@@ -380,15 +403,12 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 // Expected result is a 200 OK response
 func TestGetEventMetadata(t *testing.T) {
 	schemaBackend := test.NewMockBpSchemaBackend()
-	eventMetadataMap := make(map[string]bpdb.EventMetadata)
-	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{
-		EventName: "event",
-		Metadata: map[string]bpdb.EventMetadataRow{
-			"comment": bpdb.EventMetadataRow{
-				MetadataValue: "Test comment",
-				UserName:      "legacy",
-				Version:       2,
-			},
+	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
+	eventMetadataMap["this-table-exists"] = map[string]bpdb.EventMetadataRow{
+		"comment": bpdb.EventMetadataRow{
+			MetadataValue: "Test comment",
+			UserName:      "legacy",
+			Version:       2,
 		},
 	}
 	eventMetadataBackend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
@@ -417,7 +437,7 @@ func TestGetEventMetadata(t *testing.T) {
 // Tests trying to update metadata for an event with no schema
 // Expected result is a 400 bad request
 func TestUpdateEventMetadataNoSchema(t *testing.T) {
-	eventMetadataMap := make(map[string]bpdb.EventMetadata)
+	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateEventMetadataNoSchema")
@@ -449,10 +469,11 @@ func TestUpdateEventMetadataNoSchema(t *testing.T) {
 // Tests trying to update metadata for an invalid metadata type
 // Expected result is a 500 internal error
 func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
-	eventMetadataMap := make(map[string]bpdb.EventMetadata)
-	eventMetadataMap["test-event"] = bpdb.EventMetadata{
-		EventName: "test-event",
+	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
+	eventMetadataMap["test-event"] = map[string]bpdb.EventMetadataRow{
+		"test-event": {},
 	}
+
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateEventMetadataInvalidMetadataType")
@@ -483,8 +504,8 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 // Tests trying to update metadata for an event with a schema
 // Expected result is a 200 OK response
 func TestUpdateEventMetadata(t *testing.T) {
-	eventMetadataMap := make(map[string]bpdb.EventMetadata)
-	eventMetadataMap["this-table-exists"] = bpdb.EventMetadata{}
+	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
+	eventMetadataMap["this-table-exists"] = map[string]bpdb.EventMetadataRow{}
 	backend := test.NewMockBpEventMetadataBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
 	configFile := createJSONFile(t, "TestUpdateEventMetadata")
