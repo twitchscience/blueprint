@@ -274,7 +274,19 @@ func (s *server) createSchemaHelper(username string, body io.ReadCloser) *core.W
 	if s.isBlacklisted(cfg.EventName) {
 		return core.NewUserWebErrorf("%s is blacklisted", cfg.EventName)
 	}
-	return s.bpSchemaBackend.CreateSchema(&cfg, username)
+	webErr := s.bpSchemaBackend.CreateSchema(&cfg, username)
+	if webErr != nil {
+		return webErr
+	}
+	webErr = s.bpEventMetadataBackend.UpdateEventMetadata(&core.ClientUpdateEventMetadataRequest{
+		EventName:     cfg.EventName,
+		MetadataType:  scoop_protocol.BIRTH,
+		MetadataValue: time.Now().UTC().Format("2006-01-02T15:04:05-0700"),
+	}, username)
+	if webErr != nil {
+		return core.AnnotateWebError("setting metadata birth datetime", webErr)
+	}
+	return nil
 }
 
 // isBlacklisted check whether name matches any regex in the blacklist (case insensitive).

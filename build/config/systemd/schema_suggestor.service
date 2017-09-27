@@ -1,4 +1,4 @@
-# Systemd service at /etc/systemd/blueprint.conf
+# Systemd service at /etc/systemd/system/schema_suggestor.service
 
 [Unit]
 After=cloud-final.service journald-cloudwatch-logs.service

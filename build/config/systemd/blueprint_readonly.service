@@ -1,4 +1,4 @@
-# Systemd service at /etc/systemd/blueprint_readonly.conf
+# Systemd service at /etc/systemd/system/blueprint_readonly.service
 
 [Unit]
 After=cloud-final.service journald-cloudwatch-logs.service
