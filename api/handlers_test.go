@@ -20,15 +20,17 @@ import (
 	scoop "github.com/twitchscience/scoop_protocol/scoop_protocol"
 )
 
+var config = Config{
+	CacheTimeoutSecs: 60,
+	Blacklist:        []string{"^wow$", "^dfp_.*$", "^a.c_.*$"},
+}
+
 func TestMigrationInvalidFrom(t *testing.T) {
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestMigrationInvalidFrom")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, nil, nil, &config, nil, "", false, s3Uploader).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
+
 	req, _ := http.NewRequest("GET", "/migration/testerino?from_version=-4&to_version=4", nil)
 	handler.ServeHTTP(recorder, req)
 	if status := recorder.Code; status != http.StatusBadRequest {
@@ -40,13 +42,10 @@ func TestMigrationInvalidFrom(t *testing.T) {
 
 func TestMigrationNegativeTo(t *testing.T) {
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestMigrationNegativeTo")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, nil, nil, &config, nil, "", false, s3Uploader).(*server)
 	handler := web.HandlerFunc(s.migration)
 	recorder := httptest.NewRecorder()
+
 	req, _ := http.NewRequest("GET", "/migration/testerino?to_version=-4", nil)
 	handler.ServeHTTP(recorder, req)
 	if status := recorder.Code; status != http.StatusBadRequest {
@@ -60,12 +59,7 @@ func TestAllSchemasCache(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend(map[string]map[string]bpdb.EventMetadataRow{"event": {}})
 	s3Uploader := NewMockS3Uploader()
-
-	configFile := createJSONFile(t, "testCache")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", bpdbBackend, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 	s.s3BpConfigsBucketName = "test-bucket"
 	if s.cacheTimeout != time.Minute {
 		t.Fatalf("cache timeout is %v, expected 1 minute", s.cacheTimeout)
@@ -305,10 +299,7 @@ func TestAllEventMetadataCache(t *testing.T) {
 	}
 	schemaBackend := test.NewMockBpSchemaBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestAllEventMetadataCache")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-	s := New("", nil, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 	s.s3BpConfigsBucketName = "test-bucket"
 
 	if s.cacheTimeout != time.Minute {
@@ -354,12 +345,8 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
 	schemaBackend := test.NewMockBpSchemaBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestGetEventMetadataNotFound")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 	recorder := httptest.NewRecorder()
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -377,7 +364,7 @@ func TestGetEventMetadataNotFound(t *testing.T) {
 func TestGetEventMetadata(t *testing.T) {
 	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
 	eventMetadataMap["this-table-exists"] = map[string]bpdb.EventMetadataRow{
-		"comment": bpdb.EventMetadataRow{
+		"comment": {
 			MetadataValue: "Test comment",
 			UserName:      "legacy",
 			Version:       2,
@@ -385,12 +372,8 @@ func TestGetEventMetadata(t *testing.T) {
 	}
 	schemaBackend := test.NewMockBpSchemaBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestGetEventMetadata")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 	s.s3BpConfigsBucketName = "test-bucket"
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -412,12 +395,8 @@ func TestUpdateEventMetadataNoSchema(t *testing.T) {
 	eventMetadataMap := make(map[string]map[string]bpdb.EventMetadataRow)
 	schemaBackend := test.NewMockBpSchemaBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestUpdateEventMetadataNoSchema")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 	s.s3BpConfigsBucketName = "test-bucket"
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -448,12 +427,8 @@ func TestUpdateEventMetadataInvalidMetadataType(t *testing.T) {
 
 	backend := test.NewMockBpSchemaBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestUpdateEventMetadataInvalidMetadataType")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, backend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, backend, nil, &config, nil, "", false, s3Uploader).(*server)
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
 		URLParams: map[string]string{"username": "", "event": "test-event"},
@@ -480,12 +455,8 @@ func TestUpdateEventMetadata(t *testing.T) {
 	eventMetadataMap["this-table-exists"] = map[string]bpdb.EventMetadataRow{}
 	backend := test.NewMockBpSchemaBackend(eventMetadataMap)
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestUpdateEventMetadata")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, backend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, backend, nil, &config, nil, "", false, s3Uploader).(*server)
 	s.s3BpConfigsBucketName = "test-bucket"
 	c := web.C{
 		Env:       map[interface{}]interface{}{"username": ""},
@@ -534,13 +505,10 @@ func TestDecodeBody(t *testing.T) {
 
 func TestSchemaNegativeVersion(t *testing.T) {
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestSchemaNegativeVersion")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, nil, nil, &config, nil, "", false, s3Uploader).(*server)
 	handler := web.HandlerFunc(s.schema)
 	recorder := httptest.NewRecorder()
+
 	req, _ := http.NewRequest("GET", "/schema/empty-table?version=-4", nil)
 	handler.ServeHTTP(recorder, req)
 	if status := recorder.Code; status != http.StatusBadRequest {
@@ -552,15 +520,11 @@ func TestSchemaNegativeVersion(t *testing.T) {
 
 func TestSchemaMaintenanceGet(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
-		"in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
+		"in-maintenance": {IsInMaintenanceMode: true, User: "bob"},
 	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend(map[string]map[string]bpdb.EventMetadataRow{})
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "testSchemaMaintenanceGet")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", bpdbBackend, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -576,15 +540,11 @@ func TestSchemaMaintenanceGet(t *testing.T) {
 
 func TestSchemaMaintenanceSet(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
-		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
+		"starts-in-maintenance": {IsInMaintenanceMode: true, User: "bob"},
 	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend(map[string]map[string]bpdb.EventMetadataRow{})
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "testSchemaMaintenanceSet")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", bpdbBackend, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -606,15 +566,11 @@ func TestSchemaMaintenanceSet(t *testing.T) {
 
 func TestUpdateDuringSchemaMaintenance(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{
-		"starts-in-maintenance": bpdb.MaintenanceMode{IsInMaintenanceMode: true, User: "bob"},
+		"starts-in-maintenance": {IsInMaintenanceMode: true, User: "bob"},
 	}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend(map[string]map[string]bpdb.EventMetadataRow{})
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestUpdateDuringSchemaMaintenance")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", bpdbBackend, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 
 	recorder := httptest.NewRecorder()
 	c := web.C{
@@ -634,11 +590,8 @@ func TestUpdateDuringGlobalMaintenance(t *testing.T) {
 	assert.NoError(t, err)
 	schemaBackend := test.NewMockBpSchemaBackend(map[string]map[string]bpdb.EventMetadataRow{})
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestUpdateDuringGlobalMaintenance")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
 
-	s := New("", bpdbBackend, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", bpdbBackend, schemaBackend, nil, &config, nil, "", false, s3Uploader).(*server)
 	ts := httptest.NewServer(s.maintenanceHandler(getTestHandler()))
 	defer ts.Close()
 	var u bytes.Buffer
@@ -657,12 +610,8 @@ func TestUpdateDuringGlobalMaintenance(t *testing.T) {
 // Expected result is a 200 OK response
 func TestGetValidTransformTypes(t *testing.T) {
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestGetValidTransformTypes")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", nil, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", nil, nil, nil, &config, nil, "", false, s3Uploader).(*server)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/types", nil)
 
@@ -677,17 +626,17 @@ func TestGetValidTransformTypes(t *testing.T) {
 // Expected result is a 200 OK response
 func TestGetStats(t *testing.T) {
 	activeUsers := []*bpdb.ActiveUser{
-		&bpdb.ActiveUser{
+		{
 			UserName: "legacy",
 			Changes:  2,
 		},
-		&bpdb.ActiveUser{
+		{
 			UserName: "unknown",
 			Changes:  3,
 		},
 	}
 	dailyChanges := []*bpdb.DailyChange{
-		&bpdb.DailyChange{
+		{
 			Day:     "2017-07-18T00:00:00Z",
 			Changes: 6,
 			Users:   3,
@@ -695,12 +644,8 @@ func TestGetStats(t *testing.T) {
 	}
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, activeUsers, dailyChanges)
 	s3Uploader := NewMockS3Uploader()
-	configFile := createJSONFile(t, "TestGetStats")
 
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", bpdbBackend, nil, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
+	s := New("", bpdbBackend, nil, nil, &config, nil, "", false, s3Uploader).(*server)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/stats", nil)
 

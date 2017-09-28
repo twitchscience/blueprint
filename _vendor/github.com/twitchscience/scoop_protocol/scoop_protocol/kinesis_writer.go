@@ -25,12 +25,13 @@ type AnnotatedKinesisConfig struct {
 
 // KinesisWriterEventConfig describes how a given Event is written to a Kinesis stream.
 type KinesisWriterEventConfig struct {
-	Filter           string
-	FilterFunc       func(map[string]string) bool `json:"-"`
-	Fields           []string
-	FieldRenames     map[string]string
-	FullFieldMap     map[string]string `json:"-"`
-	FilterParameters []*KinesisEventFilterConfig
+	Filter            string
+	FilterFunc        EventFilterFunc `json:"-"`
+	Fields            []string
+	FieldRenames      map[string]string
+	FullFieldMap      map[string]string `json:"-"`
+	FilterParameters  []*KinesisEventFilterConfig
+	SkipDefaultFilter bool
 }
 
 // FilterOperator represents the types of filter operations supported by KinesisEventFilterConfig.
@@ -47,6 +48,33 @@ type KinesisEventFilterConfig struct {
 	Field    string
 	Values   []string
 	Operator FilterOperator
+}
+
+// TestableKinesisEventFilter is a KinesisEventFilterConfig with test cases.
+type TestableKinesisEventFilter struct {
+	Config            []*KinesisEventFilterConfig
+	MatchingEvents    []map[string]string
+	NonMatchingEvents []map[string]string
+}
+
+// Build validates the config and then returns the generated EventFilterFunc.
+func (f *TestableKinesisEventFilter) Build() (EventFilterFunc, error) {
+	err := validateFilterParameters(f.Config)
+	if err != nil {
+		return nil, fmt.Errorf("bad kinesis filter: %v", err)
+	}
+	filter := generateEventFilterFunc(f.Config)
+	for _, event := range f.MatchingEvents {
+		if !filter(event) {
+			return nil, fmt.Errorf("expected filter to match %v", event)
+		}
+	}
+	for _, event := range f.NonMatchingEvents {
+		if filter(event) {
+			return nil, fmt.Errorf("expected filter not to match %v", event)
+		}
+	}
+	return filter, nil
 }
 
 // KinesisWriterConfig describes a Kinesis Writer that the processor uses to export data to a Kinesis Stream/Firehose
@@ -89,7 +117,7 @@ func (f *KinesisEventFilterConfig) Match(fieldValue string) bool {
 
 // Validate returns an error if the Kinesis Writer config is not valid, or nil if it is.
 // It also sets the FilterFunc on Events with Filters and populates FullFieldMap.
-func (c *KinesisWriterConfig) Validate() error {
+func (c *KinesisWriterConfig) Validate(commonFilters map[string]EventFilterFunc) error {
 	if c.StreamType == "" || c.StreamName == "" {
 		return fmt.Errorf("Mandatory fields stream type and stream name aren't populated")
 	}
@@ -112,23 +140,13 @@ func (c *KinesisWriterConfig) Validate() error {
 		if e.Filter != "" {
 			filterGenerator := filterFuncGenerators[e.Filter]
 			if filterGenerator != nil {
-				if len(e.FilterParameters) < 1 {
-					return fmt.Errorf("no filter parameters provided for event %s", name)
-				}
-				for _, filter := range e.FilterParameters {
-					if len(filter.Field) < 1 {
-						return fmt.Errorf("no field provided in filter params: %v", filter)
-					}
-					if len(filter.Values) < 1 {
-						return fmt.Errorf("no values provided in filter params: %v", filter)
-					}
-					if filter.Operator != IN_SET && filter.Operator != NOT_IN_SET {
-						return fmt.Errorf("no valid operator provided in filter params: %v", filter)
-					}
+				err = validateFilterParameters(e.FilterParameters)
+				if err != nil {
+					return fmt.Errorf("event %s: %v", name, err)
 				}
 				e.FilterFunc = filterGenerator(e.FilterParameters)
 			} else {
-				e.FilterFunc = filterFuncs[e.Filter]
+				e.FilterFunc = commonFilters[e.Filter]
 				if e.FilterFunc == nil {
 					return fmt.Errorf("unknown filter: %s", e.Filter)
 				}
@@ -158,6 +176,25 @@ func (c *KinesisWriterConfig) Validate() error {
 // EventFilterFunc takes event properties and returns True if their values match desired conditions.
 type EventFilterFunc func(map[string]string) bool
 
+// validateFilterParameters validates that the filter's parameters are vaguely sane.
+func validateFilterParameters(parameters []*KinesisEventFilterConfig) error {
+	if len(parameters) < 1 {
+		return errors.New("no filter parameters provided")
+	}
+	for _, param := range parameters {
+		if len(param.Field) < 1 {
+			return fmt.Errorf("no field provided in filter param: %v", param)
+		}
+		if len(param.Values) < 1 {
+			return fmt.Errorf("no values provided in filter param: %v", param)
+		}
+		if param.Operator != IN_SET && param.Operator != NOT_IN_SET {
+			return fmt.Errorf("no valid operator provided in filter param: %v", param)
+		}
+	}
+	return nil
+}
+
 // generateEventFilterFunc takes a list of KinesisEventFilterConfigs to generate a closure
 // that can be used to filter events by their field values.
 func generateEventFilterFunc(filters []*KinesisEventFilterConfig) EventFilterFunc {
@@ -181,71 +218,9 @@ var filterFuncGenerators = map[string]func([]*KinesisEventFilterConfig) EventFil
 	},
 }
 
-// filterFuncs represents functions for which filters are fixed in code.
-var filterFuncs = map[string]EventFilterFunc{
-	"isAGSEvent": func(fields map[string]string) bool {
-		return generateEventFilterFunc([]*KinesisEventFilterConfig{
-			&KinesisEventFilterConfig{
-				Field: "adg_product_id",
-				Values: []string{
-					"600505cc-de2f-4b99-9960-c47ee5d23f04",
-					"9233cb11-d375-4dd1-bd5e-b6d328fd5403",
-				},
-				Operator: IN_SET,
-			},
-		})(fields)
-	},
-	"isChannelIDSet": func(fields map[string]string) bool {
-		return generateEventFilterFunc([]*KinesisEventFilterConfig{
-			&KinesisEventFilterConfig{
-				Field:    "channel_id",
-				Values:   []string{""},
-				Operator: NOT_IN_SET,
-			},
-		})(fields)
-	},
-	"isUserIDSet": func(fields map[string]string) bool {
-		return generateEventFilterFunc([]*KinesisEventFilterConfig{
-			&KinesisEventFilterConfig{
-				Field:    "user_id",
-				Values:   []string{""},
-				Operator: NOT_IN_SET,
-			},
-		})(fields)
-	},
-	"isVod": func(fields map[string]string) bool {
-		return generateEventFilterFunc([]*KinesisEventFilterConfig{
-			&KinesisEventFilterConfig{
-				Field:    "vod_id",
-				Values:   []string{""},
-				Operator: NOT_IN_SET,
-			},
-			&KinesisEventFilterConfig{
-				Field:    "vod_type",
-				Values:   []string{"clip"},
-				Operator: NOT_IN_SET,
-			},
-		})(fields)
-	},
-	"isLiveClipContent": func(fields map[string]string) bool {
-		return generateEventFilterFunc([]*KinesisEventFilterConfig{
-			&KinesisEventFilterConfig{
-				Field:    "source_content_type",
-				Values:   []string{"live"},
-				Operator: IN_SET,
-			},
-		})(fields)
-	},
-	"isTwilightApp": func(fields map[string]string) bool {
-		return generateEventFilterFunc([]*KinesisEventFilterConfig{
-			&KinesisEventFilterConfig{
-				Field:    "client_app",
-				Values:   []string{"twilight"},
-				Operator: IN_SET,
-			},
-		})(fields)
-
-	},
+// NoopFilter is a fiter func that always passes.
+func NoopFilter(map[string]string) bool {
+	return true
 }
 
 // BatcherConfig is used to configure a batcher instance

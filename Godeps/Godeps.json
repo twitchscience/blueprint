@@ -219,15 +219,15 @@
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/msg_signer",
-			"Rev": "43eef8ae5429bf87fdc899d44402a9927959db97"
+			"Rev": "b18c74578ab2a5a0533907b5064fa51310b961d3"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/scoop_protocol",
-			"Rev": "43eef8ae5429bf87fdc899d44402a9927959db97"
+			"Rev": "b18c74578ab2a5a0533907b5064fa51310b961d3"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/transformer",
-			"Rev": "43eef8ae5429bf87fdc899d44402a9927959db97"
+			"Rev": "b18c74578ab2a5a0533907b5064fa51310b961d3"
 		},
 		{
 			"ImportPath": "github.com/zenazn/goji",

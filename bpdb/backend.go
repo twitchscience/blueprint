@@ -304,7 +304,7 @@ func validateStreamType(t string) error {
 	return nil
 }
 
-func validateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig) error {
+func validateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, filters map[string]scoop_protocol.EventFilterFunc) error {
 	err := validateIdentifier(config.SpadeConfig.StreamName)
 	if err != nil {
 		return fmt.Errorf("stream name invalid: %v", err)
@@ -317,7 +317,7 @@ func validateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig) error 
 	if err != nil {
 		return fmt.Errorf("stream type invalid: %v", err)
 	}
-	err = config.SpadeConfig.Validate()
+	err = config.SpadeConfig.Validate(filters)
 	if err != nil {
 		return fmt.Errorf("Kinesis stream internal validate failed: %v", err)
 	}

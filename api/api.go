@@ -35,7 +35,6 @@ type server struct {
 	bpdbBackend            bpdb.Bpdb
 	bpSchemaBackend        bpdb.BpSchemaBackend
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend
-	configFilename         string
 	ingesterController     ingester.Controller
 	slackbotURL            string
 	goCache                *cache.Cache
@@ -77,7 +76,7 @@ func New(
 	bpdbBackend bpdb.Bpdb,
 	bpSchemaBackend bpdb.BpSchemaBackend,
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend,
-	configFilename string,
+	conf *Config,
 	ingCont ingester.Controller,
 	slackbotURL string,
 	readonly bool,
@@ -87,14 +86,13 @@ func New(
 		bpdbBackend:            bpdbBackend,
 		bpSchemaBackend:        bpSchemaBackend,
 		bpKinesisConfigBackend: bpKinesisConfigBackend,
-		configFilename:         configFilename,
 		ingesterController:     ingCont,
 		slackbotURL:            slackbotURL,
 		goCache:                cache.New(5*time.Minute, 10*time.Minute),
 		readonly:               readonly,
 		s3Uploader:             s3Uploader,
 	}
-	if err := s.loadConfig(); err != nil {
+	if err := s.loadConfig(conf); err != nil {
 		logger.WithError(err).Fatal("failed to load config")
 	}
 	return s

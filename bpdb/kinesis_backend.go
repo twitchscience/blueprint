@@ -62,13 +62,18 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
 )
 
 type kinesisConfigBackend struct {
-	db *sql.DB
+	db      *sql.DB
+	filters map[string]scoop_protocol.EventFilterFunc
 }
 
 // NewKinesisConfigBackend creates a postgres bpdb backend to interface with
 // the kinesis configuration store
-func NewKinesisConfigBackend(db *sql.DB) BpKinesisConfigBackend {
-	return &kinesisConfigBackend{db: db}
+func NewKinesisConfigBackend(db *sql.DB, filters []string) BpKinesisConfigBackend {
+	fm := make(map[string]scoop_protocol.EventFilterFunc, len(filters))
+	for _, f := range filters {
+		fm[f] = scoop_protocol.NoopFilter
+	}
+	return &kinesisConfigBackend{db: db, filters: fm}
 }
 
 // Schema returns all of the current Kinesis configs
@@ -158,7 +163,7 @@ func (p *kinesisConfigBackend) UpdateKinesisConfig(req *scoop_protocol.Annotated
 	if config == nil {
 		return core.NewUserWebError(errors.New("Unknown Kinesis configuration"))
 	}
-	requestErr := validateKinesisConfig(req)
+	requestErr := validateKinesisConfig(req, p.filters)
 	if requestErr != nil {
 		return core.NewUserWebError(requestErr)
 	}
@@ -203,7 +208,7 @@ func (p *kinesisConfigBackend) CreateKinesisConfig(req *scoop_protocol.Annotated
 	if existing != nil {
 		return core.NewUserWebErrorf("Kinesis configuration already exists")
 	}
-	requestErr := validateKinesisConfig(req)
+	requestErr := validateKinesisConfig(req, p.filters)
 	if requestErr != nil {
 		return core.NewUserWebError(requestErr)
 	}

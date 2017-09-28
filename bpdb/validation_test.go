@@ -414,15 +414,15 @@ func TestValidateKinesisConfigInvalidStreamName(t *testing.T) {
 		SpadeConfig: config,
 	}
 
-	err = validateKinesisConfig(&req)
+	err = validateKinesisConfig(&req, nil)
 	require.Nil(err, "Base valid name test failed")
 
 	req.SpadeConfig.StreamName = "a-name_with_va1id-symb0ls"
-	err = validateKinesisConfig(&req)
+	err = validateKinesisConfig(&req, nil)
 	require.Nil(err, "Valid name with numbers and symbols failed")
 
 	req.SpadeConfig.StreamName = "a bad name!"
-	err = validateKinesisConfig(&req)
+	err = validateKinesisConfig(&req, nil)
 	require.NotNil(err, "Invalid name with bad characters did not fail")
 }
 
@@ -463,14 +463,14 @@ func TestValidateKinesisConfigInvalidStreamType(t *testing.T) {
 		SpadeConfig: config,
 	}
 
-	err = validateKinesisConfig(&req)
+	err = validateKinesisConfig(&req, nil)
 	require.Nil(err, "Base firehose test invalid")
 
 	req.SpadeConfig.StreamType = "badtype"
-	err = validateKinesisConfig(&req)
+	err = validateKinesisConfig(&req, nil)
 	require.NotNil(err, "Bad type did not fail")
 
 	req.SpadeConfig.StreamType = "stream"
-	err = validateKinesisConfig(&req)
+	err = validateKinesisConfig(&req, nil)
 	require.Nil(err, "Valid stream type deemed invalid")
 }

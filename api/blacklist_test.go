@@ -3,11 +3,11 @@ package api
 import "testing"
 
 func TestBlacklist(t *testing.T) {
-	jsonFile := createJSONFile(t, "testBlacklist")
-	defer deleteJSONFile(t, jsonFile)
-	writeConfig(t, jsonFile)
+	conf := Config{
+		Blacklist: []string{"^wow$", "^dfp_.*$", "^a.c_.*$"},
+	}
 
-	s := New("", nil, nil, nil, jsonFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, &conf, nil, "", false, NewMockS3Uploader()).(*server)
 
 	var tests = []struct {
 		input string

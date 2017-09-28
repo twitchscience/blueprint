@@ -12,7 +12,9 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
@@ -38,6 +40,25 @@ var (
 	rollbarEnvironment = flag.String("rollbarEnvironment", "", "Rollbar environment")
 )
 
+type config struct {
+	APIConfig      api.Config `json:"apiConfig"`
+	KinesisFilters []string   `json:"kinesisFilters"`
+}
+
+func loadConfig(filename string) (*config, error) {
+	configJSON, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	var conf config
+	if err := json.Unmarshal(configJSON, &conf); err != nil {
+		return nil, err
+	}
+
+	return &conf, nil
+}
+
 func main() {
 	flag.Parse()
 
@@ -45,6 +66,11 @@ func main() {
 	logger.CaptureDefault()
 	logger.Info("Starting!")
 	defer logger.LogPanic()
+
+	conf, err := loadConfig(*configFilename)
+	if err != nil {
+		logger.WithError(err).Fatal("Failed loading config")
+	}
 
 	logger.Go(func() {
 		port := ":7766"
@@ -68,11 +94,12 @@ func main() {
 	if err != nil {
 		logger.WithError(err).Fatal("Error setting up blueprint schema backend")
 	}
-	bpKinesisConfigBackend := bpdb.NewKinesisConfigBackend(db)
+	bpKinesisConfigBackend := bpdb.NewKinesisConfigBackend(db, conf.KinesisFilters)
 
 	ingCont := ingester.NewController(*ingesterURL)
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, *configFilename, ingCont, *slackbotURL, *readonly, api.NewS3Uploader())
+	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend,
+		&conf.APIConfig, ingCont, *slackbotURL, *readonly, api.NewS3Uploader())
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,

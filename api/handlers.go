@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -35,11 +34,12 @@ const (
 	eventMetadataConfigS3Key = "event-metadata-configs.json.gz"
 )
 
-type config struct {
-	CacheTimeoutSecs      time.Duration
-	S3BpConfigsBucketName string
-	S3BpConfigsPrefix     string
-	Blacklist             []string
+// Config configures the API's webserver.
+type Config struct {
+	CacheTimeoutSecs      int      `json:"cacheTimeoutSecs"`
+	S3BpConfigsBucketName string   `json:"s3BPConfigsBucketName"`
+	S3BpConfigsPrefix     string   `json:"s3BPConfigsPrefix"`
+	Blacklist             []string `json:"blacklist"`
 }
 
 type maintenanceMode struct {
@@ -47,20 +47,11 @@ type maintenanceMode struct {
 	Reason        string `json:"reason"`
 }
 
-func (s *server) loadConfig() error {
-	configJSON, err := ioutil.ReadFile(s.configFilename)
-	if err != nil {
-		return err
-	}
-
-	var jsonObj config
-	if err := json.Unmarshal(configJSON, &jsonObj); err != nil {
-		return err
-	}
-	s.cacheTimeout = jsonObj.CacheTimeoutSecs * time.Second
-	s.s3BpConfigsBucketName = jsonObj.S3BpConfigsBucketName
-	s.s3BpConfigsPrefix = jsonObj.S3BpConfigsPrefix
-	blacklist := jsonObj.Blacklist
+func (s *server) loadConfig(conf *Config) error {
+	s.cacheTimeout = time.Duration(conf.CacheTimeoutSecs) * time.Second
+	s.s3BpConfigsBucketName = conf.S3BpConfigsBucketName
+	s.s3BpConfigsPrefix = conf.S3BpConfigsPrefix
+	blacklist := conf.Blacklist
 
 	for _, pattern := range blacklist {
 		re, err := regexp.Compile(strings.ToLower(pattern))
