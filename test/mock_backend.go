@@ -20,12 +20,11 @@ type MockBpdb struct {
 
 // MockBpSchemaBackend is a mock for the bpdb/BpSchemaBackend interface which tracks how many times AllSchemas has been called
 type MockBpSchemaBackend struct {
-	allSchemasMutex *sync.RWMutex
-
-	allSchemasCalls       int32
-	metadataState         map[string](map[string]bpdb.EventMetadataRow)
+	allSchemasMutex       *sync.RWMutex
 	allEventMetadataMutex *sync.RWMutex
+	allSchemasCalls       int32
 	allEventMetadataCalls int32
+	metadataState         map[string](map[string]bpdb.EventMetadataRow)
 }
 
 // MockBpKinesisConfigBackend is a mock for the bpdb/BpKinesisConfigBackend interface
@@ -39,7 +38,7 @@ func NewMockBpdb(mm map[string]bpdb.MaintenanceMode, activeUsers []*bpdb.ActiveU
 
 // NewMockBpSchemaBackend creates a new mock schema backend.
 func NewMockBpSchemaBackend(initMetadata map[string]map[string]bpdb.EventMetadataRow) *MockBpSchemaBackend {
-	return &MockBpSchemaBackend{&sync.RWMutex{}, 0, initMetadata, &sync.RWMutex{}, 0}
+	return &MockBpSchemaBackend{&sync.RWMutex{}, &sync.RWMutex{}, 0, 0, initMetadata}
 }
 
 // NewMockBpKinesisConfigBackend creates a new mock kinesis config backend.
