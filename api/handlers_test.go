@@ -56,29 +56,6 @@ func TestMigrationNegativeTo(t *testing.T) {
 	assertNotPublishedToS3(t, "TestMigrationNegativeTo", s3Uploader)
 }
 
-func TestBirthAdded(t *testing.T) {
-	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
-	schemaBackend := test.NewMockBpSchemaBackend(map[string]map[string]bpdb.EventMetadataRow{"event": {}})
-	s3Uploader := NewMockS3Uploader()
-
-	configFile := createJSONFile(t, "testCache")
-	defer deleteJSONFile(t, configFile)
-	writeConfig(t, configFile)
-
-	s := New("", bpdbBackend, schemaBackend, nil, configFile.Name(), nil, "", false, s3Uploader).(*server)
-	c := web.C{Env: map[interface{}]interface{}{"username": ""}}
-
-	createSchema(t, s, c, schemaBackend)
-	meta, err := schemaBackend.AllEventMetadata()
-	assert.Nil(t, err, "event metadata")
-	birthTime, err := time.Parse("2006-01-02T15:04:05-0700", meta.Metadata["event"][string(scoop.BIRTH)].MetadataValue)
-	assert.Nil(t, err, "parsing birth time")
-	now := time.Now().UTC()
-	if !(birthTime.Before(now) && birthTime.After(now.Add(-time.Minute))) {
-		t.Errorf("Birth time of new event not in the created minute, birth time is: %v", birthTime)
-	}
-}
-
 func TestAllSchemasCache(t *testing.T) {
 	bpdbBackend := test.NewMockBpdb(map[string]bpdb.MaintenanceMode{}, []*bpdb.ActiveUser{}, []*bpdb.DailyChange{})
 	schemaBackend := test.NewMockBpSchemaBackend(map[string]map[string]bpdb.EventMetadataRow{"event": {}})

@@ -185,6 +185,10 @@ func (s *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *c
 		if err != nil {
 			return fmt.Errorf("inserting operations for %s: %v", req.EventName, err)
 		}
+		err = insertEventMetadata(tx, req.EventName, scoop_protocol.BIRTH, time.Now().UTC().Format("2006-01-02T15:04:05-0700"), user, 1)
+		if err != nil {
+			return fmt.Errorf("inserting event metadata for %s: %v", req.EventName, err)
+		}
 		return nil
 	}, s.db))
 }
