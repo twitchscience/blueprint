@@ -69,11 +69,10 @@ func main() {
 		logger.WithError(err).Fatal("Error setting up blueprint schema backend")
 	}
 	bpKinesisConfigBackend := bpdb.NewKinesisConfigBackend(db)
-	bpEventMetadataBackend := bpdb.NewEventMetadataBackend(db, bpSchemaBackend)
 
 	ingCont := ingester.NewController(*ingesterURL)
 
-	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, bpEventMetadataBackend, *configFilename, ingCont, *slackbotURL, *readonly, api.NewS3Uploader())
+	apiProcess := api.New(*staticFileDir, bpdbBackend, bpSchemaBackend, bpKinesisConfigBackend, *configFilename, ingCont, *slackbotURL, *readonly, api.NewS3Uploader())
 	manager := &core.SubprocessManager{
 		Processes: []core.Subprocess{
 			apiProcess,

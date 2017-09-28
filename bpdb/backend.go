@@ -89,6 +89,8 @@ type BpSchemaBackend interface {
 	CreateSchema(schema *scoop_protocol.Config, user string) *core.WebError
 	Migration(table string, from int, to int) ([]*scoop_protocol.Operation, error)
 	DropSchema(schema *AnnotatedSchema, reason string, exists bool, user string) error
+	AllEventMetadata() (*AllEventMetadata, error)
+	UpdateEventMetadata(req *core.ClientUpdateEventMetadataRequest, user string) *core.WebError
 }
 
 // BpKinesisConfigBackend is the interface of the blueprint db backend that stores kinesis config state
@@ -98,12 +100,6 @@ type BpKinesisConfigBackend interface {
 	UpdateKinesisConfig(update *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError
 	CreateKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, user string) *core.WebError
 	DropKinesisConfig(config *scoop_protocol.AnnotatedKinesisConfig, reason string, user string) error
-}
-
-// BpEventMetadataBackend is the interface of the blueprint db backend that stores event metadata
-type BpEventMetadataBackend interface {
-	AllEventMetadata() (*AllEventMetadata, error)
-	UpdateEventMetadata(req *core.ClientUpdateEventMetadataRequest, user string) *core.WebError
 }
 
 func validateType(t string) error {
