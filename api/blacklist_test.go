@@ -7,7 +7,7 @@ func TestBlacklist(t *testing.T) {
 	defer deleteJSONFile(t, jsonFile)
 	writeConfig(t, jsonFile)
 
-	s := New("", nil, nil, nil, nil, jsonFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
+	s := New("", nil, nil, nil, jsonFile.Name(), nil, "", false, NewMockS3Uploader()).(*server)
 
 	var tests = []struct {
 		input string

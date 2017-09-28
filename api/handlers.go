@@ -232,7 +232,7 @@ func (s *server) getAndPublishSchemas() ([]bpdb.AnnotatedSchema, error) {
 }
 
 func (s *server) getAndPublishEventMetadata() (*bpdb.AllEventMetadata, error) {
-	allMetadata, err := s.bpEventMetadataBackend.AllEventMetadata()
+	allMetadata, err := s.bpSchemaBackend.AllEventMetadata()
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +537,7 @@ func (s *server) updateEventMetadata(c web.C, w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	webErr := s.bpEventMetadataBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
+	webErr := s.bpSchemaBackend.UpdateEventMetadata(&req, c.Env["username"].(string))
 	if webErr != nil {
 		webErr.ReportError(w, "Error updating event metadata")
 		return

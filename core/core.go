@@ -146,3 +146,13 @@ func NewUserWebError(err error) *WebError {
 func NewUserWebErrorf(format string, a ...interface{}) *WebError {
 	return &WebError{UserError: fmt.Errorf(format, a...)}
 }
+
+// AnnotateWebError adds a prefix to the error string for the web error, colon
+// delimited
+func AnnotateWebError(msg string, err *WebError) *WebError {
+	if err.UserError != nil {
+		return &WebError{UserError: fmt.Errorf(msg+": %v", err.UserError)}
+	}
+	return &WebError{ServerError: fmt.Errorf(msg+": %v", err.ServerError)}
+
+}

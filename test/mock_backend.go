@@ -20,20 +20,15 @@ type MockBpdb struct {
 
 // MockBpSchemaBackend is a mock for the bpdb/BpSchemaBackend interface which tracks how many times AllSchemas has been called
 type MockBpSchemaBackend struct {
-	allSchemasMutex *sync.RWMutex
-
-	allSchemasCalls int32
+	allSchemasMutex       *sync.RWMutex
+	allEventMetadataMutex *sync.RWMutex
+	allSchemasCalls       int32
+	allEventMetadataCalls int32
+	metadataState         map[string](map[string]bpdb.EventMetadataRow)
 }
 
 // MockBpKinesisConfigBackend is a mock for the bpdb/BpKinesisConfigBackend interface
 type MockBpKinesisConfigBackend struct {
-}
-
-// MockBpEventMetadataBackend is a mock for the bpdb/BpEventMetadataBackend interface
-type MockBpEventMetadataBackend struct {
-	returnMap             map[string]bpdb.EventMetadata
-	allEventMetadataMutex *sync.RWMutex
-	allEventMetadataCalls int32
 }
 
 // NewMockBpdb creates a new mock backend.
@@ -42,18 +37,13 @@ func NewMockBpdb(mm map[string]bpdb.MaintenanceMode, activeUsers []*bpdb.ActiveU
 }
 
 // NewMockBpSchemaBackend creates a new mock schema backend.
-func NewMockBpSchemaBackend() *MockBpSchemaBackend {
-	return &MockBpSchemaBackend{&sync.RWMutex{}, 0}
+func NewMockBpSchemaBackend(initMetadata map[string]map[string]bpdb.EventMetadataRow) *MockBpSchemaBackend {
+	return &MockBpSchemaBackend{&sync.RWMutex{}, &sync.RWMutex{}, 0, 0, initMetadata}
 }
 
 // NewMockBpKinesisConfigBackend creates a new mock kinesis config backend.
 func NewMockBpKinesisConfigBackend() *MockBpKinesisConfigBackend {
 	return &MockBpKinesisConfigBackend{}
-}
-
-// NewMockBpEventMetadataBackend creates a mock event metadata backend.
-func NewMockBpEventMetadataBackend(returnMap map[string]bpdb.EventMetadata) *MockBpEventMetadataBackend {
-	return &MockBpEventMetadataBackend{returnMap, &sync.RWMutex{}, 0}
 }
 
 // GetAllSchemasCalls returns the number of times AllSchemas() has been called.
@@ -100,27 +90,26 @@ func (m *MockBpSchemaBackend) DropSchema(schema *bpdb.AnnotatedSchema, reason st
 }
 
 // AllEventMetadata increments the number of AllEventMetadata calls
-func (m *MockBpEventMetadataBackend) AllEventMetadata() (*bpdb.AllEventMetadata, error) {
+func (m *MockBpSchemaBackend) AllEventMetadata() (*bpdb.AllEventMetadata, error) {
 	m.allEventMetadataMutex.Lock()
 	m.allEventMetadataCalls++
 	m.allEventMetadataMutex.Unlock()
-	if eventMetadata, exists := m.returnMap["this-table-exists"]; exists {
-		metadata := map[string](map[string]bpdb.EventMetadataRow){"this-table-exists": eventMetadata.Metadata}
-		return &bpdb.AllEventMetadata{Metadata: metadata}, nil
-	}
-	return &bpdb.AllEventMetadata{}, nil
+	return &bpdb.AllEventMetadata{Metadata: m.metadataState}, nil
 }
 
 // GetAllEventMetadataCalls returns the number of times EventMetadata() has been called.
-func (m *MockBpEventMetadataBackend) GetAllEventMetadataCalls() int32 {
+func (m *MockBpSchemaBackend) GetAllEventMetadataCalls() int32 {
 	m.allEventMetadataMutex.RLock()
 	defer m.allEventMetadataMutex.RUnlock()
 	return m.allEventMetadataCalls
 }
 
 // UpdateEventMetadata returns nil if update.EventName is in the returnMap
-func (m *MockBpEventMetadataBackend) UpdateEventMetadata(update *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {
-	if _, exists := m.returnMap[update.EventName]; exists {
+func (m *MockBpSchemaBackend) UpdateEventMetadata(update *core.ClientUpdateEventMetadataRequest, user string) *core.WebError {
+	if _, exists := m.metadataState[update.EventName]; exists {
+		m.metadataState[update.EventName][string(update.MetadataType)] = bpdb.EventMetadataRow{
+			MetadataValue: update.MetadataValue,
+		}
 		return nil
 	}
 	return core.NewUserWebError(errors.New("schema does not exist"))

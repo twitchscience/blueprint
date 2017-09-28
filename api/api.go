@@ -35,7 +35,6 @@ type server struct {
 	bpdbBackend            bpdb.Bpdb
 	bpSchemaBackend        bpdb.BpSchemaBackend
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend
-	bpEventMetadataBackend bpdb.BpEventMetadataBackend
 	configFilename         string
 	ingesterController     ingester.Controller
 	slackbotURL            string
@@ -78,7 +77,6 @@ func New(
 	bpdbBackend bpdb.Bpdb,
 	bpSchemaBackend bpdb.BpSchemaBackend,
 	bpKinesisConfigBackend bpdb.BpKinesisConfigBackend,
-	bpEventMetadataBackend bpdb.BpEventMetadataBackend,
 	configFilename string,
 	ingCont ingester.Controller,
 	slackbotURL string,
@@ -88,7 +86,6 @@ func New(
 		docRoot:                docRoot,
 		bpdbBackend:            bpdbBackend,
 		bpSchemaBackend:        bpSchemaBackend,
-		bpEventMetadataBackend: bpEventMetadataBackend,
 		bpKinesisConfigBackend: bpKinesisConfigBackend,
 		configFilename:         configFilename,
 		ingesterController:     ingCont,

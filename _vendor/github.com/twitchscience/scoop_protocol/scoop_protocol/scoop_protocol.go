@@ -50,6 +50,7 @@ const (
 	COMMENT    EventMetadataType = "comment"
 	EDGE_TYPE  EventMetadataType = "edge_type"
 	DATASTORES EventMetadataType = "datastores"
+	BIRTH      EventMetadataType = "birth"
 )
 
 type EventMetadataRow struct {
