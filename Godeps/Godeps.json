@@ -219,27 +219,15 @@
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/msg_signer",
-<<<<<<< HEAD
-			"Rev": "3005722a6fa356199fe6c156736673b812f5a77f"
+			"Rev": "43eef8ae5429bf87fdc899d44402a9927959db97"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/scoop_protocol",
-			"Rev": "3005722a6fa356199fe6c156736673b812f5a77f"
+			"Rev": "43eef8ae5429bf87fdc899d44402a9927959db97"
 		},
 		{
 			"ImportPath": "github.com/twitchscience/scoop_protocol/transformer",
-			"Rev": "3005722a6fa356199fe6c156736673b812f5a77f"
-=======
-			"Rev": "290bd0d5089dcfff4c9eb38cf4e467f0cc13046f"
-		},
-		{
-			"ImportPath": "github.com/twitchscience/scoop_protocol/scoop_protocol",
-			"Rev": "290bd0d5089dcfff4c9eb38cf4e467f0cc13046f"
-		},
-		{
-			"ImportPath": "github.com/twitchscience/scoop_protocol/transformer",
-			"Rev": "290bd0d5089dcfff4c9eb38cf4e467f0cc13046f"
->>>>>>> Working version of datastores
+			"Rev": "43eef8ae5429bf87fdc899d44402a9927959db97"
 		},
 		{
 			"ImportPath": "github.com/zenazn/goji",
