@@ -86,7 +86,7 @@
 
         "echo -- [ updating npm ] --",
         "sudo npm install -g n",
-        "sudo n latest",
+        "sudo n 6.11.3",
         "echo -- [ running angular tests ] --",
         "sudo npm run test-single-headless",
 
