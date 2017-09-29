@@ -98,7 +98,7 @@ angular.module('blueprint.schema.show', [
             $scope.eventMetadata[metadataType].displayedValue = value;
           }
       });
-      if (!Object.keys(data.Metadata).includes("datastores")) {
+      if (Object.keys(data.Metadata).indexOf("datastores") == -1) {
         $scope.eventMetadata["datastores"].value["ace"] = true;
         $scope.eventMetadata["datastores"].savedValue["ace"] = true;
       }

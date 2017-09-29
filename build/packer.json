@@ -84,6 +84,9 @@
         "cd /opt/science/{{user `project`}}/data/",
         "sudo npm install --unsafe-perm",
 
+        "echo -- [ updating npm ] --",
+        "sudo npm install -g n",
+        "sudo n latest",
         "echo -- [ running angular tests ] --",
         "sudo npm run test-single-headless",
 
