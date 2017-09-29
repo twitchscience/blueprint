@@ -79,6 +79,9 @@ angular.module('blueprint.schema.show', [
 
     $scope.setEventMetadata = function(data) {
       Object.keys(data.Metadata).forEach(function(metadataType) {
+          if (metadataType == "birth") {
+            return;
+          }
           $scope.eventMetadata[metadataType].metadataType = metadataType;
           var value = data.Metadata[metadataType].MetadataValue;
           if (metadataType == "datastores" && value.length) {
