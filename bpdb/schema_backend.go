@@ -21,6 +21,13 @@ FROM operation
 WHERE event = $1
 ORDER BY version ASC, ordering ASC
 `
+	looseSchemaExistsQuery = `
+SELECT exists(
+	SELECT 1
+	FROM operation
+	WHERE replace(event, '-', '_') = replace($1, '-', '_')
+)
+`
 	schemaQueryWithVersion = `
 SELECT event, action, name, version, ordering, action_metadata, ts, user_name
 FROM operation
@@ -158,12 +165,12 @@ func insertOperations(tx *sql.Tx, ops []scoop_protocol.Operation, version int, e
 // CreateSchema validates that the creation operation is valid and if so, stores
 // the schema as 'add' operations in bpdb
 func (s *schemaBackend) CreateSchema(req *scoop_protocol.Config, user string) *core.WebError {
-	exists, err := s.SchemaExists(req.EventName)
+	exists, err := s.looseSchemaExists(req.EventName)
 	if err != nil {
 		return core.NewServerWebErrorf("checking for schema existence: %v", err)
 	}
 	if exists {
-		return core.NewUserWebErrorf("Table already exists")
+		return core.NewUserWebErrorf("Table already exists (check underscores/hyphens)")
 	}
 	err = preValidateSchema(req)
 	if err != nil {
@@ -244,13 +251,15 @@ func (s *schemaBackend) DropSchema(schema *AnnotatedSchema, reason string, exist
 	}, s.db)
 }
 
-// SchemaExists checks if a schema name exists in blueprint already
-func (s *schemaBackend) SchemaExists(eventName string) (bool, error) {
-	schema, err := s.Schema(eventName, nil)
+// looseSchemaExists checks if a schema name exists in blueprint already, replacing '-' with '_'
+func (s *schemaBackend) looseSchemaExists(eventName string) (bool, error) {
+	row := s.db.QueryRow(looseSchemaExistsQuery, eventName)
+	var exists bool
+	err := row.Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("querying existence of schema  %s: %v", eventName, err)
+		return false, fmt.Errorf("scanning row: %v", err)
 	}
-	return schema != nil, nil
+	return exists, nil
 }
 
 // scanOperationRows scans the rows into operationRow objects
