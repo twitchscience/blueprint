@@ -13,6 +13,7 @@ export AWS_REGION=us-west-2
 aws s3 cp --region "$AWS_REGION" "$CONFIG_PREFIX/conf.sh" conf.sh
 aws s3 cp --region "$AWS_REGION" "$CONFIG_PREFIX/conf.json" "$CONFIG_DIR/conf.json"
 source conf.sh
+python3 generate_angular_config.py "$CONFIG_DIR/conf.json" "${SCIENCE_DIR}/nginx/html/app/environment.js"
 
 exec ./blueprint "$@"                                        \
   -enableAuth=${ENABLE_AUTH}                                 \

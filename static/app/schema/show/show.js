@@ -5,7 +5,7 @@ angular.module('blueprint.schema.show', [
   'blueprint.components.column',
   'blueprint.components.rest',
   'blueprint.components.store',
-]).controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, Store, Schema, Types, Droppable, EventMetadata, SchemaMaintenance, Column, Auth) {
+]).controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, Store, Schema, Types, Droppable, EventMetadata, SchemaMaintenance, Column, Auth, Rollbar) {
     var types, schema, dropMessage, cancelDropMessage, rawEventMetadata;
     var NO_DATASTORES = "None";
     var typeRequest = Types.get(function(data) {
@@ -99,8 +99,8 @@ angular.module('blueprint.schema.show', [
           }
       });
       if (Object.keys(data.Metadata).indexOf("datastores") == -1) {
-        $scope.eventMetadata["datastores"].value["ace"] = true;
-        $scope.eventMetadata["datastores"].savedValue["ace"] = true;
+        Store.setError("Unexpected state: no target datastores set on exising table.");
+        Rollbar.Rollbar.error("Unexpected state: no target datastores set on exising table.");
       }
       $scope.eventMetadata["datastores"].displayedValue = $scope.getDatastoreDisplayedValue($scope.eventMetadata["datastores"].value);
     }

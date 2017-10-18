@@ -36,4 +36,12 @@ angular.module('blueprint')
     showdown.setFlavor('github');
     $showdownProvider.setOption('requireSpaceBeforeHeadingText', false);
     $showdownProvider.setOption('simpleLineBreaks', true);
+  }]).config(["RollbarProvider", "configuration", function(RollbarProvider, configuration){
+    RollbarProvider.init({
+      accessToken: configuration.rollbarAccessToken,
+      captureUncaught: true,
+      payload: {
+        environment: configuration.environment
+      }
+    });
   }]);
