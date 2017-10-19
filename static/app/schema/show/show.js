@@ -5,6 +5,7 @@ angular.module('blueprint.schema.show', [
   'blueprint.components.column',
   'blueprint.components.rest',
   'blueprint.components.store',
+  'tandibar/ng-rollbar',
 ]).controller('ShowSchema', function ($scope, $http, $sce, $showdown, $location, $routeParams, $q, Store, Schema, Types, Droppable, EventMetadata, SchemaMaintenance, Column, Auth, Rollbar) {
     var types, schema, dropMessage, cancelDropMessage, rawEventMetadata;
     var NO_DATASTORES = "None";
