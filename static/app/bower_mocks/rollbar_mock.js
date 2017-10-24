@@ -14,7 +14,14 @@
   angular.module('tandibar/ng-rollbar').provider('Rollbar', function RollbarProvider() {
     this.init = function(config) { };
     this.deinit = function () { };
-    this.$get = function(){};
+    this.$get = function(){
+      return {
+        Rollbar: {
+          error: function(){}
+        }
+      };
+    };
+
   });
 })
 (angular);

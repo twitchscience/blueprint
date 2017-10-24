@@ -16,7 +16,8 @@ module.exports = function(config) {
       'components/**/*.js',
       'kinesisconfig/**/*.js',
       'schema/**/*.js',
-      'stats/*.js'
+      'stats/*.js',
+      'bower_mocks/**/*.js'
     ],
 
     autoWatch: true,
