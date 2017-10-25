@@ -8,5 +8,6 @@ angular.module('blueprint', [
   'blueprint.schema.create',
   'blueprint.schema.list',
   'blueprint.schema.show',
-  'blueprint.stats'
+  'blueprint.stats',
+  'tandibar/ng-rollbar'
 ]);

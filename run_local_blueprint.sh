@@ -1,20 +1,13 @@
 #!/bin/bash --
 set -e -u -o pipefail
 
-SCIENCE_DIR="/opt/science"
-CONFIG_DIR="${SCIENCE_DIR}/blueprint/config"
+source ../../../code.justin.tv/stats/scieng-deploy/conf/integration/blueprint.sh
+JSON_CONFIG=../../../code.justin.tv/stats/scieng-deploy/conf/integration/blueprint.json
+python3 build/scripts/generate_angular_config.py $JSON_CONFIG static/app/environment.js
 
-source /etc/environment
-
-cd -- "$(dirname -- "$0")"
-export HOST="$(curl --silent 169.254.169.254/latest/meta-data/hostname)"
-export CONFIG_PREFIX="s3://$S3_CONFIG_BUCKET/$VPC_SUBNET_TAG/$CLOUD_APP/$CLOUD_ENVIRONMENT"
-export AWS_REGION=us-west-2
-aws s3 cp --region "$AWS_REGION" "$CONFIG_PREFIX/conf.sh" conf.sh
-aws s3 cp --region "$AWS_REGION" "$CONFIG_PREFIX/conf.json" "$CONFIG_DIR/conf.json"
-source conf.sh
-python3 generate_angular_config.py "$CONFIG_DIR/conf.json" "${SCIENCE_DIR}/nginx/html/app/environment.js"
-
+# copy pasted from the exec statement in build/scripts/run_blueprint.sh,
+# switched out to go run main.go, -config pointed to $JSON_CONFIG, -staticFiles
+# pointed to static/, -rollbarEnvironment to local-${TF_VAR_namespace}
 exec ./blueprint "$@"                                        \
   -enableAuth=${ENABLE_AUTH}                                 \
   -bpdbConnection="${BLUEPRINT_DB_URL}"                      \
@@ -24,9 +17,9 @@ exec ./blueprint "$@"                                        \
   -githubServer=${GITHUB_SERVER}                             \
   -requiredOrg=${REQUIRED_ORG}                               \
   -adminTeam=${ADMIN_TEAM}                                   \
-  -staticfiles="${SCIENCE_DIR}/nginx/html"                   \
+  -staticfiles="static/"                                     \
   -ingesterURL="${INGESTER_URL}"                             \
   -rollbarToken="${ROLLBAR_TOKEN}"                           \
-  -rollbarEnvironment="${CLOUD_ENVIRONMENT}"                 \
+  -rollbarEnvironment="local-$TF_VAR_namespace"              \
   -slackbotURL="${SLACKBOT_URL}"                             \
-  -config="${CONFIG_DIR}/conf.json"
+  -config="${JSON_CONFIG}"

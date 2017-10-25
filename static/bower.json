@@ -14,6 +14,7 @@
     "angular-mocks": "1.5.8",
     "angular-sanitize": "1.5.8",
     "showdown": "1.6.4",
-    "ng-showdown": "1.1.0"
+    "ng-showdown": "1.1.0",
+    "ng-rollbar": "1.8.0"
   }
 }

@@ -96,7 +96,12 @@
         "sudo ln -s /opt/science/{{user `project`}}/config/nginx.conf /etc/nginx/sites-enabled/{{user `project`}}",
         "sudo mkdir -p /opt/science/nginx/logs",
         "sudo mkdir -p /opt/science/nginx/html",
-        "sudo mv /opt/science/{{user `project`}}/data/* /opt/science/nginx/html/"
+        "sudo mv /opt/science/{{user `project`}}/data/* /opt/science/nginx/html/",
+
+        "echo -- [ installing python dependencies ] --",
+        "sudo run_apt_get_install.sh python3-dev",
+        "sudo pip3 install docopt==0.6.2"
+
       ]
     }
   ]
