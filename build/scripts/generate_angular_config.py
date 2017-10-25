@@ -6,8 +6,8 @@ a javascript file to be read by angular.
         generate_angular_config.py INPUT_FILE OUTPUT_FILE
 
     Arguments:
-        INPUT_FILE      the druid properties to be edited
-        OUTPUT_FILE     where to write the edited druid properties
+        INPUT_FILE      the path to the blueprint config json file
+        OUTPUT_FILE     where to write config variables js definition angular needs
 """
 import json
 
