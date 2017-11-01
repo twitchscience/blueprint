@@ -1,3 +1,5 @@
+***NOTE: This project is no longer being updated publicly.***
+
 # Blueprint
 
 The schema server for the
